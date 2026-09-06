@@ -1610,6 +1610,8 @@ rtl8372n_port_fdb_add(struct dsa_switch *ds, int port,
 
 	if (db.type == DSA_DB_BRIDGE && priv->tag_proto == DSA_TAG_PROTO_MXL862_8021Q)
 	{
+		if (vid != 0)
+			return 0;
 		/*
 		* When the DSA tag protocol is DSA_TAG_PROTO_MXL862_8021Q, the L2 VLAN
 		* learned on the CPU port is the 802.1q tag rather than the port's own
@@ -1644,7 +1646,22 @@ rtl8372n_port_fdb_del(struct dsa_switch *ds, int port,
 	if (dsa_fdb_present_in_other_db(ds, port, addr, vid, db))
 		return 0;
 
-	return rtl8372n_port_fdb_static_del(priv, addr, vid);
+	if (db.type == DSA_DB_BRIDGE && priv->tag_proto == DSA_TAG_PROTO_MXL862_8021Q)
+	{
+		if (vid != 0)
+			return 0;
+		struct dsa_port *dp;
+		dsa_switch_for_each_user_port(dp, ds) {
+			/* Add static fdb entry */
+			ret = rtl8372n_port_fdb_static_del(priv, addr, dsa_tag_8021q_standalone_vid(dp));
+			if (ret)
+				return ret;
+		}
+	} else
+	{
+		return rtl8372n_port_fdb_static_del(priv, addr, vid);
+	}
+	return 0;
 }
 
 static int
