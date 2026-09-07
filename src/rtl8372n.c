@@ -1360,7 +1360,6 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 	bool untagged = !!(vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED);
 	bool pvid = !!(vlan->flags & BRIDGE_VLAN_INFO_PVID);
     struct rtl837x_priv *priv = ds->priv;
-	struct rtl8372n *chip_data = priv->chip_data;
 
     u16 vid = vlan->vid;
 	u32 member = 0;
@@ -1893,7 +1892,9 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *cpu_dp = NULL;
 	struct dsa_port *dp;
-	u32 downports_mask = 0;
+	u32 downports_mask = 0,
+		cpu_port_mask = 0,
+		port_mask = 0;
 
 	int cpu_dp_cnt = 0;
 	dsa_switch_for_each_port(dp, ds) {
@@ -2089,6 +2090,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 
 	dsa_switch_for_each_port(dp, ds) {
 		int port = dp->index;
+		port_mask |= BIT(port);
 
 		rtl8372n_port_stp_state_set(ds, port, BR_STATE_DISABLED);
 
@@ -2107,7 +2109,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		if (ret)
 			return ret;
 
-		// What fuck is this?
 		/*
 		 *	VLAN_EGRESS_TAG_MODE_ORIGINAL = 0,
 		 *	VLAN_EGRESS_TAG_MODE_KEEP_FORMAT,
@@ -2116,7 +2117,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		 *	VLAN_EGRESS_TAG_MODE_END
 		*/
 		ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TAG_ADDR(port),
-			 RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port), 1
+			 RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port), 0
 			);
 		if (ret)
 			return ret;
@@ -2160,6 +2161,91 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 
 	ret = rtl8372n_port_set_isolation(priv, cpu_dp->index,
 						downports_mask);
+
+
+	/*
+	 * So What is this.
+	 * If a frame send from CPU (CPU->switch) whithout cvid only with a port svid
+	 * --------------------------------------------------------------------------------
+	 * --------------------------------------------------------------------------------
+	 *                                 SVLAN Process
+	 *  |DMAC|SMAC|DSA TAG(SVLAN)|...| -------------> |DMAC|SMAC|...| ----..
+	 *                                 remove dsa tag
+	 *                              mark destination port
+	 * --------------------------------------------------------------------------------         
+	 *       CVLAN process                            Send to dest port       
+	 * ..---------------------> |DMAC|SMAC|CVLAN|...| -----------------> |DMAC|SMAC|...|
+	 *  frame with out cvlan tag                     remove the CVLAN tag
+	 * mark the cpuport pvid(4095)
+	 * --------------------------------------------------------------------------------
+	 * --------------------------------------------------------------------------------
+	 * 
+	 * If a frame send from CPU (CPU->switch) whith DSA tag(svlan) and cvlan
+	 * --------------------------------------------------------------------------------
+	 * --------------------------------------------------------------------------------
+	 *                                       SVLAN Process
+	 *  |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN|...| -------------> |DMAC|SMAC|CVLAN|...| ----..
+	 *                                       remove dsa tag
+	 *                                    mark destination port
+	 * --------------------------------------------------------------------------------         
+	 *       CVLAN process                            Send to dest port       
+	 * ..---------------------> |DMAC|SMAC|CVLAN|...| -----------------> |DMAC|SMAC|CVLAN(may not exist)|...|
+	 *  frame already with cvlan tag             remove or keep the CVLAN tag
+	 * 
+	 * --------------------------------------------------------------------------------
+	 * --------------------------------------------------------------------------------
+	 * 
+	 * If a frame send to CPU (switch->CPU) whithout vlan tag
+	 * --------------------------------------------------------------------------------
+	 * --------------------------------------------------------------------------------
+	 *                  Port based vlan tag
+	 *  |DMAC|SMAC|...| -------------------> |DMAC|SMAC|CVLAN|...| ----...
+	 *               add the port based vlan id
+	 *                         
+	 * --------------------------------------------------------------------------------         
+	 *   SVLAN process
+	 *  -----------------> |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN|...|
+	 * mark the src port svid
+	 * 
+	 * --------------------------------------------------------------------------------
+	 * --------------------------------------------------------------------------------
+	 * 
+	 * If a frame send to CPU (switch->CPU) whit vlan tag
+	 * --------------------------------------------------------------------------------
+	 * --------------------------------------------------------------------------------
+	 *                        Port Ingerss check
+	 *  |DMAC|SMAC|CVLAN|...| -------------------> |DMAC|SMAC|CVLAN|...| ----...
+	 *                         drop or forward
+	 *                         
+	 * --------------------------------------------------------------------------------         
+	 *   SVLAN process
+	 *  -----------------> |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN|...|
+	 * mark the src port svid
+	 * 
+	 * --------------------------------------------------------------------------------
+	 * --------------------------------------------------------------------------------
+	*/
+
+	dsa_switch_for_each_cpu_port(dp, ds) {
+		cpu_port_mask |= dp->index;
+
+		ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_PB_VLAN_ADDR(dp->index),
+			  RTL8373_VLAN_PORT_PB_VLAN_PVID_MASK(dp->index), 0xfff
+			);
+		if (ret)
+			return ret;
+	}
+
+	// Use vlan4095 to forward the no cvlan frame that from CPU
+	struct rtl837x_vlan_data vlan4095_cfg = {
+		.vid=0xfff,
+		.mbr=port_mask,
+		.untag=downports_mask
+	};
+
+	ret = rtl837x_vlan_set(priv, &vlan4095_cfg);
+	if (ret)
+		return ret;
 
 	// Set external CPU port
 	ret = rtl837x_reg_bits_write(priv, RTL8373_EXT_CPU_CTRL_ADDR,
