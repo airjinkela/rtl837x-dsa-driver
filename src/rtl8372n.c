@@ -377,6 +377,28 @@ static int rtl8372n_vlan_update(struct rtl837x_priv *priv, int vid, u32 member,
 	return ret;
 }
 
+/*
+ * set the port vlan egress mode
+ * If a port disable the tag rewrite
+ * frame will ignore the vlan tag config, frames can be sent out as they enter
+ * else
+ * the tag will remove/keep by vlan config
+*/
+static int rtl8372n_port_vlan_tag_rewrite(struct rtl837x_priv *priv, int port,
+		     bool enable)
+{
+	/*
+	 *	VLAN_EGRESS_TAG_MODE_ORIGINAL = 0,
+	 *	VLAN_EGRESS_TAG_MODE_KEEP_FORMAT,
+	 *	VLAN_EGRESS_TAG_MODE_PRI,
+	 *	VLAN_EGRESS_TAG_MODE_REAL_KEEP,
+	 *	VLAN_EGRESS_TAG_MODE_END
+	*/
+	return rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TAG_ADDR(port),
+		 RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port), enable == true ? 0 : 1
+		);
+}
+
 static int rtl8372n_set_pvid(struct rtl837x_priv *priv, int port,
 		     u32 vid)
 {
@@ -1179,6 +1201,49 @@ static int rtl8372n_port_remove_isolation(struct rtl837x_priv *priv, int port,
 				  mask, 0);
 }
 
+static int rtl8372n_port_add_vlan_transparent(struct rtl837x_priv *priv, int port, u32 mask)
+{
+	dev_dbg(priv->dev, "[%s]: port:%d mask:0x%08x\n", __func__,
+				port, mask);
+	return rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TRANS_ADDR(port), 
+				  RTL8373_VLAN_PORT_EGR_TRANS_PMSK_MASK(port) & (mask << RTL8373_VLAN_PORT_EGR_TRANS_PMSK_OFFSET(port)), 0xffffffff);
+}
+
+static int rtl8372n_port_remove_vlan_transparent(struct rtl837x_priv *priv, int port, u32 mask)
+{
+	dev_dbg(priv->dev, "[%s]: port:%d mask:0x%08x\n", __func__,
+			port, mask);
+	return rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TRANS_ADDR(port), 
+				  RTL8373_VLAN_PORT_EGR_TRANS_PMSK_MASK(port) & (mask << RTL8373_VLAN_PORT_EGR_TRANS_PMSK_OFFSET(port)), 0);
+}
+
+static int rtl8372n_port_add_cpu_vlan_transparent(struct rtl837x_priv *priv, int port)
+{
+	struct dsa_port *cpu_dp = NULL;
+	int ret;
+	u32 cpu_portmask = 0;
+
+	dsa_switch_for_each_cpu_port(cpu_dp, priv->ds) {
+		cpu_portmask |= BIT(cpu_dp->index);
+		rtl8372n_port_add_vlan_transparent(priv, cpu_dp->index, BIT(port));
+	}
+
+	return rtl8372n_port_add_vlan_transparent(priv, port, cpu_portmask);
+}
+
+static int rtl8372n_port_remove_cpu_vlan_transparent(struct rtl837x_priv *priv, int port)
+{
+	struct dsa_port *cpu_dp = NULL;
+	int ret;
+	u32 cpu_portmask = 0;
+
+	dsa_switch_for_each_cpu_port(cpu_dp, priv->ds) {
+		rtl8372n_port_remove_vlan_transparent(priv, cpu_dp->index, BIT(port));
+		cpu_portmask |= BIT(cpu_dp->index);
+	}
+	return rtl8372n_port_remove_vlan_transparent(priv, port, cpu_portmask);
+}
+
 static void rtl8372n_get_strings(struct dsa_switch *ds, int port, u32 stringset,
 			 uint8_t *data)
 {
@@ -1381,6 +1446,8 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 
 	if (untagged)
 		untag |= BIT(port);
+	else 
+		untag &= ~BIT(port);
 
 	dev_dbg(priv->dev, "[%s] add VLAN %d on port %d, %s, %s\n", __func__,
 		vlan->vid, port, untagged ? "untagged" : "tagged",
@@ -1421,8 +1488,14 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 	if (ret)
 		return ret;
 
-	vlan4k.member &= ~BIT(port);
-	vlan4k.untag &= ~BIT(port);
+	if (vlan->vid == 1)
+	{
+		vlan4k.member |= BIT(port);
+		vlan4k.untag |= BIT(port);
+	} else {
+		vlan4k.member &= ~BIT(port);
+		vlan4k.untag &= ~BIT(port);
+	}
 
 	if (!vlan4k.member) {
 		vlan4k.vid = vlan->vid;
@@ -1453,12 +1526,18 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 
 	/* Loop over all other ports than the current one */
 	dsa_switch_for_each_user_port(dp, ds) {
-		/* Current port handled last */
-		if (dp->index == port)
-			continue;
 		/* Not on this bridge */
 		if (!dsa_port_offloads_bridge(dp, &bridge))
 			continue;
+
+		rtl8372n_port_remove_cpu_vlan_transparent(priv, dp->index);
+		if (ret)
+			dev_err(priv->dev, "failed to add port(%d)<->cpu vlan transparent err: %d\n", dp->index, ret);
+
+		/* Current port handled last */
+		if (dp->index == port)
+			continue;
+
 		/* Join this port to each other port on the bridge */
 		ret = rtl8372n_port_add_isolation(priv, dp->index, BIT(port));
 		if (ret)
@@ -1487,12 +1566,18 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 
 	/* Loop over all other ports than this one */
 	dsa_switch_for_each_user_port(dp, ds) {
-		/* Current port handled last */
-		if (dp->index == port)
-			continue;
 		/* Not on this bridge */
 		if (!dsa_port_offloads_bridge(dp, &bridge))
 			continue;
+
+		ret = rtl8372n_port_add_cpu_vlan_transparent(priv, dp->index);
+		if (ret)
+			dev_err(priv->dev, "failed to remove port(%d)<->cpu vlan transparent err: %d\n", dp->index, ret);
+
+		/* Current port handled last */
+		if (dp->index == port)
+			continue;
+
 		/* Remove this port from any other port on the bridge */
 		ret = rtl8372n_port_remove_isolation(priv, dp->index,
 					  BIT(port));
@@ -1893,8 +1978,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	struct dsa_port *cpu_dp = NULL;
 	struct dsa_port *dp;
 	u32 downports_mask = 0,
-		cpu_port_mask = 0,
-		port_mask = 0;
+		cpu_port_mask = 0;
 
 	int cpu_dp_cnt = 0;
 	dsa_switch_for_each_port(dp, ds) {
@@ -2090,7 +2174,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 
 	dsa_switch_for_each_port(dp, ds) {
 		int port = dp->index;
-		port_mask |= BIT(port);
 
 		rtl8372n_port_stp_state_set(ds, port, BR_STATE_DISABLED);
 
@@ -2109,16 +2192,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		if (ret)
 			return ret;
 
-		/*
-		 *	VLAN_EGRESS_TAG_MODE_ORIGINAL = 0,
-		 *	VLAN_EGRESS_TAG_MODE_KEEP_FORMAT,
-		 *	VLAN_EGRESS_TAG_MODE_PRI,
-		 *	VLAN_EGRESS_TAG_MODE_REAL_KEEP,
-		 *	VLAN_EGRESS_TAG_MODE_END
-		*/
-		ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TAG_ADDR(port),
-			 RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port), 0
-			);
+		ret = rtl8372n_port_vlan_tag_rewrite(priv, port, true);
 		if (ret)
 			return ret;
 
@@ -2126,6 +2200,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		ret = rtl8372n_drop_untagged(priv, port, false);
 		if (ret)
 			return ret;
+
 		// Disable Ingress filter
 		ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_IGR_FLTR_ADDR(port),
 			  RTL8373_VLAN_PORT_IGR_FLTR_IGR_FLTR_ACT_MASK(port), 0
@@ -2150,6 +2225,9 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 
 		if (!dsa_port_is_user(dp))
 			continue;
+
+		rtl8372n_port_add_cpu_vlan_transparent(priv, port);
+
 		/* Forward only to the CPU */
 		ret = rtl8372n_port_set_isolation(priv, dp->index,
 						   BIT(cpu_dp->index));
@@ -2166,7 +2244,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	/*
 	 * So What is this.
 	 * If a frame send from CPU (CPU->switch) whithout cvid only with a port svid
-	 * --------------------------------------------------------------------------------
+	 * ================================================================================
 	 * --------------------------------------------------------------------------------
 	 *                                 SVLAN Process
 	 *  |DMAC|SMAC|DSA TAG(SVLAN)|...| -------------> |DMAC|SMAC|...| ----..
@@ -2177,11 +2255,13 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	 * ..---------------------> |DMAC|SMAC|CVLAN|...| -----------------> |DMAC|SMAC|...|
 	 *  frame with out cvlan tag                     remove the CVLAN tag
 	 * mark the cpuport pvid(4095)
+	 * we use vid 4095(0xfff) to forward the 
+	 *     no CVLAN frame
 	 * --------------------------------------------------------------------------------
-	 * --------------------------------------------------------------------------------
+	 * ================================================================================
 	 * 
 	 * If a frame send from CPU (CPU->switch) whith DSA tag(svlan) and cvlan
-	 * --------------------------------------------------------------------------------
+	 * ================================================================================
 	 * --------------------------------------------------------------------------------
 	 *                                       SVLAN Process
 	 *  |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN|...| -------------> |DMAC|SMAC|CVLAN|...| ----..
@@ -2193,10 +2273,10 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	 *  frame already with cvlan tag             remove or keep the CVLAN tag
 	 * 
 	 * --------------------------------------------------------------------------------
-	 * --------------------------------------------------------------------------------
+	 * ================================================================================
 	 * 
 	 * If a frame send to CPU (switch->CPU) whithout vlan tag
-	 * --------------------------------------------------------------------------------
+	 * ================================================================================
 	 * --------------------------------------------------------------------------------
 	 *                  Port based vlan tag
 	 *  |DMAC|SMAC|...| -------------------> |DMAC|SMAC|CVLAN|...| ----...
@@ -2208,10 +2288,10 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	 * mark the src port svid
 	 * 
 	 * --------------------------------------------------------------------------------
-	 * --------------------------------------------------------------------------------
+	 * ================================================================================
 	 * 
 	 * If a frame send to CPU (switch->CPU) whit vlan tag
-	 * --------------------------------------------------------------------------------
+	 * ================================================================================
 	 * --------------------------------------------------------------------------------
 	 *                        Port Ingerss check
 	 *  |DMAC|SMAC|CVLAN|...| -------------------> |DMAC|SMAC|CVLAN|...| ----...
@@ -2223,29 +2303,8 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	 * mark the src port svid
 	 * 
 	 * --------------------------------------------------------------------------------
-	 * --------------------------------------------------------------------------------
+	 * ================================================================================
 	*/
-
-	dsa_switch_for_each_cpu_port(dp, ds) {
-		cpu_port_mask |= dp->index;
-
-		ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_PB_VLAN_ADDR(dp->index),
-			  RTL8373_VLAN_PORT_PB_VLAN_PVID_MASK(dp->index), 0xfff
-			);
-		if (ret)
-			return ret;
-	}
-
-	// Use vlan4095 to forward the no cvlan frame that from CPU
-	struct rtl837x_vlan_data vlan4095_cfg = {
-		.vid=0xfff,
-		.mbr=port_mask,
-		.untag=downports_mask
-	};
-
-	ret = rtl837x_vlan_set(priv, &vlan4095_cfg);
-	if (ret)
-		return ret;
 
 	// Set external CPU port
 	ret = rtl837x_reg_bits_write(priv, RTL8373_EXT_CPU_CTRL_ADDR,
@@ -2282,15 +2341,9 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		return ret;
 
 	// Disable vlan leaky
-	ret = rtl837x_reg_bits_write(priv, RTL8373_MIR_CTRL_ADDR,
-			  RTL8373_MIR_CTRL_MIR_TX_VLAN_LKY_MASK | RTL8373_MIR_CTRL_MIR_RX_VLAN_LKY_MASK,
-			  0
-			);
-	if (ret)
-		return ret;
-
 	// Disable isolate leaky
 	ret = rtl837x_reg_bits_write(priv, RTL8373_MIR_CTRL_ADDR,
+			  RTL8373_MIR_CTRL_MIR_TX_VLAN_LKY_MASK | RTL8373_MIR_CTRL_MIR_RX_VLAN_LKY_MASK |
 			  RTL8373_MIR_CTRL_MIR_TX_ISOLATE_LKY_MASK | RTL8373_MIR_CTRL_MIR_RX_ISOLATE_LKY_MASK,
 			  0
 			);

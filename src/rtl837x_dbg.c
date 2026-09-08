@@ -54,6 +54,7 @@ REGRWFUNC(phyreg_mii, 64)
 REGRWFUNC(phyreg_ocp, 64)
 REGRWFUNC(sdsreg, 64)
 REGRWFUNC(l2uc, 256)
+REGRWFUNC(vlan_trans, 64)
 
 ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
@@ -81,8 +82,22 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 			snprintf(MK_BUFNAME(vlan), MK_BUFLEN(vlan), "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
 						  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
 		}
+	} else if(buf[0] == 'd') {
+		if(sscanf(buf, "d %d", &vlan_id) != 1) {
+			kfree(buf);
+			return -EFAULT;
+		} else {
+			struct rtl837x_vlan_4k vlan4k;
+			memset(&vlan4k, 0, sizeof(vlan4k));
+			priv->ops->get_vlan_4k(priv, vlan_id, &vlan4k);
+			snprintf(MK_BUFNAME(vlan), MK_BUFLEN(vlan), "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
+						  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
+			vlan4k.member=0;
+			vlan4k.untag=0;
+			priv->ops->set_vlan_4k(priv, &vlan4k);
+		}
 	} else {
-		snprintf(MK_BUFNAME(vlan), MK_BUFLEN(vlan), "echo \"r <vlan_id>\" > vlan_dump\n");
+		snprintf(MK_BUFNAME(vlan), MK_BUFLEN(vlan), "echo \"r/d <vlan_id>\" > vlan_dump\n");
 	}
 	kfree(buf);
 	return count;
@@ -478,6 +493,39 @@ out:
 	return count;
 }
 
+ssize_t MAKE_WRITE_FUNCNAME(vlan_trans)(struct file *filep, const char __user *ubuf,
+				   size_t count, loff_t *offp)
+{
+	char *buf;
+	int port;
+	u32 mbr;
+	struct seq_file *sfile;
+	struct rtl837x_priv *priv;
+
+	sfile = filep->private_data;
+	priv = sfile->private;
+
+	buf = memdup_user_nul(ubuf, count);
+	if (IS_ERR(buf))
+		return PTR_ERR(buf);
+	
+	if(buf[0] == 'r') {
+		if(sscanf(buf, "r %d", &port) != 1) {
+			kfree(buf);
+			return -EFAULT;
+		} else {
+			rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_EGR_TRANS_ADDR(port),
+				  RTL8373_VLAN_PORT_EGR_TRANS_PMSK_MASK(port), &mbr);
+			snprintf(MK_BUFNAME(vlan_trans), MK_BUFLEN(vlan_trans), "port: %d, mbr: 0x%04X\n",
+						  port, mbr);
+		}
+	} else {
+		snprintf(MK_BUFNAME(vlan_trans), MK_BUFLEN(vlan_trans), "echo \"r <port>\" > vlan_trans\n");
+	}
+	kfree(buf);
+	return count;
+}
+
 static ssize_t _sds_page_dump_read(struct file *filep, char __user *ubuf,
 				size_t count, loff_t *offp)
 {
@@ -742,6 +790,10 @@ int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 	debugfs_create_file("pvid", 0400,
 		priv->debugfs_parent, priv,
 		&TO_FOPS(pvid));
+
+	debugfs_create_file("vlan_trans", 0400,
+		priv->debugfs_parent, priv,
+		&TO_FOPS(vlan_trans));
 
 	debugfs_create_file("l2uc", 0400,
 		priv->debugfs_parent, priv,
