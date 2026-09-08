@@ -224,8 +224,6 @@ struct rtl837x_ops {
 			       struct rtl837x_vlan_4k *vlan4k);
 	int	(*set_vlan_4k)(struct rtl837x_priv *priv,
 			       const struct rtl837x_vlan_4k *vlan4k);
-	int	(*enable_vlan)(struct rtl837x_priv *priv, bool enable);
-
 	int	(*phy_read_c22)(struct rtl837x_priv *priv, u16 phy, int regnum,
 				u16 *pval);
 	int	(*phy_write_c22)(struct rtl837x_priv *priv, u16 phy, int regnum,

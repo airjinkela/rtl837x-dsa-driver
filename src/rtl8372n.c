@@ -466,11 +466,6 @@ static int rtl8372n_get_mib_counter(struct rtl837x_priv *priv,
 	}
 }
 
-static int rtl8372n_enable_vlan(struct rtl837x_priv *priv, bool enable)
-{
-    return 0;
-}
-
 static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
                                                         int port,
                                                         enum dsa_tag_protocol mp)
@@ -775,7 +770,11 @@ static const struct phylink_mac_ops rtl8372n_phylink_mac_ops = {
 	.mac_link_up	= rtl8372n_phylink_mac_link_up,
 };
 
-
+/*
+ * I still don't understand how the chip GPIO register and LED configuration
+ * register work, so we use additional initialization values to configure 
+ * the chip LED and GPIO matrix or other things
+*/
 static int of_extra_init(struct dsa_switch *ds)
 {
     struct rtl837x_priv *priv = ds->priv;
@@ -1220,7 +1219,6 @@ static int rtl8372n_port_remove_vlan_transparent(struct rtl837x_priv *priv, int 
 static int rtl8372n_port_add_cpu_vlan_transparent(struct rtl837x_priv *priv, int port)
 {
 	struct dsa_port *cpu_dp = NULL;
-	int ret;
 	u32 cpu_portmask = 0;
 
 	dsa_switch_for_each_cpu_port(cpu_dp, priv->ds) {
@@ -1234,7 +1232,6 @@ static int rtl8372n_port_add_cpu_vlan_transparent(struct rtl837x_priv *priv, int
 static int rtl8372n_port_remove_cpu_vlan_transparent(struct rtl837x_priv *priv, int port)
 {
 	struct dsa_port *cpu_dp = NULL;
-	int ret;
 	u32 cpu_portmask = 0;
 
 	dsa_switch_for_each_cpu_port(cpu_dp, priv->ds) {
@@ -1393,6 +1390,7 @@ static void rtl8372n_get_ctrl_stats(struct dsa_switch *ds, int port,
 	mutex_unlock(&priv->mib_lock);
 }
 
+// TODO: Fail rollback
 static int rtl8372n_vlan_filtering(struct dsa_switch *ds, int port,
                                         bool vlan_filtering, struct netlink_ext_ack *extack)
 {
@@ -1410,13 +1408,14 @@ static int rtl8372n_vlan_filtering(struct dsa_switch *ds, int port,
 			);
 
 	if (vlan_filtering)
-		rtl8372n_drop_untagged(priv, port, !chip_data->pvid_enabled[port]);
+		ret = rtl8372n_drop_untagged(priv, port, !chip_data->pvid_enabled[port]);
 	else
-		rtl8372n_drop_untagged(priv, port, false);
+		ret = rtl8372n_drop_untagged(priv, port, false);
 
-    return 0;
+    return ret;
 }
 
+// TODO: Fail rollback
 static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
                             const struct switchdev_obj_port_vlan *vlan,
                             struct netlink_ext_ack *extack)
@@ -1473,6 +1472,7 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
     return 0;
 }
 
+// TODO: Fail rollback
 static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
                                  const struct switchdev_obj_port_vlan *vlan)
 {
@@ -1513,6 +1513,7 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 	return 0;
 }
 
+// TODO: Fail rollback
 static int
 rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 			   struct dsa_bridge bridge,
@@ -1521,7 +1522,7 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 {
     struct rtl837x_priv *priv = ds->priv;
 	struct dsa_port *dp;
-	unsigned int port_bitmap = 0;
+	u32 port_bitmap = 0;
 	int ret;
 
 	/* Loop over all other ports than the current one */
@@ -1553,13 +1554,14 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 	return ret;
 }
 
+// TODO: Fail rollback?
 static void
 rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 			    struct dsa_bridge bridge)
 {
     struct rtl837x_priv *priv = ds->priv;
 	struct dsa_port *dp;
-	unsigned int port_bitmap = 0;
+	u32 port_bitmap = 0;
 	int ret;
 	dev_dbg(priv->dev, "[%s]: %d\n", __func__,
 							  port);
@@ -1981,11 +1983,10 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		cpu_port_mask = 0;
 
 	int cpu_dp_cnt = 0;
-	dsa_switch_for_each_port(dp, ds) {
-		if (dsa_port_is_cpu(dp)) {
-			cpu_dp = dp;
-			cpu_dp_cnt++;
-		}
+	dsa_switch_for_each_cpu_port(dp, ds) {
+		cpu_port_mask |= BIT(dp->index);
+		cpu_dp = dp;
+		cpu_dp_cnt++;
 	}
 
 	// TODO: muilt CPU port support
@@ -2226,7 +2227,9 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		if (!dsa_port_is_user(dp))
 			continue;
 
-		rtl8372n_port_add_cpu_vlan_transparent(priv, port);
+		ret = rtl8372n_port_add_cpu_vlan_transparent(priv, port);
+		if (ret)
+			return ret;
 
 		/* Forward only to the CPU */
 		ret = rtl8372n_port_set_isolation(priv, dp->index,
@@ -2239,28 +2242,51 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 
 	ret = rtl8372n_port_set_isolation(priv, cpu_dp->index,
 						downports_mask);
+	if (ret)
+		return ret;
 
+	struct rtl837x_vlan_4k def_vlan = {
+		.vid=1,
+		.member=cpu_port_mask|downports_mask,
+		.untag=cpu_port_mask|downports_mask,
+		.fid=0,
+	};
+	ret = rtl8372n_set_vlan_4k(priv, &def_vlan);
+	if (ret)
+		return ret;
+
+	/*
+	 * Warning! 
+	 * The following understanding may be incorrect
+	*/
 
 	/*
 	 * So What is this.
-	 * If a frame send from CPU (CPU->switch) whithout cvid only with a port svid
+	 * We use vlan1 to forward the untag frame in the bridge
+	 * If the CPU wants to send a frame to a port and the frame does not have a VLAN tag
+	 * The switch will insert VLAN1 into the frame and remove the VLAN1 when sending the frame
+	 * The same applies to frames entering through ports
+	 * 
+	 * 
+	 * If a frame send from CPU (CPU->switch) whithout cvid only with a DSA TAG
 	 * ================================================================================
 	 * --------------------------------------------------------------------------------
 	 *                                 SVLAN Process
 	 *  |DMAC|SMAC|DSA TAG(SVLAN)|...| -------------> |DMAC|SMAC|...| ----..
-	 *                                 remove dsa tag
+	 *              remove dsa tag (maybe? or remove the tag before the frame sent out?)
 	 *                              mark destination port
+	 *                                  
 	 * --------------------------------------------------------------------------------         
 	 *       CVLAN process                            Send to dest port       
 	 * ..---------------------> |DMAC|SMAC|CVLAN|...| -----------------> |DMAC|SMAC|...|
-	 *  frame with out cvlan tag                     remove the CVLAN tag
-	 * mark the cpuport pvid(4095)
-	 * we use vid 4095(0xfff) to forward the 
+	 *  frame with out CVLAN tag                     remove the CVLAN tag
+	 * mark the cpuport pvid(1)
+	 * we use vid 1(1) to forward the
 	 *     no CVLAN frame
 	 * --------------------------------------------------------------------------------
 	 * ================================================================================
 	 * 
-	 * If a frame send from CPU (CPU->switch) whith DSA tag(svlan) and cvlan
+	 * If a frame send from CPU (CPU->switch) whith DSA tag(SVLAN) and CVLAN
 	 * ================================================================================
 	 * --------------------------------------------------------------------------------
 	 *                                       SVLAN Process
@@ -2270,7 +2296,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	 * --------------------------------------------------------------------------------         
 	 *       CVLAN process                            Send to dest port       
 	 * ..---------------------> |DMAC|SMAC|CVLAN|...| -----------------> |DMAC|SMAC|CVLAN(may not exist)|...|
-	 *  frame already with cvlan tag             remove or keep the CVLAN tag
+	 *  frame already with CVLAN tag             remove or keep the CVLAN tag
 	 * 
 	 * --------------------------------------------------------------------------------
 	 * ================================================================================
@@ -2281,10 +2307,10 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	 *                  Port based vlan tag
 	 *  |DMAC|SMAC|...| -------------------> |DMAC|SMAC|CVLAN|...| ----...
 	 *               add the port based vlan id
-	 *                         
+	 * 
 	 * --------------------------------------------------------------------------------         
 	 *   SVLAN process
-	 *  -----------------> |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN|...|
+	 *  ..-----------------> |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN|...|
 	 * mark the src port svid
 	 * 
 	 * --------------------------------------------------------------------------------
@@ -2299,9 +2325,47 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	 *                         
 	 * --------------------------------------------------------------------------------         
 	 *   SVLAN process
-	 *  -----------------> |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN|...|
+	 *  ..-----------------> |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN|...|
 	 * mark the src port svid
 	 * 
+	 * --------------------------------------------------------------------------------
+	 * ================================================================================
+	*/
+
+	/*
+	 * So when a port is not in the bridge
+	 * what will happens
+	 * 
+	 * when the port is not in the bridge, it will enable vlan transparent on it
+	 * This way, the port will not be restricted by the VLAN table
+	 * the frame will only add/remove the DSA TAG(SVLAN), and there will be no changes to CVLAN
+	 * 
+	 * If a frame send to CPU (switch->CPU)
+	 * ================================================================================
+	 * --------------------------------------------------------------------------------
+	 *                                Port Ingerss check
+	 *  |DMAC|SMAC|CVLAN(or not)|...| -------------------> |DMAC|SMAC|CVLAN(or not)|...| ----...
+	 *                                 check is disabled
+	 *                               all frames can came in
+	 * --------------------------------------------------------------------------------         
+	 *   SVLAN process
+	 *  ..-----------------> |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN(or not)|...|
+	 * mark the src port svid
+	 * 
+	 * --------------------------------------------------------------------------------
+	 * ================================================================================
+	 * 
+	 * If a frame send from CPU (CPU->switch)
+	 * ================================================================================
+	 * --------------------------------------------------------------------------------
+	 *                                               SVLAN Process
+	 *  |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN(or not)|...| -------------> |DMAC|SMAC|CVLAN(or not)|...| ----..
+	 *                                              remove dsa tag
+	 *                                           mark destination port
+	 * --------------------------------------------------------------------------------         
+	 *       CVLAN process                                    Send to dest port       
+	 * ..---------------------> |DMAC|SMAC|CVLAN(or not)|...| -----------------> |DMAC|SMAC|CVLAN((or not))|...|
+	 *        do nothing
 	 * --------------------------------------------------------------------------------
 	 * ================================================================================
 	*/
@@ -2410,7 +2474,6 @@ static const struct rtl837x_ops rtl8372n_ops = {
 	.get_vlan_4k	= rtl8372n_get_vlan_4k,
 	.set_vlan_4k	= rtl8372n_set_vlan_4k,
 	.get_mib_counter = rtl8372n_get_mib_counter,
-	.enable_vlan	= rtl8372n_enable_vlan,
 
 	.phy_read_c22   = rtl837x_phy_read_c22,
 	.phy_write_c22  = rtl837x_phy_write_c22,
