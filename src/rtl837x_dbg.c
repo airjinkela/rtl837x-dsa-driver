@@ -20,13 +20,13 @@ static int simple_debugfs_open(struct inode *inode, struct file *file)
 
 #define REGRWFUNC(name, BUF_SIZE) \
 	static const int MK_BUFLEN(name) = BUF_SIZE; \
-	static char _buf_rd_##name[BUF_SIZE];  \
+	static char MK_BUFNAME(name)[BUF_SIZE];  \
 	static ssize_t _##name##_rw_read(struct file *filep, char __user *ubuf,  \
 				  size_t count, loff_t *offp)   \
 	{   \
-		return simple_read_from_buffer(ubuf, count, offp, _buf_rd_##name, strlen(_buf_rd_##name));   \
+		return simple_read_from_buffer(ubuf, count, offp, MK_BUFNAME(name), strlen(MK_BUFNAME(name)));   \
 	}   \
-	extern ssize_t _##name##_rw_write(struct file *filep, const char __user *ubuf,   \
+	extern ssize_t MAKE_WRITE_FUNCNAME(name)(struct file *filep, const char __user *ubuf,   \
 				   size_t count, loff_t *offp);   \
 	static const struct file_operations _##name##_rw_fops = {   \
 		.owner = THIS_MODULE,   \
@@ -35,15 +35,16 @@ static int simple_debugfs_open(struct inode *inode, struct file *file)
 		.read = _##name##_rw_read   \
 	};
 
-#define BUF_APPEND(_BUF, _BUF_SIZE, _LEN, fmt, ...) do { \
-	if (_LEN < _BUF_SIZE) { \
-		int _n = snprintf(_BUF + _LEN, _BUF_SIZE - _LEN, \
-					fmt, ##__VA_ARGS__); \
-		if (_n > 0) \
-			_LEN += _n; \
-		if (_LEN >= _BUF_SIZE) \
-			_LEN = _BUF_SIZE - 1; \
-	} \
+#define BUF_APPEND(_bname, fmt, ...) do { \
+	size_t _l = strlen(MK_BUFNAME(_bname)); \
+	if (_l + 1 < MK_BUFLEN(_bname)) \
+		snprintf(MK_BUFNAME(_bname) + _l, MK_BUFLEN(_bname) - _l, \
+			 fmt, ##__VA_ARGS__); \
+} while (0)
+
+#define BUF_PRINTF(_bname, fmt, ...) do { \
+		snprintf(MK_BUFNAME(_bname), MK_BUFLEN(_bname), \
+			 fmt, ##__VA_ARGS__); \
 } while (0)
 
 REGRWFUNC(vlan, 128)
@@ -80,7 +81,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 			struct rtl837x_vlan_4k vlan4k;
 			memset(&vlan4k, 0, sizeof(vlan4k));
 			priv->ops->get_vlan_4k(priv, vlan_id,  &vlan4k);
-			snprintf(MK_BUFNAME(vlan), MK_BUFLEN(vlan), "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
+			BUF_PRINTF(vlan, "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
 						  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
 		}
 	} else if(buf[0] == 'd') {
@@ -91,14 +92,14 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 			struct rtl837x_vlan_4k vlan4k;
 			memset(&vlan4k, 0, sizeof(vlan4k));
 			priv->ops->get_vlan_4k(priv, vlan_id, &vlan4k);
-			snprintf(MK_BUFNAME(vlan), MK_BUFLEN(vlan), "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
+			BUF_PRINTF(vlan, "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
 						  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
 			vlan4k.member=0;
 			vlan4k.untag=0;
 			priv->ops->set_vlan_4k(priv, &vlan4k);
 		}
 	} else {
-		snprintf(MK_BUFNAME(vlan), MK_BUFLEN(vlan), "echo \"r/d <Dvlan_id>\" > vlan_dump\n");
+		BUF_PRINTF(vlan, "echo \"r/d <Dvlan_id>\" > vlan_dump\n");
 	}
 	kfree(buf);
 	return count;
@@ -146,9 +147,9 @@ ssize_t MAKE_WRITE_FUNCNAME(pvid)(struct file *filep, const char __user *ubuf,
 			kfree(buf);
 			return -EIO;
 		}
-		snprintf(MK_BUFNAME(pvid), MK_BUFLEN(pvid), "port: %d, pvid: %d\n", port, pvid);
+		BUF_PRINTF(pvid, "port: %d, pvid: %d\n", port, pvid);
 	} else {
-		snprintf(MK_BUFNAME(pvid), MK_BUFLEN(pvid), "echo \"w/r <Dport> [<Dpvid>]\" > pvid\n");
+		BUF_PRINTF(pvid, "echo \"w/r <Dport> [<Dpvid>]\" > pvid\n");
 	}
 	kfree(buf);
 	return count;
@@ -190,9 +191,9 @@ ssize_t MAKE_WRITE_FUNCNAME(sdsreg)(struct file *filep, const char __user *ubuf,
 			return -EFAULT;
 		}
 		rtl837x_sds_reg_read(priv, sds_id, page, reg, &tmp16);
-		snprintf(MK_BUFNAME(sdsreg), MK_BUFLEN(sdsreg), "sds_id: %d, page: 0x%08x, reg: 0x%08x, val: 0x%08x\n", sds_id, page, reg, tmp16);
+		BUF_PRINTF(sdsreg, "sds_id: %d, page: 0x%08x, reg: 0x%08x, val: 0x%08x\n", sds_id, page, reg, tmp16);
 	} else {
-		snprintf(MK_BUFNAME(sdsreg), MK_BUFLEN(sdsreg), "echo \"w/r <Dsds_id> <Xpage> <Xreg> [<Xval>]\" > sdsreg\n");
+		BUF_PRINTF(sdsreg, "echo \"w/r <Dsds_id> <Xpage> <Xreg> [<Xval>]\" > sdsreg\n");
 	}
 	kfree(buf);
 	return count;
@@ -237,9 +238,9 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mmd)(struct file *filep, const char __user *u
 			kfree(buf);
 			return -EIO;
 		}
-		snprintf(MK_BUFNAME(phyreg_mmd), MK_BUFLEN(phyreg_mmd), "port: %d, devad: 0x%08x, reg: 0x%08x, val: 0x%08x\n", port, devad, reg, tmp16);
+		BUF_PRINTF(phyreg_mmd, "port: %d, devad: 0x%08x, reg: 0x%08x, val: 0x%08x\n", port, devad, reg, tmp16);
 	} else {
-		snprintf(MK_BUFNAME(phyreg_mmd), MK_BUFLEN(phyreg_mmd), "echo \"w/r <Dport> <Xdevad> <Xreg> [<Xval>]\" > phyreg_mmd\n");
+		BUF_PRINTF(phyreg_mmd, "echo \"w/r <Dport> <Xdevad> <Xreg> [<Xval>]\" > phyreg_mmd\n");
 	}
 	kfree(buf);
 	return count;
@@ -285,9 +286,9 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mii)(struct file *filep, const char __user *u
 			kfree(buf);
 			return -EIO;
 		}
-		snprintf(MK_BUFNAME(phyreg_mii), MK_BUFLEN(phyreg_mii), "port: %d, reg: 0x%08x, val: 0x%08x\n", port, reg, tmp16);
+		BUF_PRINTF(phyreg_mii, "port: %d, reg: 0x%08x, val: 0x%08x\n", port, reg, tmp16);
 	} else {
-		snprintf(MK_BUFNAME(phyreg_mii), MK_BUFLEN(phyreg_mii), "echo \"w/r <Dport> <Xreg> [<Xval>]\" > phyreg_mii\n");
+		BUF_PRINTF(phyreg_mii, "echo \"w/r <Dport> <Xreg> [<Xval>]\" > phyreg_mii\n");
 	}
 	kfree(buf);
 	return count;
@@ -332,9 +333,9 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_ocp)(struct file *filep, const char __user *u
 			kfree(buf);
 			return -EIO;
 		}
-		snprintf(MK_BUFNAME(phyreg_ocp), MK_BUFLEN(phyreg_ocp), "port: %d, reg: 0x%08x, val: 0x%08x\n", port, reg, tmp16);
+		BUF_PRINTF(phyreg_ocp, "port: %d, reg: 0x%08x, val: 0x%08x\n", port, reg, tmp16);
 	} else {
-		snprintf(MK_BUFNAME(phyreg_ocp), MK_BUFLEN(phyreg_ocp), "echo \"w/r <Dport> <Xreg> [<Xval>]\" > phyreg_ocp\n");
+		BUF_PRINTF(phyreg_ocp, "echo \"w/r <Dport> <Xreg> [<Xval>]\" > phyreg_ocp\n");
 	}
 	kfree(buf);
 	return count;
@@ -369,9 +370,9 @@ ssize_t MAKE_WRITE_FUNCNAME(reg)(struct file *filep, const char __user *ubuf,
 			return -EFAULT;
 		}
 		rtl837x_reg_read(priv, reg, &val);
-		snprintf(MK_BUFNAME(reg), MK_BUFLEN(reg), "reg: 0x%08x, val: 0x%08x\n", reg, val);
+		BUF_PRINTF(reg, "reg: 0x%08x, val: 0x%08x\n", reg, val);
 	} else {
-		snprintf(MK_BUFNAME(reg), MK_BUFLEN(reg), "echo \"w/r <Xreg> [<Xval>]\" > reg\n");
+		BUF_PRINTF(reg, "echo \"w/r <Xreg> [<Xval>]\" > reg\n");
 	}
 	kfree(buf);
 	return count;
@@ -381,7 +382,7 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
 	char *buf;
-	int ret, len=0;
+	int ret;
 	u32 index;
 	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
@@ -393,6 +394,9 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 	buf = memdup_user_nul(ubuf, count);
 	if (IS_ERR(buf))
 		return PTR_ERR(buf);
+
+	/* reset the static output buffer before generating new result */
+	MK_BUFNAME(l2uc)[0] = '\0';
 	
 	if(buf[0] == 'r') {
 		if(sscanf(buf, "r %d", &index) != 1) {
@@ -403,18 +407,15 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 		ret = rtl837x_lut_query(priv, LUT_READ_METHOD_ADDRESS, &entry);
 		if (ret)
 		{
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len,
-					"addr: %d Not Hit\n", index);
+			BUF_APPEND(l2uc, "addr: %d Not Hit\n", index);
 			goto out;
 		}
 		switch (entry.type)
 		{
 		case LUT_TYPE_L2_UC:
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "type:%s ", "l2uc");
+			BUF_APPEND(l2uc, "type:%s ", "l2uc");
 			// L2UC_DUMP_APPEND("type:%s ", "l2uc");
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "%02X:%02X:%02X:%02X:%02X:%02X ", 
+			BUF_APPEND(l2uc, "%02X:%02X:%02X:%02X:%02X:%02X ", 
 								entry.uc.key.mac_addr[0],
 								entry.uc.key.mac_addr[1],
 								entry.uc.key.mac_addr[2],
@@ -422,24 +423,16 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 								entry.uc.key.mac_addr[4],
 								entry.uc.key.mac_addr[5]
 								);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "ivl:%d ", entry.uc.key.ivl);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "vid_fid:%-4d ", entry.uc.key.vid_fid);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "port:%d ", entry.uc.port);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "age:%03d ", entry.uc.age);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "auth:%d ", entry.uc.auth);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "is_static:%d\n", entry.uc.is_static);
+			BUF_APPEND(l2uc, "ivl:%d ", entry.uc.key.ivl);
+			BUF_APPEND(l2uc, "vid_fid:%-4d ", entry.uc.key.vid_fid);
+			BUF_APPEND(l2uc, "port:%d ", entry.uc.port);
+			BUF_APPEND(l2uc, "age:%03d ", entry.uc.age);
+			BUF_APPEND(l2uc, "auth:%d ", entry.uc.auth);
+			BUF_APPEND(l2uc, "is_static:%d\n", entry.uc.is_static);
 			break;
 		case LUT_TYPE_L2_MC:
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "type:%s ", "l2mc");
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "%02X:%02X:%02X:%02X:%02X:%02X ", 
+			BUF_APPEND(l2uc, "type:%s ", "l2mc");
+			BUF_APPEND(l2uc, "%02X:%02X:%02X:%02X:%02X:%02X ", 
 								entry.mc.key.mac_addr[0],
 								entry.mc.key.mac_addr[1],
 								entry.mc.key.mac_addr[2],
@@ -447,32 +440,20 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 								entry.mc.key.mac_addr[4],
 								entry.mc.key.mac_addr[5]
 								);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "ivl:%d ", entry.mc.key.ivl);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "vid_fid:%-4d ", entry.mc.key.vid_fid);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "mbr:0x%04X ", entry.mc.mbr);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "igmp_idx:%d ", entry.mc.igmp_idx);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "igmp_asic:%d\n", entry.mc.igmp_asic);
+			BUF_APPEND(l2uc, "ivl:%d ", entry.mc.key.ivl);
+			BUF_APPEND(l2uc, "vid_fid:%-4d ", entry.mc.key.vid_fid);
+			BUF_APPEND(l2uc, "mbr:0x%04X ", entry.mc.mbr);
+			BUF_APPEND(l2uc, "igmp_idx:%d ", entry.mc.igmp_idx);
+			BUF_APPEND(l2uc, "igmp_asic:%d\n", entry.mc.igmp_asic);
 			break;
 		case LUT_TYPE_L3:
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "type:%s ", "l3");
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "sipaddr: 0x%08X", entry.l3.sip);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "dipaddr: 0x%08X", entry.l3.dip);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "mbr:0x%04X ", entry.l3.mbr);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "igmp_idx:%d ", entry.l3.igmp_idx);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "igmp_asic:%d ", entry.l3.igmp_asic);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "l3lookup:%d\n", entry.l3.l3lookup);
+			BUF_APPEND(l2uc, "type:%s ", "l3");
+			BUF_APPEND(l2uc, "sipaddr: 0x%08X", entry.l3.sip);
+			BUF_APPEND(l2uc, "dipaddr: 0x%08X", entry.l3.dip);
+			BUF_APPEND(l2uc, "mbr:0x%04X ", entry.l3.mbr);
+			BUF_APPEND(l2uc, "igmp_idx:%d ", entry.l3.igmp_idx);
+			BUF_APPEND(l2uc, "igmp_asic:%d ", entry.l3.igmp_asic);
+			BUF_APPEND(l2uc, "l3lookup:%d\n", entry.l3.l3lookup);
 			break;
 		default:
 			break;
@@ -483,11 +464,9 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 			return -EFAULT;
 		}
 		ret = rtl837x_lut_del(priv, index);
-		BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-			   "addr:%d deleted %d\n", index, ret);
+		BUF_APPEND(l2uc, "addr:%d deleted %d\n", index, ret);
 	} else {
-		BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len,
-				"echo \"r/d <Dindex>\" > l2uc\n");
+		BUF_APPEND(l2uc, "echo \"r/d <Dindex>\" > l2uc\n");
 	}
 out:
 	kfree(buf);
@@ -517,7 +496,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_trans)(struct file *filep, const char __user *u
 		} else {
 			rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_EGR_TRANS_ADDR(port),
 				  RTL8373_VLAN_PORT_EGR_TRANS_PMSK_MASK(port), &mbr);
-			snprintf(MK_BUFNAME(vlan_trans), MK_BUFLEN(vlan_trans), "port: %d, mbr: 0x%04X\n",
+			BUF_PRINTF(vlan_trans, "port: %d, mbr: 0x%04X\n",
 						  port, mbr);
 		}
 	} else if(buf[0] == 'w') {
@@ -527,11 +506,11 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_trans)(struct file *filep, const char __user *u
 		} else {
 			rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TRANS_ADDR(port),
 				  RTL8373_VLAN_PORT_EGR_TRANS_PMSK_MASK(port), mbr);
-			snprintf(MK_BUFNAME(vlan_trans), MK_BUFLEN(vlan_trans), "port: %d, mbr: 0x%04X\n",
+			BUF_PRINTF(vlan_trans, "port: %d, mbr: 0x%04X\n",
 						  port, mbr);
 		}
 	} else {
-		snprintf(MK_BUFNAME(vlan_trans), MK_BUFLEN(vlan_trans), "echo \"r/w <Dport> [<Xval>]\" > vlan_trans\n");
+		BUF_PRINTF(vlan_trans, "echo \"r/w <Dport> [<Xval>]\" > vlan_trans\n");
 	}
 	kfree(buf);
 	return count;
@@ -581,7 +560,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __u
 			default:
 				break;
 			}
-			snprintf(MK_BUFNAME(vlan_tag_rewrite), MK_BUFLEN(vlan_tag_rewrite), "port: %d, mode: %s\n",
+			BUF_PRINTF(vlan_tag_rewrite, "port: %d, mode: %s\n",
 					  port, stmp);
 		}
 	} else if(buf[0] == 'w') {
@@ -594,7 +573,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __u
 			);
 		}
 	} else {
-		snprintf(MK_BUFNAME(vlan_tag_rewrite), MK_BUFLEN(vlan_tag_rewrite), "echo \"r/w <Dport> [<Xval>]\" > vlan_tag_rewrite\n");
+		BUF_PRINTF(vlan_tag_rewrite, "echo \"r/w <Dport> [<Xval>]\" > vlan_tag_rewrite\n");
 	}
 	kfree(buf);
 	return count;
