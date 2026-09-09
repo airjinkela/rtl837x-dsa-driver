@@ -1531,9 +1531,9 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 		if (!dsa_port_offloads_bridge(dp, &bridge))
 			continue;
 
-		rtl8372n_port_remove_cpu_vlan_transparent(priv, dp->index);
+		ret = rtl8372n_port_remove_cpu_vlan_transparent(priv, dp->index);
 		if (ret)
-			dev_err(priv->dev, "failed to add port(%d)<->cpu vlan transparent err: %d\n", dp->index, ret);
+			dev_err(priv->dev, "failed to remove port(%d)<->cpu vlan transparent err: %d\n", dp->index, ret);
 
 		/* Current port handled last */
 		if (dp->index == port)
