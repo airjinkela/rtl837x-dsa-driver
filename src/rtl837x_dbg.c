@@ -98,7 +98,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 			priv->ops->set_vlan_4k(priv, &vlan4k);
 		}
 	} else {
-		snprintf(MK_BUFNAME(vlan), MK_BUFLEN(vlan), "echo \"r/d <vlan_id>\" > vlan_dump\n");
+		snprintf(MK_BUFNAME(vlan), MK_BUFLEN(vlan), "echo \"r/d <Dvlan_id>\" > vlan_dump\n");
 	}
 	kfree(buf);
 	return count;
@@ -148,7 +148,7 @@ ssize_t MAKE_WRITE_FUNCNAME(pvid)(struct file *filep, const char __user *ubuf,
 		}
 		snprintf(MK_BUFNAME(pvid), MK_BUFLEN(pvid), "port: %d, pvid: %d\n", port, pvid);
 	} else {
-		snprintf(MK_BUFNAME(pvid), MK_BUFLEN(pvid), "echo \"w/r <port> [<pvid>]\" > pvid\n");
+		snprintf(MK_BUFNAME(pvid), MK_BUFLEN(pvid), "echo \"w/r <Dport> [<Dpvid>]\" > pvid\n");
 	}
 	kfree(buf);
 	return count;
@@ -192,7 +192,7 @@ ssize_t MAKE_WRITE_FUNCNAME(sdsreg)(struct file *filep, const char __user *ubuf,
 		rtl837x_sds_reg_read(priv, sds_id, page, reg, &tmp16);
 		snprintf(MK_BUFNAME(sdsreg), MK_BUFLEN(sdsreg), "sds_id: %d, page: 0x%08x, reg: 0x%08x, val: 0x%08x\n", sds_id, page, reg, tmp16);
 	} else {
-		snprintf(MK_BUFNAME(sdsreg), MK_BUFLEN(sdsreg), "echo \"w/r <sds_id> <page> <reg> [<val>]\" > sdsreg\n");
+		snprintf(MK_BUFNAME(sdsreg), MK_BUFLEN(sdsreg), "echo \"w/r <Dsds_id> <Xpage> <Xreg> [<Xval>]\" > sdsreg\n");
 	}
 	kfree(buf);
 	return count;
@@ -239,7 +239,7 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mmd)(struct file *filep, const char __user *u
 		}
 		snprintf(MK_BUFNAME(phyreg_mmd), MK_BUFLEN(phyreg_mmd), "port: %d, devad: 0x%08x, reg: 0x%08x, val: 0x%08x\n", port, devad, reg, tmp16);
 	} else {
-		snprintf(MK_BUFNAME(phyreg_mmd), MK_BUFLEN(phyreg_mmd), "echo \"w/r <real_port_index> <devad> <reg> [<val>]\" > phyreg_mmd\n");
+		snprintf(MK_BUFNAME(phyreg_mmd), MK_BUFLEN(phyreg_mmd), "echo \"w/r <Dport> <Xdevad> <Xreg> [<Xval>]\" > phyreg_mmd\n");
 	}
 	kfree(buf);
 	return count;
@@ -287,7 +287,7 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mii)(struct file *filep, const char __user *u
 		}
 		snprintf(MK_BUFNAME(phyreg_mii), MK_BUFLEN(phyreg_mii), "port: %d, reg: 0x%08x, val: 0x%08x\n", port, reg, tmp16);
 	} else {
-		snprintf(MK_BUFNAME(phyreg_mii), MK_BUFLEN(phyreg_mii), "echo \"w/r <real_port_index> <reg> [<val>]\" > phyreg_mii\n");
+		snprintf(MK_BUFNAME(phyreg_mii), MK_BUFLEN(phyreg_mii), "echo \"w/r <Dport> <Xreg> [<Xval>]\" > phyreg_mii\n");
 	}
 	kfree(buf);
 	return count;
@@ -334,7 +334,7 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_ocp)(struct file *filep, const char __user *u
 		}
 		snprintf(MK_BUFNAME(phyreg_ocp), MK_BUFLEN(phyreg_ocp), "port: %d, reg: 0x%08x, val: 0x%08x\n", port, reg, tmp16);
 	} else {
-		snprintf(MK_BUFNAME(phyreg_ocp), MK_BUFLEN(phyreg_ocp), "echo \"w/r <real_port_index> <reg> [<val>]\" > phyreg_ocp\n");
+		snprintf(MK_BUFNAME(phyreg_ocp), MK_BUFLEN(phyreg_ocp), "echo \"w/r <Dport> <Xreg> [<Xval>]\" > phyreg_ocp\n");
 	}
 	kfree(buf);
 	return count;
@@ -369,9 +369,9 @@ ssize_t MAKE_WRITE_FUNCNAME(reg)(struct file *filep, const char __user *ubuf,
 			return -EFAULT;
 		}
 		rtl837x_reg_read(priv, reg, &val);
-		snprintf(MK_BUFNAME(reg), MK_BUFLEN(phyreg_mmd), "reg: 0x%08x, val: 0x%08x\n", reg, val);
+		snprintf(MK_BUFNAME(reg), MK_BUFLEN(reg), "reg: 0x%08x, val: 0x%08x\n", reg, val);
 	} else {
-		snprintf(MK_BUFNAME(reg), MK_BUFLEN(phyreg_mmd), "echo \"w/r <reg> [<val>]\" > reg\n");
+		snprintf(MK_BUFNAME(reg), MK_BUFLEN(reg), "echo \"w/r <Xreg> [<Xval>]\" > reg\n");
 	}
 	kfree(buf);
 	return count;
@@ -487,7 +487,7 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 			   "addr:%d deleted %d\n", index, ret);
 	} else {
 		BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len,
-				"echo \"r/d <index>\" > l2uc\n");
+				"echo \"r/d <Dindex>\" > l2uc\n");
 	}
 out:
 	kfree(buf);
@@ -531,7 +531,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_trans)(struct file *filep, const char __user *u
 						  port, mbr);
 		}
 	} else {
-		snprintf(MK_BUFNAME(vlan_trans), MK_BUFLEN(vlan_trans), "echo \"r/w <port> [<val>]\" > vlan_trans\n");
+		snprintf(MK_BUFNAME(vlan_trans), MK_BUFLEN(vlan_trans), "echo \"r/w <Dport> [<Xval>]\" > vlan_trans\n");
 	}
 	kfree(buf);
 	return count;
@@ -594,7 +594,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __u
 			);
 		}
 	} else {
-		snprintf(MK_BUFNAME(vlan_tag_rewrite), MK_BUFLEN(vlan_tag_rewrite), "echo \"r/w <port> [<val>]\" > vlan_tag_rewrite\n");
+		snprintf(MK_BUFNAME(vlan_tag_rewrite), MK_BUFLEN(vlan_tag_rewrite), "echo \"r/w <Dport> [<Xval>]\" > vlan_tag_rewrite\n");
 	}
 	kfree(buf);
 	return count;
@@ -857,23 +857,23 @@ int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 		priv->debugfs_parent, priv,
 		&TO_FOPS(sdsreg));
 
-	debugfs_create_file("vlan", 0400,
+	debugfs_create_file("vlan", 0600,
 		priv->debugfs_parent, priv,
 		&TO_FOPS(vlan));
 
-	debugfs_create_file("pvid", 0400,
+	debugfs_create_file("pvid", 0600,
 		priv->debugfs_parent, priv,
 		&TO_FOPS(pvid));
 
-	debugfs_create_file("vlan_trans", 0400,
+	debugfs_create_file("vlan_trans", 0600,
 		priv->debugfs_parent, priv,
 		&TO_FOPS(vlan_trans));
 
-	debugfs_create_file("vlan_tag_rewrite", 0400,
+	debugfs_create_file("vlan_tag_rewrite", 0600,
 		priv->debugfs_parent, priv,
 		&TO_FOPS(vlan_tag_rewrite));
 
-	debugfs_create_file("l2uc", 0400,
+	debugfs_create_file("l2uc", 0600,
 		priv->debugfs_parent, priv,
 		&TO_FOPS(l2uc));
 
