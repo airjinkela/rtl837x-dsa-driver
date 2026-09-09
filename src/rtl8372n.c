@@ -727,7 +727,7 @@ static void rtl8372n_phylink_mac_link_down(struct phylink_config *config, unsign
 	}
 
 	if (ret) {
-		dev_err(priv->dev, "failed to disable the port(%d)\n", port);
+		dev_err(priv->dev, "MAC link down failed port(%d)\n", port);
 		return;
 	}
 }
@@ -2015,8 +2015,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	chip_data->pcs[8].priv = priv;
 	chip_data->pcs[8].index = 8;
 
-    dev_info(priv->dev,"Start init RTL8372N Switch\n");
-
 	// set port 3 and port 8 as serdes port
 	rtl837x_reg_bits_write(priv, RTL8373_SMI_MAC_TYPE_CTRL_ADDR, 
 			 RTL8373_SMI_MAC_TYPE_CTRL_MAC_PORT8_TYPE_MASK | RTL8373_SMI_MAC_TYPE_CTRL_MAC_PORT3_TYPE_MASK,
@@ -2035,6 +2033,9 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 			 RTL8373_SMI_CTRL_SMI0_MDC_EN_MASK | RTL8373_SMI_CTRL_SMI1_MDC_EN_MASK | RTL8373_SMI_CTRL_SMI2_MDC_EN_MASK,
 			 0b111
 			);
+
+	//  puts "Power down PHY 4~7"
+	rtl837x_phys_write_c45(priv, 0xF0, 31, 0xa610, 0x2858);
 
 	if (of_property_read_bool(np, "sds0-rx-swap"))
 	{
@@ -2110,35 +2111,16 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 				 0x596A
 				); //#TX_POLARITY_SWAP
 
-	//  puts "Power down PHY 4~7"
-	rtl837x_phys_write_c45(priv, 0xF0, 31, 0xa610, 0x2858);
-
-	//## ---------------------------Patch MAC--------------------------
 	//#cfg_FWD_INVLD_MAC_CTRL_EN,cfg_FWD_UNKN_OPCODE_EN
 	rtl837x_reg_bits_write(priv, RTL8373_MAC_L2_GLOBAL_CTRL0_ADDR,
 			 RTL8373_MAC_L2_GLOBAL_CTRL0_FWD_UNKN_OPCODE_EN_MASK | RTL8373_MAC_L2_GLOBAL_CTRL0_FWD_INVLD_MAC_CTRL_EN_MASK,
 			 0b11
 			);
 
-	for(int i=3; i<9; i++)
-	{
-		rtl837x_reg_bits_write(priv, RTL8373_MAC_L2_PORT_CTRL_ADDR(i),
-		 RTL8373_MAC_L2_PORT_CTRL_RX_CHK_CRC_EN_MASK, 1
-		);
-		rtl837x_reg_bits_write(priv, RTL8373_MAC_L2_PORT_CTRL_ADDR(i),
-		 RTL8373_MAC_L2_PORT_CTRL_CLOCK_SWITCH_MASK, 1
-		);
-	}
-
 	// #RS_LINK_FAULT_INDI_OFF=1 disable link fault flag, resolve port4-port7 linkdown dsc expand issue
     rtl837x_reg_bits_write(priv, RTL8373_RS_LAYER_CONFIG_ADDR,
 		 RTL8373_RS_LAYER_CONFIG_RS_LINK_FAULT_INDI_OFF_MASK, 1
 		);
-
-	for(int i=0; i<10; i++)
-    {
-        rtl837x_reg_write(priv, RTL8373_FC_PORT_ACT_CTRL_ADDR(i), 0x1050);
-    }
 
 	rtl837x_reg_bits_write(priv, RTL8373_DW8051_CFG_ADDR,
 			 RTL8373_DW8051_CFG_DW8051_READY_MASK, 1
@@ -2152,8 +2134,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	}
 #endif
 
-	//  puts "Power up PHY 4~7"
-    rtl837x_phys_write_c45(priv, 0xF0 ,31,0xa610,0x2058);
     //RTL8372/RTL8372N/RTL8366U set polling mask 0x1f8, port 3/8 from serdes need config bit8=1
     rtl837x_reg_bits_write(priv, RTL8373_SMI_GLB_CTRL_ADDR,
 		 RTL8373_SMI_GLB_CTRL_SMI_POLLING_MASK_MASK, 0x1f8
@@ -2161,7 +2141,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	msleep(5);
 
 	of_extra_init(ds);
-
+ 
     ret = rtl8372n_setup_mdio(priv);
 	if(ret){
 		dev_err(priv->dev, "rtl8372n_setup_mdio Fail, error:%d\n", ret);
@@ -2175,6 +2155,22 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 
 	dsa_switch_for_each_port(dp, ds) {
 		int port = dp->index;
+
+        ret = rtl837x_reg_write(priv, RTL8373_FC_PORT_ACT_CTRL_ADDR(port), 0x1050);
+		if (ret)
+			return ret;
+
+		ret = rtl837x_reg_bits_write(priv, RTL8373_MAC_L2_PORT_CTRL_ADDR(port),
+			  RTL8373_MAC_L2_PORT_CTRL_RX_CHK_CRC_EN_MASK, 1
+			);
+		if (ret)
+			return ret;
+
+		ret = rtl837x_reg_bits_write(priv, RTL8373_MAC_L2_PORT_CTRL_ADDR(port),
+			  RTL8373_MAC_L2_PORT_CTRL_CLOCK_SWITCH_MASK, 1
+			);
+		if (ret)
+			return ret;
 
 		rtl8372n_port_stp_state_set(ds, port, BR_STATE_DISABLED);
 
@@ -2372,7 +2368,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 
 	// Set external CPU port
 	ret = rtl837x_reg_bits_write(priv, RTL8373_EXT_CPU_CTRL_ADDR,
-			  RTL8373_EXT_CPU_CTRL_PORT_MASK, cpu_dp->index
+			  RTL8373_EXT_CPU_CTRL_PORT_MASK, cpu_port_mask
 			);
 	if (ret)
 		return ret;
