@@ -414,7 +414,6 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 		{
 		case LUT_TYPE_L2_UC:
 			BUF_APPEND(l2uc, "type:%s ", "l2uc");
-			// L2UC_DUMP_APPEND("type:%s ", "l2uc");
 			BUF_APPEND(l2uc, "%02X:%02X:%02X:%02X:%02X:%02X ", 
 								entry.uc.key.mac_addr[0],
 								entry.uc.key.mac_addr[1],
@@ -712,8 +711,7 @@ static const struct file_operations _vlan_dump_fops = {
 static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 			       size_t count, loff_t *offp)
 {
-	int ret, len = 0;
-	char *buf;
+	int ret;
 	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
 	struct rtl837x_lut_entry entry = {0};
@@ -721,22 +719,11 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 	sfile = filep->private_data;
 	priv = sfile->private;
 
-#define L2UC_BUF_SIZE PAGE_SIZE*64
+	const int MK_BUFLEN(l2uc_dump) = PAGE_SIZE*64; 
+	char *MK_BUFNAME(l2uc_dump) = kmalloc(MK_BUFLEN(l2uc_dump), GFP_KERNEL);
 
-	buf = kmalloc(L2UC_BUF_SIZE, GFP_KERNEL);
-	if (!buf)
+	if (!MK_BUFNAME(l2uc_dump))
 		return -ENOMEM;
-
-#define L2UC_DUMP_APPEND(fmt, ...) do { \
-		if (len < L2UC_BUF_SIZE) { \
-			int _n = snprintf(buf + len, L2UC_BUF_SIZE - len, \
-					  fmt, ##__VA_ARGS__); \
-			if (_n > 0) \
-				len += _n; \
-			if (len >= L2UC_BUF_SIZE) \
-				len = L2UC_BUF_SIZE - 1; \
-		} \
-	} while (0)
 
 	for (int i = 0; i < 4160; i++) {
 		entry.addr = i;
@@ -746,12 +733,12 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 		if (entry.addr < i)
 			break;
 
-		L2UC_DUMP_APPEND("addr:%-4d ", entry.addr);
+		BUF_APPEND(l2uc_dump, "addr:%-4d ", entry.addr);
 		switch (entry.type)
 		{
 		case LUT_TYPE_L2_UC:
-			L2UC_DUMP_APPEND("type:%-4s ", "l2uc");
-			L2UC_DUMP_APPEND("%02X:%02X:%02X:%02X:%02X:%02X ", 
+			BUF_APPEND(l2uc_dump, "type:%-4s ", "l2uc");
+			BUF_APPEND(l2uc_dump, "%02X:%02X:%02X:%02X:%02X:%02X ", 
 								entry.uc.key.mac_addr[0],
 								entry.uc.key.mac_addr[1],
 								entry.uc.key.mac_addr[2],
@@ -759,16 +746,16 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 								entry.uc.key.mac_addr[4],
 								entry.uc.key.mac_addr[5]
 								);
-			L2UC_DUMP_APPEND("ivl:%d ", entry.uc.key.ivl);
-			L2UC_DUMP_APPEND("vid_fid:% -5d ", entry.uc.key.vid_fid);
-			L2UC_DUMP_APPEND("port:%d ", entry.uc.port);
-			L2UC_DUMP_APPEND("age:%03d ", entry.uc.age);
-			L2UC_DUMP_APPEND("auth:%d ", entry.uc.auth);
-			L2UC_DUMP_APPEND("is_static:%d\n", entry.uc.is_static);
+			BUF_APPEND(l2uc_dump, "ivl:%d ", entry.uc.key.ivl);
+			BUF_APPEND(l2uc_dump, "vid_fid:% -5d ", entry.uc.key.vid_fid);
+			BUF_APPEND(l2uc_dump, "port:%d ", entry.uc.port);
+			BUF_APPEND(l2uc_dump, "age:%03d ", entry.uc.age);
+			BUF_APPEND(l2uc_dump, "auth:%d ", entry.uc.auth);
+			BUF_APPEND(l2uc_dump, "is_static:%d\n", entry.uc.is_static);
 			break;
 		case LUT_TYPE_L2_MC:
-			L2UC_DUMP_APPEND("type:%-4s ", "l2mc");
-			L2UC_DUMP_APPEND("%02X:%02X:%02X:%02X:%02X:%02X ", 
+			BUF_APPEND(l2uc_dump, "type:%-4s ", "l2mc");
+			BUF_APPEND(l2uc_dump, "%02X:%02X:%02X:%02X:%02X:%02X ", 
 								entry.mc.key.mac_addr[0],
 								entry.mc.key.mac_addr[1],
 								entry.mc.key.mac_addr[2],
@@ -776,32 +763,30 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 								entry.mc.key.mac_addr[4],
 								entry.mc.key.mac_addr[5]
 								);
-			L2UC_DUMP_APPEND("ivl:%d ", entry.mc.key.ivl);
-			L2UC_DUMP_APPEND("vid_fid:%-4d ", entry.mc.key.vid_fid);
-			L2UC_DUMP_APPEND("mbr:0x%04X ", entry.mc.mbr);
-			L2UC_DUMP_APPEND("igmp_idx:%d ", entry.mc.igmp_idx);
-			L2UC_DUMP_APPEND("igmp_asic:%d\n", entry.mc.igmp_asic);
+			BUF_APPEND(l2uc_dump, "ivl:%d ", entry.mc.key.ivl);
+			BUF_APPEND(l2uc_dump, "vid_fid:%-4d ", entry.mc.key.vid_fid);
+			BUF_APPEND(l2uc_dump, "mbr:0x%04X ", entry.mc.mbr);
+			BUF_APPEND(l2uc_dump, "igmp_idx:%d ", entry.mc.igmp_idx);
+			BUF_APPEND(l2uc_dump, "igmp_asic:%d\n", entry.mc.igmp_asic);
 			break;
 		case LUT_TYPE_L3:
-			L2UC_DUMP_APPEND("type:%-4s ", "l3");
-			L2UC_DUMP_APPEND("sipaddr: 0x%08X", entry.l3.sip);
-			L2UC_DUMP_APPEND("dipaddr: 0x%08X", entry.l3.dip);
-			L2UC_DUMP_APPEND("mbr:0x%04X ", entry.l3.mbr);
-			L2UC_DUMP_APPEND("igmp_idx:%d ", entry.l3.igmp_idx);
-			L2UC_DUMP_APPEND("igmp_asic:%d ", entry.l3.igmp_asic);
-			L2UC_DUMP_APPEND("l3lookup:%d\n", entry.l3.l3lookup);
+			BUF_APPEND(l2uc_dump, "type:%-4s ", "l3");
+			BUF_APPEND(l2uc_dump, "sipaddr: 0x%08X", entry.l3.sip);
+			BUF_APPEND(l2uc_dump, "dipaddr: 0x%08X", entry.l3.dip);
+			BUF_APPEND(l2uc_dump, "mbr:0x%04X ", entry.l3.mbr);
+			BUF_APPEND(l2uc_dump, "igmp_idx:%d ", entry.l3.igmp_idx);
+			BUF_APPEND(l2uc_dump, "igmp_asic:%d ", entry.l3.igmp_asic);
+			BUF_APPEND(l2uc_dump, "l3lookup:%d\n", entry.l3.l3lookup);
 			break;
 		default:
 			break;
 		}
 
 		i = entry.addr;
-		if (len >= L2UC_BUF_SIZE - 64)
-			break;
 	}
 
-	ret = simple_read_from_buffer(ubuf, count, offp, buf, len);
-	kfree(buf);
+	ret = simple_read_from_buffer(ubuf, count, offp, MK_BUFNAME(l2uc_dump), strlen(MK_BUFNAME(l2uc_dump)));
+	kfree(MK_BUFNAME(l2uc_dump));
 	return ret;
 }
 
