@@ -55,6 +55,7 @@ REGRWFUNC(phyreg_ocp, 64)
 REGRWFUNC(sdsreg, 64)
 REGRWFUNC(l2uc, 256)
 REGRWFUNC(vlan_trans, 64)
+REGRWFUNC(vlan_tag_rewrite, 64)
 
 ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
@@ -519,8 +520,81 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_trans)(struct file *filep, const char __user *u
 			snprintf(MK_BUFNAME(vlan_trans), MK_BUFLEN(vlan_trans), "port: %d, mbr: 0x%04X\n",
 						  port, mbr);
 		}
+	} else if(buf[0] == 'w') {
+		if(sscanf(buf, "w %d %x", &port, &mbr) != 2) {
+			kfree(buf);
+			return -EFAULT;
+		} else {
+			rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TRANS_ADDR(port),
+				  RTL8373_VLAN_PORT_EGR_TRANS_PMSK_MASK(port), mbr);
+			snprintf(MK_BUFNAME(vlan_trans), MK_BUFLEN(vlan_trans), "port: %d, mbr: 0x%04X\n",
+						  port, mbr);
+		}
 	} else {
-		snprintf(MK_BUFNAME(vlan_trans), MK_BUFLEN(vlan_trans), "echo \"r <port>\" > vlan_trans\n");
+		snprintf(MK_BUFNAME(vlan_trans), MK_BUFLEN(vlan_trans), "echo \"r/w <port> [<val>]\" > vlan_trans\n");
+	}
+	kfree(buf);
+	return count;
+}
+
+
+ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __user *ubuf,
+				   size_t count, loff_t *offp)
+{
+	char *buf;
+	int port;
+	u32 tmp;
+	struct seq_file *sfile;
+	struct rtl837x_priv *priv;
+
+	sfile = filep->private_data;
+	priv = sfile->private;
+
+	buf = memdup_user_nul(ubuf, count);
+	if (IS_ERR(buf))
+		return PTR_ERR(buf);
+	
+	if(buf[0] == 'r') {
+		if(sscanf(buf, "r %d", &port) != 1) {
+			kfree(buf);
+			return -EFAULT;
+		} else {
+
+			rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_EGR_TAG_ADDR(port),
+				  RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port), &tmp
+			);
+			const char *stmp = "Unknow";
+			switch (tmp)
+			{
+			case 0:
+				stmp = "ORIGINAL(0)";
+				break;
+			case 1:
+				stmp = "KEEP_FORMAT(1)";
+				break;
+			case 2:
+				stmp = "PRI(2)";
+				break;
+			case 3:
+				stmp = "REAL_KEEP(3)";
+				break;
+			default:
+				break;
+			}
+			snprintf(MK_BUFNAME(vlan_tag_rewrite), MK_BUFLEN(vlan_tag_rewrite), "port: %d, mode: %s\n",
+					  port, stmp);
+		}
+	} else if(buf[0] == 'w') {
+		if(sscanf(buf, "w %d %x", &port, &tmp) != 2) {
+			kfree(buf);
+			return -EFAULT;
+		} else {
+			rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TAG_ADDR(port),
+				  RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port), tmp
+			);
+		}
+	} else {
+		snprintf(MK_BUFNAME(vlan_tag_rewrite), MK_BUFLEN(vlan_tag_rewrite), "echo \"r/w <port> [<val>]\" > vlan_tag_rewrite\n");
 	}
 	kfree(buf);
 	return count;
@@ -794,6 +868,10 @@ int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 	debugfs_create_file("vlan_trans", 0400,
 		priv->debugfs_parent, priv,
 		&TO_FOPS(vlan_trans));
+
+	debugfs_create_file("vlan_tag_rewrite", 0400,
+		priv->debugfs_parent, priv,
+		&TO_FOPS(vlan_tag_rewrite));
 
 	debugfs_create_file("l2uc", 0400,
 		priv->debugfs_parent, priv,

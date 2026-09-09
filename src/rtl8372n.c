@@ -2141,7 +2141,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	msleep(5);
 
 	of_extra_init(ds);
- 
+
     ret = rtl8372n_setup_mdio(priv);
 	if(ret){
 		dev_err(priv->dev, "rtl8372n_setup_mdio Fail, error:%d\n", ret);
@@ -2368,7 +2368,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 
 	// Set external CPU port
 	ret = rtl837x_reg_bits_write(priv, RTL8373_EXT_CPU_CTRL_ADDR,
-			  RTL8373_EXT_CPU_CTRL_PORT_MASK, cpu_port_mask
+			  RTL8373_EXT_CPU_CTRL_PORT_MASK, cpu_dp->index
 			);
 	if (ret)
 		return ret;
