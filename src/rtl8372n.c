@@ -1445,8 +1445,6 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 
 	if (untagged)
 		untag |= BIT(port);
-	else 
-		untag &= ~BIT(port);
 
 	dev_dbg(priv->dev, "[%s] add VLAN %d on port %d, %s, %s\n", __func__,
 		vlan->vid, port, untagged ? "untagged" : "tagged",
@@ -1696,6 +1694,7 @@ rtl8372n_port_fdb_add(struct dsa_switch *ds, int port,
 
 	if (db.type == DSA_DB_BRIDGE && priv->tag_proto == DSA_TAG_PROTO_MXL862_8021Q)
 	{
+		//Because the CPU port can only learn 802.1q tags, So VLAN tags are ignored
 		if (vid != 0)
 			return 0;
 		/*
@@ -1738,7 +1737,7 @@ rtl8372n_port_fdb_del(struct dsa_switch *ds, int port,
 			return 0;
 		struct dsa_port *dp;
 		dsa_switch_for_each_user_port(dp, ds) {
-			/* Add static fdb entry */
+			/* Del static fdb entry */
 			ret = rtl8372n_port_fdb_static_del(priv, addr, dsa_tag_8021q_standalone_vid(dp));
 			if (ret)
 				return ret;
@@ -1757,11 +1756,10 @@ rtl8372n_port_fdb_dump(struct dsa_switch *ds, int port,
 	struct rtl837x_priv *priv = ds->priv;
 	int ret;
 	struct rtl837x_lut_entry entry = {0};
-	entry.uc.port = port;
-
 
 	for (int i = 0; i < RTL8372N_LUT_MAX; i++) {
 		entry.addr = i;
+		entry.uc.port = port;
 		ret = rtl837x_lut_query(priv, LUT_READ_METHOD_NEXT_L2UCSPA, &entry);
 		if (ret)
 			break;
@@ -1795,7 +1793,7 @@ rtl8372n_port_mdb_add(struct dsa_switch *ds, int port,
 	entry.mc.key.vid_fid = vid;
 	entry.mc.key.ivl = true;
 	ret = rtl837x_lut_query(priv, LUT_READ_METHOD_MAC, &entry);
-	if (ret != -ENOENT || ret != 0)
+	if (ret != -ENOENT && ret != 0)
 		return ret;
 
 	if (ret == 0)
@@ -1869,12 +1867,12 @@ rtl8372n_port_mdb_del(struct dsa_switch *ds, int port,
 	ret = rtl837x_lut_set(priv, &entry);
 	if (ret == -ENOENT)
 	{
-		dev_dbg(priv->dev, "[%s]:addfailed mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d\n", __func__,
+		dev_dbg(priv->dev, "[%s]:delfailed mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d\n", __func__,
 						addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
 						port, vid);
 		return -ENOSPC;
 	}
-	dev_dbg(priv->dev, "[%s]:addsuceed mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d addr: %04d\n", __func__,
+	dev_dbg(priv->dev, "[%s]:delsuceed mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d addr: %04d\n", __func__,
 					addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
 					port, vid, entry.addr);
 	return ret;

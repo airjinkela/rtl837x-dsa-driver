@@ -424,6 +424,8 @@ int rtl837x_lut_del(struct rtl837x_priv *priv,
 
 	ret = rtl837x_reg_bits_write(priv, RTL8373_ITA_L2_CTRL_ADDR,
 						  RTL8373_ITA_L2_CTRL_ENTRY_CLR_MASK, 1);
+	if (ret)
+		return ret;
 
 	cmd = FIELD_PREP(RTL8373_ITA_CTRL0_TBL_ADDR_MASK, addr) |
 		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_L2) |
@@ -445,5 +447,5 @@ int rtl837x_lut_del(struct rtl837x_priv *priv,
 	ret = rtl837x_reg_bits_write(priv, RTL8373_ITA_L2_CTRL_ADDR,
 						  RTL8373_ITA_L2_CTRL_ENTRY_CLR_MASK, 0);
 
-	return 0;
+	return ret;
 }
