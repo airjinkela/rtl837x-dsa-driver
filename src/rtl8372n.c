@@ -369,6 +369,7 @@ static int rtl8372n_vlan_update(struct rtl837x_priv *priv, int vid, u32 member,
 		return ret;
 
 	vlan4k.member |= member;
+	vlan4k.untag &= ~member;
 	vlan4k.untag |= untag;
 	vlan4k.fid = fid;
 	vlan4k.vid = vid;
