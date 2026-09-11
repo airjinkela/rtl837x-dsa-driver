@@ -1487,14 +1487,8 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 	if (ret)
 		return ret;
 
-	if (vlan->vid == 1)
-	{
-		vlan4k.member |= BIT(port);
-		vlan4k.untag |= BIT(port);
-	} else {
-		vlan4k.member &= ~BIT(port);
-		vlan4k.untag &= ~BIT(port);
-	}
+	vlan4k.member &= ~BIT(port);
+	vlan4k.untag &= ~BIT(port);
 
 	if (!vlan4k.member) {
 		vlan4k.vid = vlan->vid;
@@ -1587,6 +1581,8 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 
 		port_bitmap |= BIT(dp->index);
 	}
+
+	rtl8372n_set_pvid(priv, port, 0xfff);
 
 	/* Clear the bits for the ports we can not access, leave ourselves */
 	rtl8372n_port_remove_isolation(priv, port, port_bitmap);
@@ -2139,6 +2135,13 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		);
 	msleep(5);
 
+
+	dsa_switch_for_each_port(dp, ds) {
+		ret = rtl8372n_port_remove_vlan_transparent(priv, dp->index, 0xffffffff);
+		if(ret)
+			return ret;
+	}
+
 	of_extra_init(ds);
 
     ret = rtl8372n_setup_mdio(priv);
@@ -2168,6 +2171,10 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		ret = rtl837x_reg_bits_write(priv, RTL8373_MAC_L2_PORT_CTRL_ADDR(port),
 			  RTL8373_MAC_L2_PORT_CTRL_CLOCK_SWITCH_MASK, 1
 			);
+		if (ret)
+			return ret;
+
+		ret = rtl8372n_set_pvid(priv, port, 0xfff);
 		if (ret)
 			return ret;
 
@@ -2241,7 +2248,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		return ret;
 
 	struct rtl837x_vlan_4k def_vlan = {
-		.vid=1,
+		.vid=0xfff,
 		.member=cpu_port_mask|downports_mask,
 		.untag=cpu_port_mask|downports_mask,
 		.fid=0,
