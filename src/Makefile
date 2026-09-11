@@ -2,7 +2,6 @@
 # Copyright (C) 2025 StarField Xu <air_jinkela@163.com>
 
 ccflags-y += -Wall
-ccflags-y += -Iinclude/linux/
 
 ifeq ($(CONFIG_RTL8372N_DSA_DEBUG),y)
 ccflags-y += -DDEBUG
