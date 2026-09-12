@@ -1242,6 +1242,29 @@ static int rtl8372n_port_remove_cpu_vlan_transparent(struct rtl837x_priv *priv, 
 	return rtl8372n_port_remove_vlan_transparent(priv, port, cpu_portmask);
 }
 
+static int rtl8372n_bridge_port_add_resv_vlan(struct rtl837x_priv *priv, int port)
+{
+	return rtl8372n_vlan_update(priv, 0xfff, BIT(port), BIT(port), 0);
+}
+
+static int rtl8372n_bridge_port_remove_resv_vlan(struct rtl837x_priv *priv, int port)
+{
+	int ret;
+	struct rtl837x_vlan_4k vlan4k;
+
+	ret = priv->ops->get_vlan_4k(priv, 0xfff, &vlan4k);
+	if (ret)
+		return ret;
+
+	vlan4k.member &= ~BIT(port);
+	vlan4k.untag &= ~BIT(port);
+	vlan4k.fid = 0;
+	vlan4k.vid = 0xfff;
+	ret = priv->ops->set_vlan_4k(priv, &vlan4k);
+
+	return ret;
+}
+
 static void rtl8372n_get_strings(struct dsa_switch *ds, int port, u32 stringset,
 			 uint8_t *data)
 {
@@ -1538,12 +1561,16 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 	dev_dbg(priv->dev, "[%s]: port(%d) isolate(0x%04x)\n", __func__,
 						  port, port_bitmap);
 
+	ret = rtl8372n_bridge_port_add_resv_vlan(priv, port);
+	if (ret)
+		dev_err(priv->dev, "failed to add port(%d) resv vlan err: %d\n", port, ret);
+
 	/*
 	 * Filter and forward the frame by vlan table
 	*/
 	ret = rtl8372n_port_remove_cpu_vlan_transparent(priv, port);
 	if (ret)
-		dev_err(priv->dev, "failed to remove port(%d)<->cpu vlan transparent err: %d\n", dp->index, ret);
+		dev_err(priv->dev, "failed to remove port(%d)<->cpu vlan transparent err: %d\n", port, ret);
 
 	if (!dsa_is_cpu_port(ds, port))
 	{
@@ -1587,6 +1614,10 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 
 		port_bitmap |= BIT(dp->index);
 	}
+
+	ret = rtl8372n_bridge_port_remove_resv_vlan(priv, port);
+	if (ret)
+		dev_err(priv->dev, "failed to remove port(%d) resv vlan err: %d\n", port, ret);
 
 	/*
 	 * When the port is not in the bridge, in order 
@@ -2203,6 +2234,10 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		if (dsa_port_is_unused(dp))
 			continue;
 
+		ret = rtl8372n_set_pvid(priv, port, 0xfff);
+		if (ret)
+			return ret;
+
 		// FORWARD:0, DROP:1, TO_CPU:2
 		ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_PORT_CONSTRT_ACT_ADDR,
 			 RTL8373_L2_LRN_PORT_CONSTRT_ACT_LRN_ACT_MASK, 0
@@ -2240,6 +2275,13 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 				);
 		if (ret)
 			return ret;
+
+		if (dsa_is_cpu_port(ds, port))
+		{
+			ret = rtl8372n_bridge_port_add_resv_vlan(priv, port);
+			if (ret)
+				return ret;
+		}
 
 		if (!dsa_port_is_user(dp))
 			continue;
