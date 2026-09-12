@@ -2,7 +2,6 @@
 # Copyright (C) 2025 StarField Xu <air_jinkela@163.com>
 
 ccflags-y += -Wall
-ccflags-y += -Iinclude/linux/
 
 ifeq ($(CONFIG_RTL8372N_DSA_DEBUG),y)
 ccflags-y += -DDEBUG
@@ -19,6 +18,7 @@ endif
 rtl8372n_dsa-objs += rtl837x_dbg.o
 rtl8372n_dsa-objs += rtl837x_mdio.o
 rtl8372n_dsa-objs += rtl837x_common.o
+rtl8372n_dsa-objs += rtl837x_common_l2.o
 
 ifeq ($(CONFIG_RTL837X_PHY_PATCH),y)
 ccflags-y += -DRTL837X_PHY_PATCH
