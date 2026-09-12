@@ -725,6 +725,8 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 	if (!MK_BUFNAME(l2uc_dump))
 		return -ENOMEM;
 
+	memset(MK_BUFNAME(l2uc_dump), 0, MK_BUFLEN(l2uc_dump));
+
 	for (int i = 0; i < 4160; i++) {
 		entry.addr = i;
 		ret = rtl837x_lut_query(priv, LUT_READ_METHOD_NEXT_ADDRESS, &entry);

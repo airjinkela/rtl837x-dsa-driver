@@ -1524,10 +1524,6 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 		if (!dsa_port_offloads_bridge(dp, &bridge))
 			continue;
 
-		ret = rtl8372n_port_remove_cpu_vlan_transparent(priv, dp->index);
-		if (ret)
-			dev_err(priv->dev, "failed to remove port(%d)<->cpu vlan transparent err: %d\n", dp->index, ret);
-
 		/* Current port handled last */
 		if (dp->index == port)
 			continue;
@@ -1541,6 +1537,20 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 	}
 	dev_dbg(priv->dev, "[%s]: port(%d) isolate(0x%04x)\n", __func__,
 						  port, port_bitmap);
+
+	/*
+	 * Filter and forward the frame by vlan table
+	*/
+	ret = rtl8372n_port_remove_cpu_vlan_transparent(priv, port);
+	if (ret)
+		dev_err(priv->dev, "failed to remove port(%d)<->cpu vlan transparent err: %d\n", dp->index, ret);
+
+	if (!dsa_is_cpu_port(ds, port))
+	{
+		ret = rtl8372n_port_vlan_tag_rewrite(priv, port, true);
+		if (ret)
+			return ret;
+	}
 
 	/* Set the bits for the ports we can access */
 	ret = rtl8372n_port_add_isolation(priv, port, port_bitmap);
@@ -1565,10 +1575,6 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 		if (!dsa_port_offloads_bridge(dp, &bridge))
 			continue;
 
-		ret = rtl8372n_port_add_cpu_vlan_transparent(priv, dp->index);
-		if (ret)
-			dev_err(priv->dev, "failed to remove port(%d)<->cpu vlan transparent err: %d\n", dp->index, ret);
-
 		/* Current port handled last */
 		if (dp->index == port)
 			continue;
@@ -1582,7 +1588,20 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 		port_bitmap |= BIT(dp->index);
 	}
 
-	rtl8372n_set_pvid(priv, port, 0xfff);
+	/*
+	 * When the port is not in the bridge, in order 
+	 * to allow all VLAN tags to be accepted, 
+	 * VLAN transparent transmission is set
+	*/
+	ret = rtl8372n_port_add_cpu_vlan_transparent(priv, port);
+	if (ret)
+		dev_err(priv->dev, "failed to add port(%d)<->cpu vlan transparent err: %d\n", dp->index, ret);
+
+	/*
+	 * Set the hardware do not add/remove/edit the vlan tag
+	 * The VLAN remains completely unchanged when the frame enters and exits
+	*/
+	rtl8372n_port_vlan_tag_rewrite(priv, port, false);
 
 	/* Clear the bits for the ports we can not access, leave ourselves */
 	rtl8372n_port_remove_isolation(priv, port, port_bitmap);
@@ -2174,10 +2193,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		if (ret)
 			return ret;
 
-		ret = rtl8372n_set_pvid(priv, port, 0xfff);
-		if (ret)
-			return ret;
-
 		rtl8372n_port_stp_state_set(ds, port, BR_STATE_DISABLED);
 
 		/* Start with all port completely isolated */
@@ -2195,7 +2210,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		if (ret)
 			return ret;
 
-		ret = rtl8372n_port_vlan_tag_rewrite(priv, port, true);
+		ret = rtl8372n_port_vlan_tag_rewrite(priv, port, false);
 		if (ret)
 			return ret;
 
@@ -2247,19 +2262,11 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	if (ret)
 		return ret;
 
-	struct rtl837x_vlan_4k def_vlan = {
-		.vid=0xfff,
-		.member=cpu_port_mask|downports_mask,
-		.untag=cpu_port_mask|downports_mask,
-		.fid=0,
-	};
-	ret = rtl8372n_set_vlan_4k(priv, &def_vlan);
-	if (ret)
-		return ret;
-
 	/*
 	 * Warning! 
 	 * The following understanding may be incorrect
+	 * 
+	 * !!! The annotation is outdated !!!
 	*/
 
 	/*
