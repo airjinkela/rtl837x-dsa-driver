@@ -1561,9 +1561,17 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 	dev_dbg(priv->dev, "[%s]: port(%d) isolate(0x%04x)\n", __func__,
 						  port, port_bitmap);
 
+	/* Set the bits for the ports we can access */
+	ret = rtl8372n_port_add_isolation(priv, port, port_bitmap);
+	if (ret)
+		return ret;
+
 	ret = rtl8372n_bridge_port_add_resv_vlan(priv, port);
 	if (ret)
+	{
 		dev_err(priv->dev, "failed to add port(%d) resv vlan err: %d\n", port, ret);
+		return ret;
+	}
 
 	/*
 	 * Filter and forward the frame by vlan table
@@ -1579,9 +1587,7 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 			return ret;
 	}
 
-	/* Set the bits for the ports we can access */
-	ret = rtl8372n_port_add_isolation(priv, port, port_bitmap);
-	return ret;
+	return 0;
 }
 
 // TODO: Fail rollback?
@@ -1614,6 +1620,10 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 
 		port_bitmap |= BIT(dp->index);
 	}
+	/* Clear the bits for the ports we can not access, leave ourselves */
+	ret = rtl8372n_port_remove_isolation(priv, port, port_bitmap);
+	if (ret)
+		dev_err(priv->dev, "failed to remove port(%d) isolation err: %d\n", port, ret);
 
 	ret = rtl8372n_bridge_port_remove_resv_vlan(priv, port);
 	if (ret)
@@ -1633,9 +1643,6 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 	 * The VLAN remains completely unchanged when the frame enters and exits
 	*/
 	rtl8372n_port_vlan_tag_rewrite(priv, port, false);
-
-	/* Clear the bits for the ports we can not access, leave ourselves */
-	rtl8372n_port_remove_isolation(priv, port, port_bitmap);
 }
 
 static int rtl8372n_port_enable(struct dsa_switch *ds, int port,
