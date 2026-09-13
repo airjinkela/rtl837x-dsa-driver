@@ -2307,16 +2307,13 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	/*
 	 * Warning! 
 	 * The following understanding may be incorrect
-	 * 
-	 * !!! The annotation is outdated !!!
 	*/
 
 	/*
 	 * So What is this.
-	 * We use vlan1 to forward the untag frame in the bridge
+	 * We use vlan4095 to forward the untag frame that send from CPU in the bridge
 	 * If the CPU wants to send a frame to a port and the frame does not have a VLAN tag
-	 * The switch will insert VLAN1 into the frame and remove the VLAN1 when sending the frame
-	 * The same applies to frames entering through ports
+	 * The switch will insert vlan4095 into the frame and remove the vlan4095 when sending the frame
 	 * 
 	 * 
 	 * If a frame send from CPU (CPU->switch) whithout cvid only with a DSA TAG
@@ -2331,8 +2328,8 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	 *       CVLAN process                            Send to dest port       
 	 * ..---------------------> |DMAC|SMAC|CVLAN|...| -----------------> |DMAC|SMAC|...|
 	 *  frame with out CVLAN tag                     remove the CVLAN tag
-	 * mark the cpuport pvid(1)
-	 * we use vid 1(1) to forward the
+	 * mark the cpuport pvid(4095)
+	 * we use vid 4095(0xfff) to forward the
 	 *     no CVLAN frame
 	 * --------------------------------------------------------------------------------
 	 * ================================================================================
@@ -2360,10 +2357,10 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	 *               add the port based vlan id
 	 * 
 	 * --------------------------------------------------------------------------------         
-	 *   SVLAN process
-	 *  ..-----------------> |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN|...|
-	 * mark the src port svid
-	 * 
+	 *   SVLAN process                                        (CPU Port) Port Egress Tag Mode
+	 *  ..-----------------> |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN|...|..-----------------> |DMAC|SMAC|DSA TAG(SVLAN)|...
+	 * mark the src port svid                                         Keep Format
+	 *                                                             remove the vlan tag
 	 * --------------------------------------------------------------------------------
 	 * ================================================================================
 	 * 
@@ -2373,7 +2370,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	 *                        Port Ingerss check
 	 *  |DMAC|SMAC|CVLAN|...| -------------------> |DMAC|SMAC|CVLAN|...| ----...
 	 *                         drop or forward
-	 *                         
+	 * 
 	 * --------------------------------------------------------------------------------         
 	 *   SVLAN process
 	 *  ..-----------------> |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN|...|

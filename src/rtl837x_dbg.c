@@ -62,7 +62,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
 	char *buf;
-	u32 vlan_id;
+	u32 vlan_id, member, untag, fid;
 	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
 
@@ -98,8 +98,23 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 			vlan4k.untag=0;
 			priv->ops->set_vlan_4k(priv, &vlan4k);
 		}
+	} else if(buf[0] == 'w') {
+		if(sscanf(buf, "w %d %x %x %d", &vlan_id, &member, &untag, &fid) != 4) {
+			kfree(buf);
+			return -EFAULT;
+		} else {
+			struct rtl837x_vlan_4k vlan4k;
+			memset(&vlan4k, 0, sizeof(vlan4k));
+			vlan4k.vid = vlan_id;
+			vlan4k.member = member;
+			vlan4k.untag = untag;
+			vlan4k.fid = fid;
+			priv->ops->set_vlan_4k(priv, &vlan4k);
+			BUF_PRINTF(vlan, "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
+						  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
+		}
 	} else {
-		BUF_PRINTF(vlan, "echo \"r/d <Dvlan_id>\" > vlan_dump\n");
+		BUF_PRINTF(vlan, "echo \"r/d <Dvlan_id> | w <Dvlan_id> <Xmbr> <Xutag> <Dfid>\" > vlan_dump\n");
 	}
 	kfree(buf);
 	return count;
