@@ -57,6 +57,7 @@ REGRWFUNC(sdsreg, 64)
 REGRWFUNC(l2uc, 256)
 REGRWFUNC(vlan_trans, 64)
 REGRWFUNC(vlan_tag_rewrite, 64)
+REGRWFUNC(vlan_keep, 64)
 
 ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
@@ -530,6 +531,48 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_trans)(struct file *filep, const char __user *u
 	return count;
 }
 
+ssize_t MAKE_WRITE_FUNCNAME(vlan_keep)(struct file *filep, const char __user *ubuf,
+				   size_t count, loff_t *offp)
+{
+	char *buf;
+	int port;
+	u32 mbr;
+	struct seq_file *sfile;
+	struct rtl837x_priv *priv;
+
+	sfile = filep->private_data;
+	priv = sfile->private;
+
+	buf = memdup_user_nul(ubuf, count);
+	if (IS_ERR(buf))
+		return PTR_ERR(buf);
+	
+	if(buf[0] == 'r') {
+		if(sscanf(buf, "r %d", &port) != 1) {
+			kfree(buf);
+			return -EFAULT;
+		} else {
+			rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_EGR_KEEP_ADDR(port),
+				  RTL8373_VLAN_PORT_EGR_KEEP_PMSK_MASK(port), &mbr);
+			BUF_PRINTF(vlan_keep, "port: %d, mbr: 0x%04X\n",
+						  port, mbr);
+		}
+	} else if(buf[0] == 'w') {
+		if(sscanf(buf, "w %d %x", &port, &mbr) != 2) {
+			kfree(buf);
+			return -EFAULT;
+		} else {
+			rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_KEEP_ADDR(port),
+				  RTL8373_VLAN_PORT_EGR_KEEP_PMSK_MASK(port), mbr);
+			BUF_PRINTF(vlan_keep, "port: %d, mbr: 0x%04X\n",
+						  port, mbr);
+		}
+	} else {
+		BUF_PRINTF(vlan_keep, "echo \"r/w <Dport> [<Xval>]\" > vlan_keep\n");
+	}
+	kfree(buf);
+	return count;
+}
 
 ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
@@ -849,6 +892,10 @@ int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 	debugfs_create_file("vlan_trans", 0600,
 		priv->debugfs_parent, priv,
 		&TO_FOPS(vlan_trans));
+
+	debugfs_create_file("vlan_keep", 0600,
+		priv->debugfs_parent, priv,
+		&TO_FOPS(vlan_keep));
 
 	debugfs_create_file("vlan_tag_rewrite", 0600,
 		priv->debugfs_parent, priv,
