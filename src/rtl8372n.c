@@ -385,7 +385,7 @@ static int rtl8372n_vlan_update(struct rtl837x_priv *priv, int vid, u32 member,
  * else
  * the tag will remove/keep by vlan config
 */
-static int rtl8372n_port_vlan_tag_rewrite(struct rtl837x_priv *priv, int port,
+static int rtl8372n_port_vlan_egr_tag_rewrite(struct rtl837x_priv *priv, int port,
 		     bool enable)
 {
 	/*
@@ -1582,7 +1582,7 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 
 	if (!dsa_is_cpu_port(ds, port))
 	{
-		ret = rtl8372n_port_vlan_tag_rewrite(priv, port, true);
+		ret = rtl8372n_port_vlan_egr_tag_rewrite(priv, port, true);
 		if (ret)
 			return ret;
 	}
@@ -1642,7 +1642,7 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 	 * Set the hardware do not add/remove/edit the vlan tag
 	 * The VLAN remains completely unchanged when the frame enters and exits
 	*/
-	rtl8372n_port_vlan_tag_rewrite(priv, port, false);
+	rtl8372n_port_vlan_egr_tag_rewrite(priv, port, false);
 }
 
 static int rtl8372n_port_enable(struct dsa_switch *ds, int port,
@@ -2252,7 +2252,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		if (ret)
 			return ret;
 
-		ret = rtl8372n_port_vlan_tag_rewrite(priv, port, false);
+		ret = rtl8372n_port_vlan_egr_tag_rewrite(priv, port, false);
 		if (ret)
 			return ret;
 
