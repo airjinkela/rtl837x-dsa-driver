@@ -685,8 +685,6 @@ int rtl837x_vlan_get(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan)
 	ret = regmap_read_poll_timeout(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp,
 		  ((tmp & RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
 		  0, 1000);
-
-	ret = rtl837x_reg_write(priv, RTL8373_ITA_WRITE_DATA0_ADDR(0), vlan->val);
 	if (ret)
 		return ret;
 
