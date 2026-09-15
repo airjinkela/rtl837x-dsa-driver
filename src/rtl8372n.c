@@ -1730,19 +1730,24 @@ rtl8372n_port_fdb_add(struct dsa_switch *ds, int port,
 
 	if (db.type == DSA_DB_BRIDGE && priv->tag_proto == DSA_TAG_PROTO_MXL862_8021Q)
 	{
-		//Because the CPU port can only learn 802.1q tags, So VLAN tags are ignored
-		if (vid != 0)
-			return 0;
 		/*
 		* When the DSA tag protocol is DSA_TAG_PROTO_MXL862_8021Q, the L2 VLAN
-		* learned on the CPU port is the 802.1q tag rather than the port's own
-		* VLAN ID. Therefore, write the 802.1q tags of all ports into the
-		* static FDB entries.
+		* learned on the CPU port is the 802.1q DSA TAG rather than the port's own
+		* VLAN ID.
+		* We need add the correct fdb entry
 		*/
-		struct dsa_port *dp;
-		dsa_switch_for_each_user_port(dp, ds) {
-			/* Add static fdb entry */
-			ret = rtl8372n_port_fdb_static_add(priv, port, addr, dsa_tag_8021q_standalone_vid(dp));
+		if (vid == 0)
+		{
+			struct dsa_port *dp;
+			dsa_switch_for_each_user_port(dp, ds) {
+				/* Add static fdb entry */
+				ret = rtl8372n_port_fdb_static_add(priv, port, addr, dsa_tag_8021q_standalone_vid(dp));
+				if (ret)
+					return ret;
+			}
+		} else
+		{
+			ret = rtl8372n_port_fdb_static_add(priv, port, addr, vid);
 			if (ret)
 				return ret;
 		}
@@ -1769,14 +1774,18 @@ rtl8372n_port_fdb_del(struct dsa_switch *ds, int port,
 
 	if (db.type == DSA_DB_BRIDGE && priv->tag_proto == DSA_TAG_PROTO_MXL862_8021Q)
 	{
-		if (vid != 0)
-			return 0;
-		struct dsa_port *dp;
-		dsa_switch_for_each_user_port(dp, ds) {
-			/* Del static fdb entry */
-			ret = rtl8372n_port_fdb_static_del(priv, addr, dsa_tag_8021q_standalone_vid(dp));
-			if (ret)
-				return ret;
+		if (vid == 0)
+		{
+			struct dsa_port *dp;
+			dsa_switch_for_each_user_port(dp, ds) {
+				/* Del static fdb entry */
+				ret = rtl8372n_port_fdb_static_del(priv, addr, dsa_tag_8021q_standalone_vid(dp));
+				if (ret)
+					return ret;
+			}
+		} else
+		{
+			return rtl8372n_port_fdb_static_del(priv, addr, vid);
 		}
 	} else
 	{
