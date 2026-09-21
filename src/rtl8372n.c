@@ -846,6 +846,13 @@ static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 	if (ret)
 		return ret;
 
+	// Set external CPU port
+	ret = rtl837x_reg_bits_write(priv, RTL8373_EXT_CPU_CTRL_ADDR,
+			  RTL8373_EXT_CPU_CTRL_PORT_MASK, cpu_dp->index
+			);
+	if (ret)
+		return ret;
+
 	// Enable CPU tag
 	ret = rtl837x_reg_bits_write(priv, RTL8373_CPU_TAG_CTRL_ADDR,
 			  RTL8373_CPU_TAG_CTRL_EXT_CPUTAG_EN_MASK, 1
@@ -932,14 +939,7 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 {
 	int ret;
     struct rtl837x_priv *priv = ds->priv;
-	struct dsa_port *dp = NULL;
 	dev_dbg(priv->dev, "[%s]\n", __func__);
-
-	u32 cpu_port_mask = 0;
-
-	dsa_switch_for_each_cpu_port(dp, ds) {
-		cpu_port_mask |= BIT(dp->index);
-	}
 
 	//  bit0: internal cpu; bit1: external cpu
 	ret = rtl837x_reg_bits_write(priv, RTL8373_SVLAN_TRAP_CTRL_ADDR,
@@ -962,7 +962,7 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 	if (ret)
 		return ret;
 
-	// Drop package when recv a package with out s-tag from cpu port
+	// Drop packets received from the CPU port without an S-tag
 	/*
      *	UNTAG_DROP = 0,
      *	UNTAG_TRAP,
@@ -975,13 +975,13 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 	if (ret)
 		return ret;
 
-	// Set Custome TPID
+	// Set custom TPID
 	ret = rtl837x_reg_write(priv, RTL8373_VS_GLB_CTRL_ADDR, ETH_P_8021Q);
 	if (ret)
 		return ret;
 
 	// Set cpu port as service port
-	ret = rtl837x_reg_write(priv, RTL8373_VS_UPLINK_PORT_ADDR, cpu_port_mask);
+	ret = rtl837x_reg_write(priv, RTL8373_VS_UPLINK_PORT_ADDR, dsa_cpu_ports(ds));
 	if (ret)
 		return ret;
 
@@ -2020,28 +2020,37 @@ static int rtl8372n_setup(struct dsa_switch *ds)
     struct rtl837x_priv *priv = ds->priv;
 	struct device_node *np = priv->dev->of_node;
 	struct rtl8372n *chip_data = priv->chip_data;
-	struct dsa_port *cpu_dp = NULL;
 	struct dsa_port *dp;
-	u32 downports_mask = 0,
-		cpu_port_mask = 0;
 
 	int cpu_dp_cnt = 0;
-	dsa_switch_for_each_cpu_port(dp, ds) {
-		cpu_port_mask |= BIT(dp->index);
-		cpu_dp = dp;
-		cpu_dp_cnt++;
-	}
+	dsa_switch_for_each_port(dp, ds) {
+		if (dsa_port_is_dsa(dp)) {
+			dev_err(priv->dev, "Cascading (DSA link) not supported\n");
+			return -EOPNOTSUPP;
+		}
 
-	// TODO: muilt CPU port support
-	if (cpu_dp_cnt > 1)
-	{
-		dev_err(priv->dev,"We only support one cpu port now\n");
-		return -ENODEV;
-	}
+		if (dsa_port_is_cpu(dp))
+		{
+			cpu_dp_cnt++;
+			// TODO: multi CPU port support
+			if (cpu_dp_cnt > 1)
+			{
+				dev_err(priv->dev,"We only support one cpu port now\n");
+				return -ENODEV;
+			}
 
-	if (!cpu_dp) {
-		dev_err(priv->dev,"No CPU port found\n");
-		return -ENODEV;
+			/*
+			 * Set the external CPU port.
+			 * This is used to trap frames that exceed the L2 auto-learning
+			 * limit, not for the DSA tag (rtl8_4).
+			 * With the rtl8_4 tagger, rtl8372n_set_tag_rtl() overwrites it.
+			 */
+			ret = rtl837x_reg_bits_write(priv, RTL8373_EXT_CPU_CTRL_ADDR,
+					RTL8373_EXT_CPU_CTRL_PORT_MASK, dp->index
+					);
+			if (ret)
+				return ret;
+		}
 	}
 
 	chip_data->pcs[3].pcs.ops = &rtl8372n_sds_pcs_ops;
@@ -2184,6 +2193,11 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	msleep(5);
 
 
+	/*
+	 * Clear certain register configurations during the startup.
+	 * In some cases, a hardware reset of the chip fails to clear and reset all registers.
+	 * Therefore, clearing is required during startup.
+	*/
 	dsa_switch_for_each_port(dp, ds) {
 		ret = rtl8372n_port_remove_egr_vlan_transparent(priv, dp->index, 0xffffffff);
 		if(ret)
@@ -2233,35 +2247,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		if (ret)
 			return ret;
 
-		if (dsa_port_is_unused(dp))
-			continue;
-
-		// FORWARD:0, DROP:1, TO_CPU:2
-		ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_PORT_CONSTRT_ACT_ADDR,
-			 RTL8373_L2_LRN_PORT_CONSTRT_ACT_LRN_ACT_MASK, 0
-			);
-		if (ret)
-			return ret;
-
-		/*
-		 * Start with all port egress frame kept the origin vlan format
-		*/
-		ret = rtl8372n_port_vlan_egr_tag_rewrite(priv, port, false);
-		if (ret)
-			return ret;
-
-		// Accept untaged Frame
-		ret = rtl8372n_port_igr_drop_untagged(priv, port, false);
-		if (ret)
-			return ret;
-
-		// Disable Ingress filter
-		ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_IGR_FLTR_ADDR(port),
-			  RTL8373_VLAN_PORT_IGR_FLTR_IGR_FLTR_ACT_MASK(port), 0
-			);
-		if (ret)
-			return ret;
-
 		// Disable port EEE feature
 		ret = rtl837x_reg_bits_write(priv, RTL8373_EEE_CTRL_ADDR(port), 
 				  RTL8373_EEE_CTRL_EEE_PORT_TX_EN_MASK | RTL8373_EEE_CTRL_EEE_PORT_RX_EN_MASK,
@@ -2276,15 +2261,28 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 				);
 		if (ret)
 			return ret;
+	}
 
-		if (!dsa_port_is_user(dp))
-			continue;
+	dsa_switch_for_each_available_port(dp, ds) {
+		int port = dp->index;
+		// Start with all ports' egress frames keeping their original VLAN format
+		ret = rtl8372n_port_vlan_egr_tag_rewrite(priv, port, false);
+		if (ret)
+			return ret;
 
+		// Disable vlan filter
+		ret = rtl8372n_vlan_filtering(ds, port, false, NULL);
+		if (ret)
+			return ret;
+	}
+
+	dsa_switch_for_each_user_port(dp, ds) {
+		int port = dp->index;
 		/*
-		 * make sure the frame that sent from cpu won't be add or rewrite the vlan tag
-		 * just keep it origin format
-		*/
-		ret = rtl8372n_port_add_egr_vlan_keep(priv, port, cpu_port_mask);
+		 * Make sure frames sent from the CPU neither get a VLAN tag added
+		 * nor have their VLAN tag rewritten, i.e. keep the original format.
+		 */
+		ret = rtl8372n_port_add_egr_vlan_keep(priv, port, dsa_cpu_ports(ds));
 		if (ret)
 			return ret;
 
@@ -2298,17 +2296,17 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 
 		/* Forward only to the CPU */
 		ret = rtl8372n_port_set_isolation(priv, dp->index,
-						   BIT(cpu_dp->index));
+						   dsa_cpu_ports(ds));
 		if (ret)
 			return ret;
-
-		downports_mask |= BIT(dp->index);
 	}
 
-	ret = rtl8372n_port_set_isolation(priv, cpu_dp->index,
-						downports_mask);
-	if (ret)
-		return ret;
+	dsa_switch_for_each_cpu_port(dp, ds) {
+		ret = rtl8372n_port_set_isolation(priv, dp->index,
+							dsa_user_ports(ds));
+		if (ret)
+			return ret;
+	}
 
 	/*
 	 * Warning! 
@@ -2415,13 +2413,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	 * --------------------------------------------------------------------------------
 	 * ================================================================================
 	*/
-
-	// Set external CPU port
-	ret = rtl837x_reg_bits_write(priv, RTL8373_EXT_CPU_CTRL_ADDR,
-			  RTL8373_EXT_CPU_CTRL_PORT_MASK, cpu_dp->index
-			);
-	if (ret)
-		return ret;
 
 	ret = rtl837x_reg_bits_write(priv, RTL8373_L2_TBL_FLUSH_ALL_ADDR,
 				  RTL8373_L2_TBL_FLUSH_ALL_FLUSH_ALL_MASK, 1);
