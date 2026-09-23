@@ -856,6 +856,65 @@ static const struct file_operations _l2uc_dump_fops = {
 	.read = _l2uc_dump_read
 };
 
+static ssize_t _port_eee_status_dump_read(struct file *filep, char __user *ubuf,
+					  size_t count, loff_t *offp)
+{
+	int ret, len = 0;
+	char *buf;
+	u32 reg;
+	unsigned int port;
+	struct seq_file *sfile;
+	struct rtl837x_priv *priv;
+
+	sfile = filep->private_data;
+	priv = sfile->private;
+
+	buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	/* Global EEE LPI delay / FIFO water-level setting */
+	ret = rtl837x_reg_read(priv, RTL8373_EEE_LPI_DLY_CYCLE_ADDR, &reg);
+	if (!ret)
+		len += scnprintf(buf + len, PAGE_SIZE - len,
+			"lpi_dly_cycle: 0x%08x tx_dly_cycle:%lu rx_dly_cycle:%lu water_level_st:0x%02lx\n",
+			reg,
+			(unsigned long)((reg & RTL8373_EEE_LPI_DLY_CYCLE_TX_LPI_DLY_CYCLE_MASK) >>
+				RTL8373_EEE_LPI_DLY_CYCLE_TX_LPI_DLY_CYCLE_OFFSET),
+			(unsigned long)((reg & RTL8373_EEE_LPI_DLY_CYCLE_RX_LPI_DLY_CYCLE_MASK) >>
+				RTL8373_EEE_LPI_DLY_CYCLE_RX_LPI_DLY_CYCLE_OFFSET),
+			(unsigned long)((reg & RTL8373_EEE_LPI_DLY_CYCLE_CFG_WATER_LEVEL_ST_MASK) >>
+				RTL8373_EEE_LPI_DLY_CYCLE_CFG_WATER_LEVEL_ST_OFFSET));
+
+	/* Per-port EEE control (TX/RX enable + TX/RX status) */
+	for (port = 0; port < priv->num_ports; port++) {
+		ret = rtl837x_reg_read(priv, RTL8373_EEE_CTRL_ADDR(port), &reg);
+		if (ret)
+			continue;
+
+		len += scnprintf(buf + len, PAGE_SIZE - len,
+			"port:%u tx_en:%d rx_en:%d tx_sts:%d rx_sts:%d\n",
+			port,
+			!!(reg & RTL8373_EEE_CTRL_EEE_PORT_TX_EN_MASK),
+			!!(reg & RTL8373_EEE_CTRL_EEE_PORT_RX_EN_MASK),
+			!!(reg & RTL8373_EEE_CTRL_EEE_TX_STS_MASK),
+			!!(reg & RTL8373_EEE_CTRL_EEE_RX_STS_MASK));
+
+		if (len >= PAGE_SIZE - 64)
+			break;
+	}
+
+	ret = simple_read_from_buffer(ubuf, count, offp, buf, len);
+	kfree(buf);
+	return ret;
+}
+
+static const struct file_operations _port_eee_status_dump_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_debugfs_open,
+	.read = _port_eee_status_dump_read
+};
+
 int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 {
 	char name[64];
@@ -916,6 +975,10 @@ int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 	debugfs_create_file("sds_page_dump", 0400,
 		priv->debugfs_parent, priv,
 		&_sds_page_dump_fops);
+
+	debugfs_create_file("port_eee_status_dump", 0400,
+		priv->debugfs_parent, priv,
+		&_port_eee_status_dump_fops);
 
 	return 0;
 }

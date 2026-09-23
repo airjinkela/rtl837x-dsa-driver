@@ -1653,6 +1653,26 @@ static void rtl8372n_port_disable(struct dsa_switch *ds, int port)
 	priv->ops->phy_write_c45(priv, port, 31, 0xa610, 0x2858);
 }
 
+static int rtl8372n_set_mac_eee(struct dsa_switch *ds, int port, struct ethtool_keee *eee)
+{
+    struct rtl837x_priv *priv = ds->priv;
+
+	dev_dbg(priv->dev, "[%s]: port(%d) eee_enable:(%s)\n", __func__,
+						  port, eee->eee_enabled ? "true" : "false");
+
+	if (eee->eee_enabled)
+		return rtl837x_reg_bits_write(priv, RTL8373_EEE_CTRL_ADDR(port), 
+				  RTL8373_EEE_CTRL_EEE_PORT_TX_EN_MASK | RTL8373_EEE_CTRL_EEE_PORT_RX_EN_MASK,
+				  0xffffffff
+				);
+	else
+		return rtl837x_reg_bits_write(priv, RTL8373_EEE_CTRL_ADDR(port), 
+				  RTL8373_EEE_CTRL_EEE_PORT_TX_EN_MASK | RTL8373_EEE_CTRL_EEE_PORT_RX_EN_MASK,
+				  0
+				);
+	return 0;
+}
+
 static int
 rtl8372n_port_fdb_static_add(struct rtl837x_priv *priv, int port,
 		    const unsigned char *addr, u16 vid)
@@ -2247,7 +2267,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		if (ret)
 			return ret;
 
-		// Disable port EEE feature
+		// Disable port EEE feature by default
 		ret = rtl837x_reg_bits_write(priv, RTL8373_EEE_CTRL_ADDR(port), 
 				  RTL8373_EEE_CTRL_EEE_PORT_TX_EN_MASK | RTL8373_EEE_CTRL_EEE_PORT_RX_EN_MASK,
 				  0
@@ -2503,7 +2523,10 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.tag_8021q_vlan_del = rtl8372n_tag_8021q_vlan_del,
 
 	.port_enable = rtl8372n_port_enable,
-	.port_disable = rtl8372n_port_disable
+	.port_disable = rtl8372n_port_disable,
+
+	.support_eee		= dsa_supports_eee,
+	.set_mac_eee		= rtl8372n_set_mac_eee,
 };
 
 static const struct rtl837x_ops rtl8372n_ops = {
