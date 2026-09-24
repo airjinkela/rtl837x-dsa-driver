@@ -300,6 +300,40 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
 	return 0;
 }
 
+static int rtl8372n_soft_reset_chip(struct rtl837x_priv *priv)
+{
+	u32 tmp;
+	if (priv->write_reg_noack)
+		priv->write_reg_noack(priv, RTL8373_RST_GLB_CTRL_0_ADDR,
+			      FIELD_PREP(RTL8373_RST_GLB_CTRL_0_SW_CHIP_RST_MASK, 1));
+	msleep(250);
+	return regmap_read_poll_timeout(priv->map, RTL8373_RST_GLB_CTRL_0_ADDR, tmp,
+					!(tmp & RTL8373_RST_GLB_CTRL_0_SW_CHIP_RST_MASK),
+					20000, 1e6);
+}
+
+static int rtl8372n_reset_serdes(struct rtl837x_priv *priv)
+{
+	int ret;
+	u32 tmp;
+
+	ret = rtl837x_reg_bits_write(priv, RTL8373_RST_GLB_CTRL_0_ADDR,
+				  RTL8373_RST_GLB_CTRL_0_SDS_REG_RST_MASK,
+				  1
+				);
+	if (ret)
+		return ret;
+
+	msleep(50);
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_RST_GLB_CTRL_0_ADDR, tmp,
+		  ((tmp & RTL8373_RST_GLB_CTRL_0_SDS_REG_RST_MASK) == 0),
+		  200, 5000);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 // Set Ingress frame type
 static int rtl8372n_port_igr_drop_untagged(struct rtl837x_priv *priv, int port, bool drop)
 {
@@ -561,12 +595,12 @@ out:
 	return ret;
 }
 
-static int rtl8372n_pcs_validate(struct phylink_pcs *pcs,
-			       unsigned long *supported,
-			       const struct phylink_link_state *state)
+static unsigned int rtl8372n_sds_pcs_inband_caps(struct phylink_pcs *pcs,
+					      phy_interface_t interface)
 {
-	return 0;
+	return LINK_INBAND_ENABLE;
 }
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6,18,0)
 static void rtl8372n_sds_pcs_get_state(struct phylink_pcs *pcs, unsigned int neg_mode,
 				 struct phylink_link_state *state)
@@ -581,11 +615,12 @@ static void rtl8372n_sds_pcs_get_state(struct phylink_pcs *pcs,
 	struct rtl837x_priv *priv = _pcs->priv;
 	int port = _pcs->index;
 
-	ret = rtl837x_reg_bits_read(priv, RTL8373_MAC_LINK_STS_ADDR, BIT(port), &tmp);
+	ret = rtl837x_reg_bits_read(priv, RTL8373_SDS_INTF_OUT1_ADDR(PORT_TO_SERDES_IDX(port)),
+				  RTL8373_SDS_INTF_OUT1_SDS01_SDS_LINK_OK_MASK, &tmp);
 	if (ret < 0)
 		return;
-	state->link = tmp&1;
-	state->an_complete = tmp&1;
+	state->link = tmp==1;
+	state->an_complete = tmp==1;
 
 	ret = rtl837x_reg_bits_read(priv, RTL8373_MAC_LINK_DUP_STS_ADDR, BIT(port), &tmp);
 	if (ret < 0)
@@ -638,22 +673,56 @@ static void rtl8372n_sds_pcs_get_state(struct phylink_pcs *pcs,
 	// 				  port, state->speed, state->link, state->duplex);
 }
 
-static int rtl8372n_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
+static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
 			     phy_interface_t interface,
 			     const unsigned long *advertising,
 			     bool permit_pause_to_mac)
 {
-	return 0;
+	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
+	struct rtl837x_priv *priv = _pcs->priv;
+	int port = _pcs->index;
+
+	dev_dbg(priv->dev, "[%s]PCS config serdes (%d) mode (%x)\n", __func__,
+			  PORT_TO_SERDES_IDX(port), 
+			  phy_interface_to_rtk_sds_mode(interface));
+
+	return rtl837x_serdes_set_mode(priv, PORT_TO_SERDES_IDX(port), phy_interface_to_rtk_sds_mode(interface));
 }
 
-static void rtl8372n_pcs_an_restart(struct phylink_pcs *pcs)
+static void rtl8372n_sds_pcs_link_up(struct phylink_pcs *pcs, unsigned int neg_mode,
+			    phy_interface_t interface, int speed, int duplex)
 {
+	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
+	struct rtl837x_priv *priv = _pcs->priv;
+	int port = _pcs->index;
+	dev_dbg(priv->dev, "[%s]PCS link up serdes (%d) mode (%x)\n", __func__,
+			  PORT_TO_SERDES_IDX(port), 
+			  phy_interface_to_rtk_sds_mode(interface));
+
+	switch (phy_interface_to_rtk_sds_mode(interface))
+	{
+		case SERDES_10GQXG:
+		case SERDES_10GR:
+		case SERDES_10GUSXG:
+			dev_dbg(priv->dev, "[%s]Reset Serdes RX R\n", __func__);
+			rtl837x_sds_reset_R(priv, PORT_TO_SERDES_IDX(port));
+			break;
+		default:
+			dev_dbg(priv->dev, "[%s]Reset Serdes RX X\n", __func__);
+			rtl837x_sds_reset_X(priv, PORT_TO_SERDES_IDX(port));
+			break;
+	}
 }
+
+// TODO? OR Just Empty Func?
+static void rtl8372n_pcs_an_restart(struct phylink_pcs *pcs)
+{}
 
 static const struct phylink_pcs_ops rtl8372n_sds_pcs_ops = {
-	.pcs_validate = rtl8372n_pcs_validate,
+	.pcs_inband_caps = rtl8372n_sds_pcs_inband_caps,
 	.pcs_get_state = rtl8372n_sds_pcs_get_state,
-	.pcs_config = rtl8372n_pcs_config,
+	.pcs_config = rtl8372n_sds_pcs_config,
+	.pcs_link_up = rtl8372n_sds_pcs_link_up,
 	.pcs_an_restart = rtl8372n_pcs_an_restart,
 };
 
@@ -689,80 +758,20 @@ static struct phylink_pcs *rtl8372n_phylink_mac_select_pcs(struct phylink_config
 	return NULL;
 }
 
+// TODO: config for internal phy?
 static void rtl8372n_phylink_mac_config(struct phylink_config *config, unsigned int mode,
 			const struct phylink_link_state *state)
-{
-	struct dsa_port *dp = dsa_phylink_to_port(config);
-	struct rtl837x_priv *priv = dp->ds->priv;
-	int port = dp->index;
-
-	// dev_info(priv->dev, "\n\ncalled rtl8372n_phylink_mac_config: port: %d, mode: %s\n\n\n", port, phy_modes(interface));
-
-	if (!IS_SERDES_PORT(port))
-		return;
-	dev_info(priv->dev, "MAC config serdes port(%d) mode (%x)\n", 
-			  PORT_TO_SERDES_IDX(port), 
-			  phy_interface_to_rtk_sds_mode(state->interface));
-
-	if (rtl837x_serdes_set_mode(priv, PORT_TO_SERDES_IDX(port), phy_interface_to_rtk_sds_mode(state->interface)))
-		dev_err(priv->dev, "[%s]: Failed to set serdes mode\n", __func__);
-}
+{}
 
 static void rtl8372n_phylink_mac_link_down(struct phylink_config *config, unsigned int mode,
 				phy_interface_t interface)
-{
-	struct dsa_port *dp = dsa_phylink_to_port(config);
-	struct rtl837x_priv *priv = dp->ds->priv;
-	int port = dp->index;
-	int ret = 0;
-
-	switch (port)
-	{
-	case 4 ... 7:
-		dev_info(priv->dev, "MAC link down on phy port (%d)\n", port);
-		break;
-	case 3:
-	case 8:
-		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", PORT_TO_SERDES_IDX(port));
-		break;
-	}
-
-	if (ret) {
-		dev_err(priv->dev, "MAC link down failed port(%d)\n", port);
-		return;
-	}
-}
+{}
 
 static void rtl8372n_phylink_mac_link_up(struct phylink_config *config,
 			struct phy_device *phy, unsigned int mode,
 			phy_interface_t interface, int speed, int duplex,
 			bool tx_pause, bool rx_pause)
-{
-	struct dsa_port *dp = dsa_phylink_to_port(config);
-	struct rtl837x_priv *priv = dp->ds->priv;
-	int port = dp->index;
-	int ret = 0;
-
-	switch (port)
-	{
-	case 4 ... 7:
-		dev_info(priv->dev, "MAC link up on phy port(%d)\n", port);
-		break;
-	case 3:
-	case 8:
-		dev_info(priv->dev, "MAC link up on serdes port(%d) mode (%x), speed (%d)\n", 
-							PORT_TO_SERDES_IDX(port), 
-							phy_interface_to_rtk_sds_mode(interface),
-							speed);
-		ret = rtl837x_serdes_set_mode(priv, PORT_TO_SERDES_IDX(port), phy_interface_to_rtk_sds_mode(interface));
-		break;
-	}
-
-	if (ret) {
-		dev_err(priv->dev, "[%s]: failed to enable the port(%d)\n", __func__, port);
-		return;
-	}
-}
+{}
 
 static const struct phylink_mac_ops rtl8372n_phylink_mac_ops = {
 	.mac_select_pcs	= rtl8372n_phylink_mac_select_pcs,
@@ -2042,6 +2051,23 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *dp;
 
+
+	ret = rtl8372n_soft_reset_chip(priv);
+	if (ret)
+	{
+		dev_err(priv->dev, "failed to reset chip: %pe\n",
+			ERR_PTR(ret));
+		return ret;
+	}
+
+	ret = rtl8372n_reset_serdes(priv);
+	if (ret)
+	{
+		dev_err(priv->dev, "failed to reset serdes: %pe\n",
+			ERR_PTR(ret));
+		return ret;
+	}
+
 	int cpu_dp_cnt = 0;
 	dsa_switch_for_each_port(dp, ds) {
 		if (dsa_port_is_dsa(dp)) {
@@ -2132,11 +2158,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		rtl837x_sds_reg_bits_write(priv, 1, 0, 0, 1 << 8, 1); //#SDS1TX PN swap
 		rtl837x_sds_reg_bits_write(priv, 1, 6, 2, 1 << 14, 1);
 	}
-
-	rtl837x_sds_reset_R(priv, 1);
-	msleep(5);
-	rtl837x_sds_reset_R(priv, 0);
-	msleep(5);
 
 	/*
 	  What The Fuck Is This??????? 

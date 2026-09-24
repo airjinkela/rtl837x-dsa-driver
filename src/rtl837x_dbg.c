@@ -380,11 +380,13 @@ ssize_t MAKE_WRITE_FUNCNAME(reg)(struct file *filep, const char __user *ubuf,
 			return -EFAULT;
 		}
 		rtl837x_reg_write(priv, reg, val);
+		goto reg_readback;
 	} else if(buf[0] == 'r') {
 		if(sscanf(buf, "r %x", &reg) != 1) {
 			kfree(buf);
 			return -EFAULT;
 		}
+reg_readback:
 		rtl837x_reg_read(priv, reg, &val);
 		BUF_PRINTF(reg, "reg: 0x%08x, val: 0x%08x\n", reg, val);
 	} else {

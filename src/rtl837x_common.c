@@ -1020,16 +1020,16 @@ static int _set_serdes_mode(struct rtl837x_priv *priv, bool is_8224, u8 sds_idx,
 		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, 
 			   RTL8373_SDS_MODE_SEL_SDS0_USX_SUB_MODE_MASK, SDS_USX_SUB_MODE);
 		if (ret) return ret;
-		rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
+		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
 			   RTL8373_SDS_MODE_SEL_SDS0_MODE_SEL_MASK, mode);
 		if (ret) return ret;
 	}
 	else if(sds_idx == 1)
 	{
-		rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, 
+		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, 
 			   RTL8373_SDS_MODE_SEL_SDS1_USX_SUB_MODE_MASK, SDS_USX_SUB_MODE);
 		if (ret) return ret;
-		rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
+		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
 			   RTL8373_SDS_MODE_SEL_SDS1_MODE_SEL_MASK, mode);
 		if (ret) return ret;
 	}
@@ -1040,10 +1040,12 @@ static int _set_serdes_mode(struct rtl837x_priv *priv, bool is_8224, u8 sds_idx,
 		if (ret) return ret;
         ret = rtl837x_rtl8224_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, RTL8373_SDS_MODE_SEL_CFG_MAC8_8221B_MASK, 0);
 		if (ret) return ret;
-		rtl837x_serdes_patch(priv, is_8224, sds_idx, mode);
+		ret = rtl837x_serdes_patch(priv, is_8224, sds_idx, mode);
+		if (ret) return ret;
 	} else
 	{
-		rtl837x_serdes_patch(priv, is_8224, sds_idx, mode);
+		ret = rtl837x_serdes_patch(priv, is_8224, sds_idx, mode);
+		if (ret) return ret;
         ret = rtl837x_fiber_fc_en(priv, sds_idx, mode, true);
 		if (ret) return ret;
         ret = rtl837x_sds_nway_set(priv, sds_idx, mode, true);
