@@ -2034,6 +2034,137 @@ static void rtl8372n_port_stp_state_set(struct dsa_switch *ds, int port, u8 stat
 	}
 }
 
+#define RTL8373_RMA_OP_CTRL(solt)    (0x4ECC + (solt << 2))
+  #define RTL8373_RMA_OP_CTRL_RMA_ACT_MASK           (0x3 << 4)
+  #define RTL8373_RMA_OP_CTRL_DIS_STORM_CTRL_MASK    (0x1 << 3)
+  #define RTL8373_RMA_OP_CTRL_CKEEP_MASK             (0x1 << 2)
+  #define RTL8373_RMA_OP_CTRL_VLAN_LEAKY_MASK        (0x1 << 1)
+  #define RTL8373_RMA_OP_CTRL_PISO_LEAKY_MASK        (0x1)
+
+
+typedef enum RTL8373_RMAOPERA
+{
+    RMAOPERA_FORWARD = 0,
+    RMAOPERA_TRAP_TO_CPU,
+    RMAOPERA_DROP,
+    RMAOPERA_FORWARD_EXCLUDE_CPU,
+    RMAOPERA_END
+} rtl837x_rma_opera;
+
+enum RTL837x_SPECAIAL_RMA_INDEX
+{
+	RMA_INDEX_CISCO_CDP = 0xCC,
+	RMA_INDEX_CISCO_STP = 0xCD,
+	RMA_INDEX_LLDP = 0xE3
+};
+
+static int rtl8372n_rma_set(struct rtl837x_priv *priv, u8 index, 
+	  rtl837x_rma_opera opera,
+	  bool ignore_storm_filter,
+	  bool keep_format,
+	  bool vlan_leaky, bool portiso_leaky)
+{
+	int solt = 0;
+
+	switch (index)
+	{
+	/* STP, 802.3 Pause Frame, LACP, 802.1X*/
+	case 0x0 ... 0x3:
+		solt = index;
+		break;
+	/* Reserved Address */
+	case 0x4 ... 0x7:
+	case 0x9 ... 0xC:
+	case 0xF:
+		solt = 0x4;
+		break;
+	/* Provider Bridge Group Address */
+	case 0x8:
+		solt = 0x5;
+		break;
+	/* Provider Bridge GVRP Address */
+	case 0xD:
+		solt = 0x6;
+		break;
+	/* Link Layer Discovery Protocol multicast addres */
+	case 0xE:
+		solt = 0x7;
+		break;
+	/* All LANs Bridge Management Group Address (deprecated) */
+	case 0x10:
+		solt = 0x8;
+		break;
+	/* Load Server Generic Address */
+	case 0x11:
+		solt = 0x9;
+		break;
+	/* Loadable Device Generic Address */
+	case 0x12:
+		solt = 0xA;
+		break;
+	/* Reserved Address */
+	case 0x13 ... 0x17:
+	case 0x19:
+	case 0x1B ... 0x1F:
+		solt = 0xB;
+		break;
+	/* Generic Address for All Manager Stations */
+	case 0x18:
+		solt = 0xC;
+		break;
+	/* Generic Address for All Agent Stations */
+	case 0x1A:
+		solt = 0xD;
+		break;
+	/* GMRP Address */
+	case 0x20:
+		solt = 0xE;
+		break;
+	/* GVRP address */
+	case 0x21:
+		solt = 0xF;
+		break;
+	/* Undefined GARP address */
+	case 0x22 ... 0x2F:
+		solt = 0x10;
+		break;
+	/* Cisco CDP */
+	case (u8)RMA_INDEX_CISCO_CDP:
+		solt = 0x11;
+		break;
+	/* Cisco STP */
+	case (u8)RMA_INDEX_CISCO_STP:
+		solt = 0x12;
+		break;
+	/* LLDP */
+	case (u8)RMA_INDEX_LLDP:
+		solt = 0x13;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	u32 tmp = (FIELD_PREP(RTL8373_RMA_OP_CTRL_RMA_ACT_MASK, opera) |
+			   FIELD_PREP(RTL8373_RMA_OP_CTRL_DIS_STORM_CTRL_MASK, ignore_storm_filter) |
+			   FIELD_PREP(RTL8373_RMA_OP_CTRL_CKEEP_MASK, keep_format) |
+			   FIELD_PREP(RTL8373_RMA_OP_CTRL_VLAN_LEAKY_MASK, vlan_leaky) |
+			   FIELD_PREP(RTL8373_RMA_OP_CTRL_PISO_LEAKY_MASK, portiso_leaky));
+
+	return rtl837x_reg_bits_write(priv, RTL8373_RMA_OP_CTRL(solt),
+			  RTL8373_RMA_OP_CTRL_RMA_ACT_MASK | 
+			  RTL8373_RMA_OP_CTRL_DIS_STORM_CTRL_MASK | RTL8373_RMA_OP_CTRL_CKEEP_MASK | 
+			  RTL8373_RMA_OP_CTRL_VLAN_LEAKY_MASK | RTL8373_RMA_OP_CTRL_PISO_LEAKY_MASK,
+			  tmp
+			);
+}
+
+static int rtl8372n_rma_trap_priority(struct rtl837x_priv *priv, u8 priority)
+{
+    return rtl837x_reg_bits_write(priv, RTL8373_RMA_CFG_ADDR, 
+		  RTL8373_RMA_CFG_RMA_TRAP_PRI_MASK, priority
+		);
+}
+
 static int rtl8372n_setup(struct dsa_switch *ds)
 {
     int ret;
@@ -2468,6 +2599,22 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 			  RTL8373_MIR_CTRL_MIR_TX_ISOLATE_LKY_MASK | RTL8373_MIR_CTRL_MIR_RX_ISOLATE_LKY_MASK,
 			  0
 			);
+	if (ret)
+		return ret;
+
+	ret = rtl837x_reg_bits_write(priv, RTL8373_RMA_PTP_TRAP_CTRL_ADDR,
+			  RTL8373_RMA_PTP_TRAP_CTRL_CPU_PMSK_MASK,
+			  BIT(1)
+			);
+	if (ret)
+		return ret;
+
+	ret = rtl8372n_rma_trap_priority(priv, 7);
+	if (ret)
+		return ret;
+
+	ret = rtl8372n_rma_set(priv, 0, RMAOPERA_FORWARD_EXCLUDE_CPU,
+		  true, false, false, false);
 	if (ret)
 		return ret;
 
