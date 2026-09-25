@@ -11,7 +11,7 @@
 #include <linux/of_irq.h>
 #include <linux/regmap.h>
 
-#include "./rtl837x.h"
+#include "rtl837x.h"
 
 static const u16 patch_an_10p3125g_a[][3] ={
 	{0x0021, 0x0010, 0x4480},
@@ -717,8 +717,10 @@ static inline int _rtl837x_sds_reset_R(bool is_8224, struct rtl837x_priv *priv, 
 	int ret;
 	u16 rx_sts, tmp;
 	bool rx_idle, nsq, sync_ok, link_ok, hi_ber; // nsq:(Noise Squelch) hi_ber:(High bit error rate)
-
-	ret = _sds_reg_bits_read(is_8224, priv, sds_idx, 0x20, 0, 0x30, &rx_sts);
+	ret = _sds_reg_bits_read(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+			  &rx_sts
+			);
 	if (ret)
 		return ret;
 
@@ -768,16 +770,26 @@ static inline int _rtl837x_sds_reset_R(bool is_8224, struct rtl837x_priv *priv, 
 	return 0;
 
 do_reset:
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<4, 3);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC, 
+		  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+		  0x3
+		);
 	if (ret) return ret;
 	msleep(1);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<4, 1);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+		  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+		  0x1);
 	if (ret) return ret;
 	msleep(1);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<4, 3);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC, 
+		  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+		  0x3
+		);
 	if (ret) return ret;
 	msleep(1);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<4, 0);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+		  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+		  0x0);
 	if (ret) return ret;
 	msleep(1);
 
@@ -801,7 +813,10 @@ int rtl837x_sds_reset_X(struct rtl837x_priv *priv, u8 sds_idx)
 	u16 rx_sts, tmp;
 	bool sig_ok, sync_ok, link_ok;
 
-	ret = rtl837x_sds_reg_bits_read(priv, sds_idx, 0x20, 0, 0x30, &rx_sts);
+	ret = rtl837x_sds_reg_bits_read(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+			  &rx_sts
+			);
 	if (ret)
 		return ret;
 
@@ -848,33 +863,47 @@ static inline int rtl837x_fiber_fc_en(struct rtl837x_priv *priv, u8 sds_idx, rtk
 	switch(mode)
 	{
 		case SERDES_100FX:
-			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 31, 5, 0x1<<2, 0x1);
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<2, 0x1);
 			if (ret) return ret;
-			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 31, 5, 0x1<<3, 0x1);
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<3, 0x1);
 			if (ret) return ret;
 			if(fc_en)
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 2, 4, 0x3<<10, 0x3);
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
+						  SDS_CTRL02_XSG_AN_10_100_Pause_MASK | SDS_CTRL02_XSG_AN_10_100_AsymmetricPause_MASK,
+						  0x3
+						);
 			else
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 2, 4, 0x3<<10, 0x0);
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
+						  SDS_CTRL02_XSG_AN_10_100_Pause_MASK | SDS_CTRL02_XSG_AN_10_100_AsymmetricPause_MASK,
+						  0x0
+						);
 			if (ret) return ret;
 			break;
 		case SERDES_1000BASEX:
 		case SERDES_2500BASEX:
-			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 31, 5, 0x1<<2, 0x1);
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<2, 0x1);
 			if (ret) return ret;
-			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 31, 5, 0x1<<3, 0x0);
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<3, 0x0);
 			if (ret) return ret;
 			if(fc_en)
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 2, 4, 0x3<<7, 0x3);
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
+						  0x3<<7, 0x3);
 			else
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 2, 4, 0x3<<7, 0x0);
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
+						  0x3<<7, 0x0);
 			if (ret) return ret;
 			break;  
-		case SERDES_10GR: 
+		case SERDES_10GR:
 			if(fc_en)
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 31, 11, 0x3<<2, 0x3);
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL1F, SDS_REG_CTRL1F_10GR_AN,
+					  SDS_CTRL1F_10GR_AN_Pause_MASK | SDS_CTRL1F_10GR_AN_AsymmetricPause_MASK,
+					  0x3
+					);
 			else
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 31, 11, 0x3<<2, 0x0);
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL1F, SDS_REG_CTRL1F_10GR_AN,
+					  SDS_CTRL1F_10GR_AN_Pause_MASK | SDS_CTRL1F_10GR_AN_AsymmetricPause_MASK,
+					  0x0
+					);
 			if (ret) return ret;
 			break; 	 
 		default:
@@ -897,25 +926,49 @@ static inline int rtl837x_sds_nway_set(struct rtl837x_priv *priv, u8 sds_idx, rt
 		case SERDES_HSG:
 			if(an_en)
 			{
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0, 2, 0x3<<8, 0x3);
+				// Force Enable NWAY
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
+							  SDS_CTRL00_REG02_XSG_FRC_NWAY | SDS_CTRL00_REG02_XSG_FRC_NWAY_EN, 
+							  0x3
+							);
 				if (ret) return ret;
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0, 4, 0x1<<2, 0x1);
+				// Set link partner mode to force mode
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG04,
+					  SDS_CTRL00_REG04_NWAY_FRC_LINK,
+					  0x1
+					);
 				if (ret) return ret;
 			}
 			else
 			{
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0, 2, 0x3<<8, 0x1);
+				// Force Disable NWAY
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
+							  SDS_CTRL00_REG02_XSG_FRC_NWAY | SDS_CTRL00_REG02_XSG_FRC_NWAY_EN, 
+							  0x1
+							);
 				if (ret) return ret;
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0, 4, 0x1<<2, 0x1);
+				// Set link partner mode to force mode
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG04,
+					  SDS_CTRL00_REG04_NWAY_FRC_LINK,
+					  0x1
+					);
 				if (ret) return ret;
 			}
 			break;  
 		case SERDES_10GUSXG:
 		case SERDES_10GQXG:
 			if(an_en)
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 7, 17, 0xf<<0, 0xf);
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_NWAY_AN, SDS_REG_NWAY_AN,
+						  SDS_NWAY_QHSG_AN_CH0_EN_MASK | SDS_NWAY_QHSG_AN_CH1_EN_MASK |
+						  SDS_NWAY_QHSG_AN_CH2_EN_MASK | SDS_NWAY_QHSG_AN_CH3_EN_MASK,
+						  0xf
+						);
 			else
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 7, 17, 0xf<<0, 0x0);
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_NWAY_AN, SDS_REG_NWAY_AN,
+						  SDS_NWAY_QHSG_AN_CH0_EN_MASK | SDS_NWAY_QHSG_AN_CH1_EN_MASK |
+						  SDS_NWAY_QHSG_AN_CH2_EN_MASK | SDS_NWAY_QHSG_AN_CH3_EN_MASK,
+						  0x0
+						);
 			if (ret) return ret;	
 			break;
 		default:
@@ -1054,54 +1107,87 @@ static int _set_serdes_mode(struct rtl837x_priv *priv, bool is_8224, u8 sds_idx,
 	}
 
 	msleep(500);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<4, 0x3);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC, 
+		  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+		  0x3
+		);
 	if (ret) return ret;
 	msleep(5);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<4, 0x1);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+		  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+		  0x1);
 	if (ret) return ret;
 	msleep(50);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<6, 0x1);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+		  SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
+		  0x1);
 	if (ret) return ret;
 	msleep(5);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<6, 0x3);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+		  SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
+		  0x3);
 	if (ret) return ret;
 	msleep(50);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<10, 0x3);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+		  SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
+		  0x3);
 	if (ret) return ret;
 	msleep(5);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<10, 0x1);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+		  SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
+		  0x1);
 	if (ret) return ret;
 	msleep(5);
 
 
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<10, 0x1);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+		  SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
+		  0x1);
 	if (ret) return ret;
 	msleep(5);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<10, 0x3);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+		  SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
+		  0x3);
 	if (ret) return ret;
 	msleep(50);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<10, 0x0);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+		  SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
+		  0x0);
 	if (ret) return ret;
 	msleep(5);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<6, 0x3);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+		  SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
+		  0x3);
 	if (ret) return ret;
 	msleep(5);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<6, 0x1);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+		  SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
+		  0x1);
 	if (ret) return ret;
 	msleep(50);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<6, 0x0);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+		  SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
+		  0x0);
 	if (ret) return ret;
 	msleep(5);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<4, 0x1);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+		  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+		  0x1
+		);
 	if (ret) return ret;
 	msleep(5);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<4, 0x3);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+		  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+		  0x3
+		);
 	if (ret) return ret;
 	msleep(50);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x20, 0x00, 0x3<<4, 0x0);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+		  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+		  0x0
+		);
 	if (ret) return ret;
 	msleep(50);
-
 
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x1F, 0x00, 0xffff<<0, 0xB);
 	if (ret) return ret;
@@ -1123,51 +1209,86 @@ int rtl837x_serdes_set_mode(struct rtl837x_priv *priv, u8 sds_idx, rtk_sds_mode_
 		// TODO (I think this can be managered by linux phy driver)
 		return -ENOSYS;
 	case SERDES_OFF:
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<4, 0x3);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+			  0x3
+			);
 		if (ret) return ret;
 		msleep(5);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<4, 0x1);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+			  0x1
+			);
 		if (ret) return ret;
 		msleep(50);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<6, 0x1);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
+			  0x1);
 		if (ret) return ret;
 		msleep(5);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<6, 0x3);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
+			  0x3);
 		if (ret) return ret;
 		msleep(50);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<10, 0x3);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
+			  0x3);
 		if (ret) return ret;
 		msleep(5);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<10, 0x1);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
+			  0x1);
 		if (ret) return ret;
 		msleep(50);
 		break;
 	case SERDES_ON:
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<10, 0x1);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
+			  0x1);
 		if (ret) return ret;
 		msleep(5);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<10, 0x3);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
+			  0x3);
 		if (ret) return ret;
 		msleep(50);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<10, 0x0);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
+			  0x0);
 		if (ret) return ret;
 		msleep(5);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<6, 0x3);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
+			  0x3);
 		if (ret) return ret;
 		msleep(5);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<6, 0x1);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
+			  0x1);
 		if (ret) return ret;
 		msleep(50);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<6, 0x0);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
+			  0x0);
 		if (ret) return ret;
 		msleep(5);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<4, 0x1);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+			  0x1
+			);
 		if (ret) return ret;
 		msleep(5);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<4, 0x3);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+			  0x3
+			);
 		if (ret) return ret;
 		msleep(50);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<4, 0x0);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+			  0x0
+			);
 		if (ret) return ret;
 		msleep(50);
 		break;
@@ -1178,22 +1299,36 @@ int rtl837x_serdes_set_mode(struct rtl837x_priv *priv, u8 sds_idx, rtk_sds_mode_
             ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, RTL8373_SDS_MODE_SEL_CFG_MAC8_8221B_MASK, 0);
 		if (ret) return ret;
 		msleep(200);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<4, 0x3);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+			  0x3
+			);
 		if (ret) return ret;
 		msleep(5);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<4, 0x1);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+			  0x1
+			);
 		if (ret) return ret;
 		msleep(50);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<6, 0x1);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
+			  0x1);
 		if (ret) return ret;
 		msleep(5);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<6, 0x3);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
+			  0x3);
 		if (ret) return ret;
 		msleep(50);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<10, 0x3);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
+			  0x3);
 		if (ret) return ret;
 		msleep(5);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x20, 0x00, 0x3<<10, 0x1);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
+			  SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
+			  0x1);
 		if (ret) return ret;
 		msleep(50);
 

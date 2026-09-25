@@ -2135,28 +2135,37 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	//  puts "Power down PHY 4~7"
 	rtl837x_phys_write_c45(priv, 0xF0, 31, 0xa610, 0x2858);
 
+	/* SerDes PN swap: page 0x00 reg 0x00 (XSG, ≤5G) + page 0x06 reg 0x02 (10GR) */
 	if (of_property_read_bool(np, "sds0-rx-swap"))
 	{
-		rtl837x_sds_reg_bits_write(priv, 0, 0, 0, 0x200, 1); //#SDS0RX PN swap
-		rtl837x_sds_reg_bits_write(priv, 0, 6, 2, 0x2000, 1);
+		rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
+				  SDS_CTRL00_REG00_XSG_RX_INV_MASK, 1); //#SDS0 RX PN swap
+		rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
+				  SDS_CTRL06_REG02_10GR_RX_INV_MASK, 1);
 	}
 
 	if (of_property_read_bool(np, "sds0-tx-swap"))
 	{
-		rtl837x_sds_reg_bits_write(priv, 0, 0, 0, 1 << 8, 1); //#SDS0RTX PN swap
-		rtl837x_sds_reg_bits_write(priv, 0, 6, 2, 1 << 14, 1);
+		rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
+				  SDS_CTRL00_REG00_XSG_TX_INV_MASK, 1); //#SDS0 TX PN swap
+		rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
+				  SDS_CTRL06_REG02_10GR_TX_INV_MASK, 1);
 	}
 
 	if (of_property_read_bool(np, "sds1-rx-swap"))
 	{
-		rtl837x_sds_reg_bits_write(priv, 1, 0, 0, 0x200, 1); //#SDS1RX PN swap
-		rtl837x_sds_reg_bits_write(priv, 1, 6, 2, 0x2000, 1);
+		rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
+				  SDS_CTRL00_REG00_XSG_RX_INV_MASK, 1); //#SDS1 RX PN swap
+		rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
+				  SDS_CTRL06_REG02_10GR_RX_INV_MASK, 1);
 	}
 
 	if (of_property_read_bool(np, "sds1-tx-swap"))
 	{
-		rtl837x_sds_reg_bits_write(priv, 1, 0, 0, 1 << 8, 1); //#SDS1TX PN swap
-		rtl837x_sds_reg_bits_write(priv, 1, 6, 2, 1 << 14, 1);
+		rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
+				  SDS_CTRL00_REG00_XSG_TX_INV_MASK, 1); //#SDS1 TX PN swap
+		rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
+				  SDS_CTRL06_REG02_10GR_TX_INV_MASK, 1);
 	}
 
 	/*

@@ -5,7 +5,7 @@
 #include <linux/debugfs.h>
 #include <linux/regmap.h>
 
-#include "./rtl837x.h"
+#include "rtl837x.h"
 
 #define TO_FOPS(name) _##name##_rw_fops
 

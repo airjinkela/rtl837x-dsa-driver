@@ -23,6 +23,69 @@
 #define RTL837x_C2SIDXMAX (127)
 #define RTL837x_FIDMAX    (15)
 
+/*
+ * As Realtek has not released the register manual
+ * for the internal SerDes, the register definitions
+ * below have been inferred from comments and names 
+ * found in OEM code and code for similar IP chips.
+*/
+#define SDS_PAGE_FRC            0x20
+#define SDS_REG_FRC             0x00
+ #define SDS_FRC_RX_EN_ON_MASK    BIT(4)
+ #define SDS_FRC_RX_EN_VAL_MASK   BIT(5)
+ #define SDS_FRC_PDOWN_ON_MASK    BIT(6)
+ #define SDS_FRC_PDOWN_VAL_MASK   BIT(7)
+ #define SDS_FRC_CMU_EN_ON_MASK   BIT(10)
+ #define SDS_FRC_CMU_EN_VAL_MASK  BIT(11)
+
+#define SDS_PAGE_NWAY_AN   0x07
+#define SDS_REG_NWAY_AN    17
+ #define SDS_NWAY_QHSG_AN_CH0_EN_MASK BIT(0)
+ #define SDS_NWAY_QHSG_AN_CH1_EN_MASK BIT(1)
+ #define SDS_NWAY_QHSG_AN_CH2_EN_MASK BIT(2)
+ #define SDS_NWAY_QHSG_AN_CH3_EN_MASK BIT(3)
+
+#define SDS_PAGE_CTRL00    0x00 // I don't know what is this page and register name
+#define SDS_REG_CTRL00_REG00     0x00
+ #define SDS_CTRL00_REG00_XSG_TX_INV_MASK  BIT(8) // 10M/100M/1G/2.5G/5G
+ #define SDS_CTRL00_REG00_XSG_RX_INV_MASK  BIT(9) // 10M/100M/1G/2.5G/5G
+
+#define SDS_REG_CTRL00_REG02     0x02
+ /*	I Guess
+ *                      Force_En  Force_Dis Auto
+ * BIT8   FRC_NWAY          1        1        0
+ * BIT9   FRC_NWAY_EN       1        0        x
+ *                          3        1        0
+ */
+ #define SDS_CTRL00_REG02_XSG_FRC_NWAY    BIT(8) // Not sure
+ #define SDS_CTRL00_REG02_XSG_FRC_NWAY_EN BIT(9) // Not sure
+
+#define SDS_REG_CTRL00_REG04     0x04
+ #define SDS_CTRL00_REG04_NWAY_FRC_LINK   BIT(2) // Not sure
+
+#define SDS_PAGE_CTRL02       0x02 // I don't know what is this page name
+#define SDS_REG_CTRL02_XSG_AN   0x04
+ #define SDS_CTRL02_XSG_AN_10_100_Acknowledge_MASK     BIT(14) // not sure
+ #define SDS_CTRL02_XSG_AN_10_100_RemoteFault_MASK     BIT(13) // not sure
+ #define SDS_CTRL02_XSG_AN_1G_RemoteFault_MASK         BIT(12) // Maybe is GENMASK(13, 12)?
+ #define SDS_CTRL02_XSG_AN_10_100_AsymmetricPause_MASK BIT(11)
+ #define SDS_CTRL02_XSG_AN_10_100_Pause_MASK           BIT(10)
+ #define SDS_CTRL02_XSG_AN_1G_AsymmetricPause_MASK BIT(8)
+ #define SDS_CTRL02_XSG_AN_1G_Pause_MASK           BIT(7)
+ #define SDS_CTRL02_XSG_AN_1G_HalfDuplex_MASK      BIT(6) // not sure
+ #define SDS_CTRL02_XSG_AN_1G_FullDuplex_MASK      BIT(5) // not sure
+
+#define SDS_PAGE_CTRL06       0x06 // I don't know what is this page and register name
+#define SDS_REG_CTRL06_REG02   0x02
+ #define SDS_CTRL06_REG02_FSM_RESET_MASK    BIT(12)
+ #define SDS_CTRL06_REG02_10GR_RX_INV_MASK  BIT(13)
+ #define SDS_CTRL06_REG02_10GR_TX_INV_MASK  BIT(14)
+
+#define SDS_PAGE_CTRL1F       0x1f // I don't know what is this page name
+#define SDS_REG_CTRL1F_10GR_AN  0x0B
+ #define SDS_CTRL1F_10GR_AN_Pause_MASK     BIT(2)
+ #define SDS_CTRL1F_10GR_AN_AsymmetricPause_MASK  BIT(3)
+
 typedef enum
 {
     SERDES_10GQXG,

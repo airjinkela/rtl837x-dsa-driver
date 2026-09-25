@@ -9,7 +9,7 @@
 #include <linux/mutex.h>
 #include <linux/gpio/consumer.h>
 
-#include "./rtl837x.h"
+#include "rtl837x.h"
 
 static int rtl837x_mdio_write(void *ctx, u32 reg, u32 val)
 {
