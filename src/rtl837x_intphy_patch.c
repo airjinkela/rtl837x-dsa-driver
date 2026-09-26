@@ -873,7 +873,7 @@ static int data_ram_write_8b(struct rtl837x_priv *priv, int phy, u16 addr, u16 v
 	return 0;
 }
 
-int patch_phy_v008(struct rtl837x_priv *priv, int phy)
+static int patch_phy_v008(struct rtl837x_priv *priv, int phy)
 {
 	int ret=0, ret1=0;
 	u16 tmp16;
@@ -1104,7 +1104,7 @@ int patch_phy_v008(struct rtl837x_priv *priv, int phy)
 	return 0;
 }
 
-int patch_phy_v008_rls_lockmain(struct rtl837x_priv *priv, int phy)
+static int patch_phy_v008_rls_lockmain(struct rtl837x_priv *priv, int phy)
 {
 	int ret=0, ret1=0;
 	u16 tmp16;
@@ -1159,7 +1159,7 @@ int patch_phys_v008_rls_lockmain(struct rtl837x_priv *priv, u16 phy_mask)
 	return 0;
 }
 
-int patch_phy_v009(struct rtl837x_priv *priv, int phy)
+static int patch_phy_v009(struct rtl837x_priv *priv, int phy)
 {
 	int ret=0, ret1=0;
 	u16 tmp16;
@@ -1425,7 +1425,7 @@ int patch_phy_v009(struct rtl837x_priv *priv, int phy)
 	return 0;
 }
 
-int patch_phy_v009_rls_lockmain(struct rtl837x_priv *priv, int phy)
+static int patch_phy_v009_rls_lockmain(struct rtl837x_priv *priv, int phy)
 {
 	int ret=0, ret1=0;
 	u16 tmp16;

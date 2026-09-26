@@ -598,7 +598,26 @@ out:
 static unsigned int rtl8372n_sds_pcs_inband_caps(struct phylink_pcs *pcs,
 					      phy_interface_t interface)
 {
-	return LINK_INBAND_ENABLE;
+	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
+	int port = _pcs->index;
+	switch (port)
+	{
+	case 3:
+	case 8:
+		switch (interface)
+		{
+		case PHY_INTERFACE_MODE_1000BASEX:
+		case PHY_INTERFACE_MODE_2500BASEX:
+		case PHY_INTERFACE_MODE_SGMII:
+			return LINK_INBAND_ENABLE;
+		case PHY_INTERFACE_MODE_10GBASER:
+			return LINK_INBAND_DISABLE;
+		default:
+			return 0;
+		}
+	default:
+		return 0;
+	}
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6,18,0)
@@ -678,13 +697,70 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 			     const unsigned long *advertising,
 			     bool permit_pause_to_mac)
 {
+	// int ret;
 	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
 	struct rtl837x_priv *priv = _pcs->priv;
 	int port = _pcs->index;
+	u8 sds_idx = PORT_TO_SERDES_IDX(port);
 
-	dev_dbg(priv->dev, "[%s]PCS config serdes (%d) mode (%x)\n", __func__,
-			  PORT_TO_SERDES_IDX(port), 
-			  phy_interface_to_rtk_sds_mode(interface));
+	dev_dbg(priv->dev, "[%s]PCS config serdes(%d) mode(%s) neg_mode(0x%x)\n", __func__,
+			  sds_idx, 
+			  phy_modes(interface), neg_mode);
+/*
+	if (sds_idx == 0)
+		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, RTL8373_SDS_MODE_SEL_CFG_MAC3_8221B_MASK, 0);
+	else
+		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, RTL8373_SDS_MODE_SEL_CFG_MAC8_8221B_MASK, 0);
+	if (ret)
+		return ret;
+
+	ret = rtl837x_serdes_off(priv, sds_idx);
+	if (ret)
+		return ret;
+
+	// Chip rtl8372n doesn't support 10G QSXGMII, The sub mode always be zero
+	ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, 
+	   RTL8373_SDS_MODE_SEL_SDS0_USX_SUB_MODE_MASK, 0);
+	if (ret)
+		return ret;
+	switch (interface)
+	{
+	case PHY_INTERFACE_MODE_USXGMII:
+		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
+			   RTL8373_SDS_MODE_SEL_SDS0_MODE_SEL_MASK, 0x0d);
+		break;
+	case PHY_INTERFACE_MODE_10GBASER:
+		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
+			   RTL8373_SDS_MODE_SEL_SDS0_MODE_SEL_MASK, 0x1a);
+		break;
+	case PHY_INTERFACE_MODE_2500BASEX:
+		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
+			   RTL8373_SDS_MODE_SEL_SDS0_MODE_SEL_MASK, 0x16);
+		break;
+	case PHY_INTERFACE_MODE_1000BASEX:
+		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
+			   RTL8373_SDS_MODE_SEL_SDS0_MODE_SEL_MASK, 0x04);
+		break;
+	case PHY_INTERFACE_MODE_SGMII:
+		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
+			   RTL8373_SDS_MODE_SEL_SDS0_MODE_SEL_MASK, 0x02);
+		break;
+	default:
+		dev_err(priv->ds->dev, "unsupported interface: %s\n",
+			phy_modes(interface));
+		return -EINVAL;
+	}
+	if (ret)
+		return ret;
+
+	// Apply patch
+	ret = rtl837x_serdes_an_patch(priv, sds_idx, interface);
+	if (ret)
+		return ret;
+	ret = rtl837x_serdes_mac_patch(priv, sds_idx);
+	if (ret)
+		return ret;
+*/
 
 	return rtl837x_serdes_set_mode(priv, PORT_TO_SERDES_IDX(port), phy_interface_to_rtk_sds_mode(interface));
 }
@@ -715,7 +791,7 @@ static void rtl8372n_sds_pcs_link_up(struct phylink_pcs *pcs, unsigned int neg_m
 }
 
 // TODO? OR Just Empty Func?
-static void rtl8372n_pcs_an_restart(struct phylink_pcs *pcs)
+static void rtl8372n_sds_pcs_an_restart(struct phylink_pcs *pcs)
 {}
 
 static const struct phylink_pcs_ops rtl8372n_sds_pcs_ops = {
@@ -723,19 +799,19 @@ static const struct phylink_pcs_ops rtl8372n_sds_pcs_ops = {
 	.pcs_get_state = rtl8372n_sds_pcs_get_state,
 	.pcs_config = rtl8372n_sds_pcs_config,
 	.pcs_link_up = rtl8372n_sds_pcs_link_up,
-	.pcs_an_restart = rtl8372n_pcs_an_restart,
+	.pcs_an_restart = rtl8372n_sds_pcs_an_restart,
 };
 
 static void rtl8372n_phylink_get_caps(struct dsa_switch *ds, int port,
 				       struct phylink_config *config)
 {
 	if ((port == 3) || (port == 8)) {
-		__set_bit(PHY_INTERFACE_MODE_10GKR, config->supported_interfaces);
-		__set_bit(PHY_INTERFACE_MODE_10GBASER, config->supported_interfaces);
-        __set_bit(PHY_INTERFACE_MODE_5GBASER, config->supported_interfaces);
-        __set_bit(PHY_INTERFACE_MODE_USXGMII, config->supported_interfaces);
+        __set_bit(PHY_INTERFACE_MODE_100BASEX, config->supported_interfaces); // Are you sure about this?
+        __set_bit(PHY_INTERFACE_MODE_SGMII, config->supported_interfaces);
         __set_bit(PHY_INTERFACE_MODE_1000BASEX, config->supported_interfaces);
         __set_bit(PHY_INTERFACE_MODE_2500BASEX, config->supported_interfaces);
+		__set_bit(PHY_INTERFACE_MODE_10GBASER, config->supported_interfaces);
+        __set_bit(PHY_INTERFACE_MODE_USXGMII, config->supported_interfaces); // Do we really support this mode?
 
 		config->mac_capabilities = MAC_10000FD | MAC_5000FD | MAC_2500FD | MAC_1000 | MAC_100 | MAC_10 |
                                     MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
@@ -761,17 +837,45 @@ static struct phylink_pcs *rtl8372n_phylink_mac_select_pcs(struct phylink_config
 // TODO: config for internal phy?
 static void rtl8372n_phylink_mac_config(struct phylink_config *config, unsigned int mode,
 			const struct phylink_link_state *state)
-{}
+{
+	struct dsa_port *dp = dsa_phylink_to_port(config);
+	struct rtl837x_priv *priv = dp->ds->priv;
+	if (!IS_SERDES_PORT(dp->index))
+		return;
+	dev_dbg(priv->dev, "[%s]: port:%d interface:%s speed:%s duplex:%s advertising:%*pb pause:0x%x\n", __func__,
+			   dp->index, phy_modes(state->interface), phy_speed_to_str(state->speed), 
+			   phy_duplex_to_str(state->duplex), __ETHTOOL_LINK_MODE_MASK_NBITS, state->advertising, state->pause);
+}
 
 static void rtl8372n_phylink_mac_link_down(struct phylink_config *config, unsigned int mode,
 				phy_interface_t interface)
-{}
+{
+	struct dsa_port *dp = dsa_phylink_to_port(config);
+	struct rtl837x_priv *priv = dp->ds->priv;
+
+	if (!IS_SERDES_PORT(dp->index))
+		return;
+
+	dev_dbg(priv->dev, "[%s]: port:%d interface:%s\n", __func__,
+			   dp->index, phy_modes(interface));
+}
 
 static void rtl8372n_phylink_mac_link_up(struct phylink_config *config,
 			struct phy_device *phy, unsigned int mode,
 			phy_interface_t interface, int speed, int duplex,
 			bool tx_pause, bool rx_pause)
-{}
+{
+	struct dsa_port *dp = dsa_phylink_to_port(config);
+	struct rtl837x_priv *priv = dp->ds->priv;
+
+	if (!IS_SERDES_PORT(dp->index))
+		return;
+	dev_dbg(priv->dev, 
+			   "[%s]: port:%d mode:%s speed:%s duplex:%s tx_pause:%d rx_pause:%d\n", __func__,
+			   dp->index, phy_modes(interface), phy_speed_to_str(speed), 
+			   phy_duplex_to_str(duplex), tx_pause, rx_pause
+			);
+}
 
 static const struct phylink_mac_ops rtl8372n_phylink_mac_ops = {
 	.mac_select_pcs	= rtl8372n_phylink_mac_select_pcs,

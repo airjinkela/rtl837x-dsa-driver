@@ -29,6 +29,7 @@
  * below have been inferred from comments and names 
  * found in OEM code and code for similar IP chips.
 */
+/* PAGE_FRC */
 #define SDS_PAGE_FRC            0x20
 #define SDS_REG_FRC             0x00
  #define SDS_FRC_RX_EN_ON_MASK    BIT(4)
@@ -38,6 +39,7 @@
  #define SDS_FRC_CMU_EN_ON_MASK   BIT(10)
  #define SDS_FRC_CMU_EN_VAL_MASK  BIT(11)
 
+/* PAGE_NWAY_AN */
 #define SDS_PAGE_NWAY_AN   0x07
 #define SDS_REG_NWAY_AN    17
  #define SDS_NWAY_QHSG_AN_CH0_EN_MASK BIT(0)
@@ -45,6 +47,7 @@
  #define SDS_NWAY_QHSG_AN_CH2_EN_MASK BIT(2)
  #define SDS_NWAY_QHSG_AN_CH3_EN_MASK BIT(3)
 
+/* PAGE_CTRL00 */
 #define SDS_PAGE_CTRL00    0x00 // I don't know what is this page and register name
 #define SDS_REG_CTRL00_REG00     0x00
  #define SDS_CTRL00_REG00_XSG_TX_INV_MASK  BIT(8) // 10M/100M/1G/2.5G/5G
@@ -63,11 +66,16 @@
 #define SDS_REG_CTRL00_REG04     0x04
  #define SDS_CTRL00_REG04_NWAY_FRC_LINK   BIT(2) // Not sure
 
+/* PAGE_CTRL01 */
+#define SDS_PAGE_CTRL01             0x01 // I don't know what is this page name
+#define SDS_REG_CTRL01_XSG_STS      0x1d     // I Guess
+ #define SDS_CTRL01_XSG_STS_SYNC_OK   BIT(0) // I Guess
+ #define SDS_CTRL01_XSG_STS_LINK_OK   BIT(4) // I Guess
+ #define SDS_CTRL01_XSG_STS_SIG_OK    BIT(8) // I Guess
+
+/* PAGE_CTRL02 */
 #define SDS_PAGE_CTRL02       0x02 // I don't know what is this page name
 #define SDS_REG_CTRL02_XSG_AN   0x04
- #define SDS_CTRL02_XSG_AN_10_100_Acknowledge_MASK     BIT(14) // not sure
- #define SDS_CTRL02_XSG_AN_10_100_RemoteFault_MASK     BIT(13) // not sure
- #define SDS_CTRL02_XSG_AN_1G_RemoteFault_MASK         BIT(12) // Maybe is GENMASK(13, 12)?
  #define SDS_CTRL02_XSG_AN_10_100_AsymmetricPause_MASK BIT(11)
  #define SDS_CTRL02_XSG_AN_10_100_Pause_MASK           BIT(10)
  #define SDS_CTRL02_XSG_AN_1G_AsymmetricPause_MASK BIT(8)
@@ -75,12 +83,21 @@
  #define SDS_CTRL02_XSG_AN_1G_HalfDuplex_MASK      BIT(6) // not sure
  #define SDS_CTRL02_XSG_AN_1G_FullDuplex_MASK      BIT(5) // not sure
 
+/* PAGE_CTRL05 */
+#define SDS_PAGE_CTRL05             0x05 // I don't know what is this page name
+#define SDS_REG_CTRL05_10GR_STS     0x00       // I Guess
+ #define SDS_CTRL05_10GR_STS_SYNC_OK   BIT(0)  // I Guess
+ #define SDS_CTRL05_10GR_STS_HI_BER    BIT(1)  // I Guess
+ #define SDS_CTRL05_10GR_STS_LINK_OK   BIT(12) // I Guess
+
+/* PAGE_CTRL06 */
 #define SDS_PAGE_CTRL06       0x06 // I don't know what is this page and register name
 #define SDS_REG_CTRL06_REG02   0x02
  #define SDS_CTRL06_REG02_FSM_RESET_MASK    BIT(12)
  #define SDS_CTRL06_REG02_10GR_RX_INV_MASK  BIT(13)
  #define SDS_CTRL06_REG02_10GR_TX_INV_MASK  BIT(14)
 
+/* PAGE_CTRL1F */
 #define SDS_PAGE_CTRL1F       0x1f // I don't know what is this page name
 #define SDS_REG_CTRL1F_10GR_AN  0x0B
  #define SDS_CTRL1F_10GR_AN_Pause_MASK     BIT(2)
@@ -351,7 +368,13 @@ extern int rtl837x_sds_reset_X(struct rtl837x_priv *priv, u8 sds_idx);
 extern int rtl837x_sds_reset_R(struct rtl837x_priv *priv, u8 sds_idx);
 extern int rtl837x_rtl8224_sds_reset_R(struct rtl837x_priv *priv, u8 sds_idx);
 
+// TODO: refactor
 extern int rtl837x_serdes_set_mode(struct rtl837x_priv *priv, u8 sds_idx, rtk_sds_mode_t mode);
+
+extern int rtl837x_serdes_on(struct rtl837x_priv *priv, u8 sds_idx);
+extern int rtl837x_serdes_off(struct rtl837x_priv *priv, u8 sds_idx);
+extern int rtl837x_serdes_an_patch(struct rtl837x_priv *priv, u8 sds_idx, phy_interface_t interface);
+extern int rtl837x_serdes_mac_patch(struct rtl837x_priv *priv, u8 sds_idx);
 
 #if defined(RTL837X_PHY_PATCH)
 extern int patch_phys_v008(struct rtl837x_priv *priv, u16 phy_mask);
