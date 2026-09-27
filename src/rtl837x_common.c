@@ -886,10 +886,14 @@ static inline int rtl837x_fiber_fc_en(struct rtl837x_priv *priv, u8 sds_idx, rtk
 			if (ret) return ret;
 			if(fc_en)
 				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
-						  0x3<<7, 0x3);
+						  SDS_CTRL02_XSG_AN_1G_Pause_MASK | SDS_CTRL02_XSG_AN_1G_AsymmetricPause_MASK,
+						  0x3
+						);
 			else
 				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
-						  0x3<<7, 0x0);
+						  SDS_CTRL02_XSG_AN_1G_Pause_MASK | SDS_CTRL02_XSG_AN_1G_AsymmetricPause_MASK,
+						  0x0
+						);
 			if (ret) return ret;
 			break;  
 		case SERDES_10GR:
@@ -1184,7 +1188,7 @@ static int _rtl837x_serdes_on(struct rtl837x_priv *priv, bool is_8224, u8 sds_id
 
 int rtl837x_serdes_on(struct rtl837x_priv *priv, u8 sds_idx)
 {
-	return _rtl837x_serdes_off(priv, false, sds_idx);
+	return _rtl837x_serdes_on(priv, false, sds_idx);
 }
 
 static int _rtl837x_serdes_patch(struct rtl837x_priv *priv, bool is_8224, u8 sds_idx, rtk_sds_mode_t mode)

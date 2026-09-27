@@ -688,6 +688,9 @@ static void rtl8372n_sds_pcs_get_state(struct phylink_pcs *pcs,
 		break;
 	}
 
+	if (!state->link)
+		state->speed = SPEED_UNKNOWN;
+
     // dev_dbg(priv->dev, "[%s] port(%d) speed: %d, link: %d, duplex: %d\n", __func__,
 	// 				  port, state->speed, state->link, state->duplex);
 }
@@ -697,7 +700,7 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 			     const unsigned long *advertising,
 			     bool permit_pause_to_mac)
 {
-	// int ret;
+	int ret;
 	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
 	struct rtl837x_priv *priv = _pcs->priv;
 	int port = _pcs->index;
@@ -706,7 +709,9 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 	dev_dbg(priv->dev, "[%s]PCS config serdes(%d) mode(%s) neg_mode(0x%x)\n", __func__,
 			  sds_idx, 
 			  phy_modes(interface), neg_mode);
-/*
+
+	// return rtl837x_serdes_set_mode(priv, PORT_TO_SERDES_IDX(port), phy_interface_to_rtk_sds_mode(interface));
+
 	if (sds_idx == 0)
 		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, RTL8373_SDS_MODE_SEL_CFG_MAC3_8221B_MASK, 0);
 	else
@@ -719,31 +724,40 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 		return ret;
 
 	// Chip rtl8372n doesn't support 10G QSXGMII, The sub mode always be zero
+	u32 sds_sub_mode_mask = sds_idx==0 ? 
+		  RTL8373_SDS_MODE_SEL_SDS0_USX_SUB_MODE_MASK : RTL8373_SDS_MODE_SEL_SDS1_USX_SUB_MODE_MASK;
 	ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, 
-	   RTL8373_SDS_MODE_SEL_SDS0_USX_SUB_MODE_MASK, 0);
+			  sds_sub_mode_mask, 0);
 	if (ret)
 		return ret;
+
+	u32 sds_mode_mask = sds_idx==0 ? 
+		  RTL8373_SDS_MODE_SEL_SDS0_MODE_SEL_MASK : RTL8373_SDS_MODE_SEL_SDS1_MODE_SEL_MASK;
 	switch (interface)
 	{
 	case PHY_INTERFACE_MODE_USXGMII:
 		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
-			   RTL8373_SDS_MODE_SEL_SDS0_MODE_SEL_MASK, 0x0d);
+			   sds_mode_mask, 0x0d);
 		break;
 	case PHY_INTERFACE_MODE_10GBASER:
 		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
-			   RTL8373_SDS_MODE_SEL_SDS0_MODE_SEL_MASK, 0x1a);
+			   sds_mode_mask, 0x1a);
 		break;
 	case PHY_INTERFACE_MODE_2500BASEX:
 		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
-			   RTL8373_SDS_MODE_SEL_SDS0_MODE_SEL_MASK, 0x16);
+			   sds_mode_mask, 0x16);
 		break;
 	case PHY_INTERFACE_MODE_1000BASEX:
 		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
-			   RTL8373_SDS_MODE_SEL_SDS0_MODE_SEL_MASK, 0x04);
+			   sds_mode_mask, 0x04);
 		break;
 	case PHY_INTERFACE_MODE_SGMII:
 		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
-			   RTL8373_SDS_MODE_SEL_SDS0_MODE_SEL_MASK, 0x02);
+			   sds_mode_mask, 0x02);
+		break;
+	case PHY_INTERFACE_MODE_100BASEX:
+		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
+			   sds_mode_mask, 0x05);
 		break;
 	default:
 		dev_err(priv->ds->dev, "unsupported interface: %s\n",
@@ -760,26 +774,122 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 	ret = rtl837x_serdes_mac_patch(priv, sds_idx);
 	if (ret)
 		return ret;
-*/
 
-	return rtl837x_serdes_set_mode(priv, PORT_TO_SERDES_IDX(port), phy_interface_to_rtk_sds_mode(interface));
-}
-
-static void rtl8372n_sds_pcs_link_up(struct phylink_pcs *pcs, unsigned int neg_mode,
-			    phy_interface_t interface, int speed, int duplex)
-{
-	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
-	struct rtl837x_priv *priv = _pcs->priv;
-	int port = _pcs->index;
-	dev_dbg(priv->dev, "[%s]PCS link up serdes (%d) mode (%x)\n", __func__,
-			  PORT_TO_SERDES_IDX(port), 
-			  phy_interface_to_rtk_sds_mode(interface));
-
-	switch (phy_interface_to_rtk_sds_mode(interface))
+	// Set Auto Negotiation Pause/AsymPause
+	int adv = 0;
+	switch (interface)
 	{
-		case SERDES_10GQXG:
-		case SERDES_10GR:
-		case SERDES_10GUSXG:
+	case PHY_INTERFACE_MODE_100BASEX:
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<2, 0x1);
+		if (ret) return ret;
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<3, 0x1);
+		if (ret) return ret;
+		if (linkmode_test_bit(ETHTOOL_LINK_MODE_Pause_BIT,
+				      advertising))
+			adv |= BIT(0);
+		if (linkmode_test_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
+				      advertising))
+			adv |= BIT(1);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
+				  SDS_CTRL02_XSG_AN_10_100_AsymmetricPause_MASK | SDS_CTRL02_XSG_AN_10_100_Pause_MASK,
+				  adv
+				);
+		if (ret) return ret;
+		break;
+	case PHY_INTERFACE_MODE_1000BASEX:
+	case PHY_INTERFACE_MODE_2500BASEX:
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<2, 0x1);
+		if (ret) return ret;
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<3, 0x0);
+		if (ret) return ret;
+		if (linkmode_test_bit(ETHTOOL_LINK_MODE_Pause_BIT,
+				      advertising))
+			adv |= BIT(0);
+		if (linkmode_test_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
+				      advertising))
+			adv |= BIT(1);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
+				  SDS_CTRL02_XSG_AN_1G_AsymmetricPause_MASK | SDS_CTRL02_XSG_AN_1G_Pause_MASK,
+				  adv
+				);
+		if (ret) return ret;
+		break;
+	case PHY_INTERFACE_MODE_10GBASER:
+		if (linkmode_test_bit(ETHTOOL_LINK_MODE_Pause_BIT,
+				      advertising))
+			adv |= BIT(0);
+		if (linkmode_test_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
+				      advertising))
+			adv |= BIT(1);
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL1F, SDS_REG_CTRL1F_10GR_AN,
+			  SDS_CTRL1F_10GR_AN_AsymmetricPause_MASK | SDS_CTRL1F_10GR_AN_Pause_MASK,
+			  adv
+			);
+		if (ret) return ret;
+		break;
+	default:
+		break;
+	}
+
+	// Auto Negotiation
+	switch (interface)
+	{
+	case PHY_INTERFACE_MODE_SGMII:
+	case PHY_INTERFACE_MODE_1000BASEX:
+	case PHY_INTERFACE_MODE_2500BASEX:
+		if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED)
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
+						  SDS_CTRL00_REG02_XSG_FRC_NWAY_EN | SDS_CTRL00_REG02_XSG_FRC_NWAY, 
+						  0x3
+						);
+		else
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
+						  SDS_CTRL00_REG02_XSG_FRC_NWAY_EN | SDS_CTRL00_REG02_XSG_FRC_NWAY, 
+						  0x1
+						);
+		if (ret) return ret;
+
+		// Set link partner mode to force mode
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG04,
+			  SDS_CTRL00_REG04_NWAY_FRC_LINK,
+			  0x1
+			);
+		if (ret) return ret;
+		break;
+	case PHY_INTERFACE_MODE_USXGMII:
+		if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED)
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_NWAY_AN, SDS_REG_NWAY_AN,
+					  SDS_NWAY_QHSG_AN_CH0_EN_MASK | SDS_NWAY_QHSG_AN_CH1_EN_MASK |
+					  SDS_NWAY_QHSG_AN_CH2_EN_MASK | SDS_NWAY_QHSG_AN_CH3_EN_MASK,
+					  0xf
+					);
+		else
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_NWAY_AN, SDS_REG_NWAY_AN,
+					  SDS_NWAY_QHSG_AN_CH0_EN_MASK | SDS_NWAY_QHSG_AN_CH1_EN_MASK |
+					  SDS_NWAY_QHSG_AN_CH2_EN_MASK | SDS_NWAY_QHSG_AN_CH3_EN_MASK,
+					  0x0
+					);
+	default:
+		break;
+	}
+
+	ret = rtl837x_serdes_on(priv, sds_idx);
+	if (ret)
+		return ret;
+
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1F, 0x00, 0xffff, 0xB);
+	if (ret)
+		return ret;
+	msleep(50);
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1F, 0x00, 0xffff, 0x0);
+	if (ret)
+		return ret;
+	msleep(50);
+
+	switch (interface)
+	{
+		case PHY_INTERFACE_MODE_USXGMII:
+		case PHY_INTERFACE_MODE_10GBASER:
 			dev_dbg(priv->dev, "[%s]Reset Serdes RX R\n", __func__);
 			rtl837x_sds_reset_R(priv, PORT_TO_SERDES_IDX(port));
 			break;
@@ -788,6 +898,19 @@ static void rtl8372n_sds_pcs_link_up(struct phylink_pcs *pcs, unsigned int neg_m
 			rtl837x_sds_reset_X(priv, PORT_TO_SERDES_IDX(port));
 			break;
 	}
+
+	return 0;
+}
+
+static void rtl8372n_sds_pcs_link_up(struct phylink_pcs *pcs, unsigned int neg_mode,
+			    phy_interface_t interface, int speed, int duplex)
+{
+	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
+	struct rtl837x_priv *priv = _pcs->priv;
+	int port = _pcs->index;
+	dev_dbg(priv->dev, "[%s]PCS link up serdes (%d) mode (%s)\n", __func__,
+			  PORT_TO_SERDES_IDX(port), 
+			  phy_modes(interface));
 }
 
 // TODO? OR Just Empty Func?

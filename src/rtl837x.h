@@ -50,8 +50,8 @@
 /* PAGE_CTRL00 */
 #define SDS_PAGE_CTRL00    0x00 // I don't know what is this page and register name
 #define SDS_REG_CTRL00_REG00     0x00
- #define SDS_CTRL00_REG00_XSG_TX_INV_MASK  BIT(8) // 10M/100M/1G/2.5G/5G
- #define SDS_CTRL00_REG00_XSG_RX_INV_MASK  BIT(9) // 10M/100M/1G/2.5G/5G
+ #define SDS_CTRL00_REG00_XSG_TX_INV_MASK  BIT(8) // 10M/100M/1G/2.5G
+ #define SDS_CTRL00_REG00_XSG_RX_INV_MASK  BIT(9) // 10M/100M/1G/2.5G
 
 #define SDS_REG_CTRL00_REG02     0x02
  /*	I Guess
@@ -75,13 +75,14 @@
 
 /* PAGE_CTRL02 */
 #define SDS_PAGE_CTRL02       0x02 // I don't know what is this page name
+// It seems like 'Advertisement control register'
 #define SDS_REG_CTRL02_XSG_AN   0x04
  #define SDS_CTRL02_XSG_AN_10_100_AsymmetricPause_MASK BIT(11)
  #define SDS_CTRL02_XSG_AN_10_100_Pause_MASK           BIT(10)
  #define SDS_CTRL02_XSG_AN_1G_AsymmetricPause_MASK BIT(8)
  #define SDS_CTRL02_XSG_AN_1G_Pause_MASK           BIT(7)
- #define SDS_CTRL02_XSG_AN_1G_HalfDuplex_MASK      BIT(6) // not sure
- #define SDS_CTRL02_XSG_AN_1G_FullDuplex_MASK      BIT(5) // not sure
+ #define SDS_CTRL02_XSG_AN_1G_HalfDuplex_MASK      BIT(6)
+ #define SDS_CTRL02_XSG_AN_1G_FullDuplex_MASK      BIT(5)
 
 /* PAGE_CTRL05 */
 #define SDS_PAGE_CTRL05             0x05 // I don't know what is this page name
