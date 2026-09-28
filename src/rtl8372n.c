@@ -609,7 +609,7 @@ static unsigned int rtl8372n_sds_pcs_inband_caps(struct phylink_pcs *pcs,
 		case PHY_INTERFACE_MODE_1000BASEX:
 		case PHY_INTERFACE_MODE_2500BASEX:
 		case PHY_INTERFACE_MODE_SGMII:
-			return LINK_INBAND_ENABLE;
+			return LINK_INBAND_ENABLE | LINK_INBAND_DISABLE;
 		case PHY_INTERFACE_MODE_10GBASER:
 			return LINK_INBAND_DISABLE;
 		default:
@@ -839,19 +839,19 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 	case PHY_INTERFACE_MODE_2500BASEX:
 		if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED)
 			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
-						  SDS_CTRL00_REG02_XSG_FRC_NWAY_EN | SDS_CTRL00_REG02_XSG_FRC_NWAY, 
+						  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN, 
 						  0x3
 						);
 		else
 			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
-						  SDS_CTRL00_REG02_XSG_FRC_NWAY_EN | SDS_CTRL00_REG02_XSG_FRC_NWAY, 
+						  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN, 
 						  0x1
 						);
 		if (ret) return ret;
 
-		// Set link partner mode to force mode
+    	/* set SP_CFG_EN_LINK_FIB1G for enable fiberNwayForceLink */
 		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG04,
-			  SDS_CTRL00_REG04_NWAY_FRC_LINK,
+			  SDS_CTRL00_REG04_SP_CFG_EN_LINK_FIB1G_MASK,
 			  0x1
 			);
 		if (ret) return ret;

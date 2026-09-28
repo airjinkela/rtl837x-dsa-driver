@@ -55,16 +55,20 @@
 
 #define SDS_REG_CTRL00_REG02     0x02
  /*	I Guess
- *                      Force_En  Force_Dis Auto
- * BIT8   FRC_NWAY          1        1        0
- * BIT9   FRC_NWAY_EN       1        0        x
- *                          3        1        0
+  *                      Force_En  Force_Dis Auto
+  * BIT8   SP_SDS_FRC_AN          1        1        0
+  * BIT9   SP_SDS_FRC_AN_EN       1        0        x
+  *                          3        1        0
+  * 0: NWAY_AUTO
+  * 1: NWAY_FORCE_DIS
+  * 3: NWAY_FORCE_EN (maybe?)
  */
- #define SDS_CTRL00_REG02_XSG_FRC_NWAY    BIT(8) // Not sure
- #define SDS_CTRL00_REG02_XSG_FRC_NWAY_EN BIT(9) // Not sure
+
+ #define SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN    BIT(8)
+ #define SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN BIT(9)
 
 #define SDS_REG_CTRL00_REG04     0x04
- #define SDS_CTRL00_REG04_NWAY_FRC_LINK   BIT(2) // Not sure
+ #define SDS_CTRL00_REG04_SP_CFG_EN_LINK_FIB1G_MASK   BIT(2)
 
 /* PAGE_CTRL01 */
 #define SDS_PAGE_CTRL01             0x01 // I don't know what is this page name

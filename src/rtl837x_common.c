@@ -175,10 +175,10 @@ static const u16 patch_data_mac[][3] = {
 };
 
 static const u16 patch_data_phy[][3]= {
-	{0x0006, 18, 0x5078},
-	{0x0006,  3, 0xc45c},
-	{0x0006, 30, 0x000C},
-	{0x0006, 31, 0x2100} 
+	{0x0006, 0x0012, 0x5078},
+	{0x0006, 0x0003, 0xc45c},
+	{0x0006, 0x001E, 0x000C},
+	{0x0006, 0x001F, 0x2100} 
 };
 
 char* chipid_to_chip_name(switch_chip_t id)
@@ -931,13 +931,13 @@ static inline int rtl837x_sds_nway_set(struct rtl837x_priv *priv, u8 sds_idx, rt
 			{
 				// Force Enable NWAY
 				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
-							  SDS_CTRL00_REG02_XSG_FRC_NWAY | SDS_CTRL00_REG02_XSG_FRC_NWAY_EN, 
+							  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN, 
 							  0x3
 							);
 				if (ret) return ret;
 				// Set link partner mode to force mode
 				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG04,
-					  SDS_CTRL00_REG04_NWAY_FRC_LINK,
+					  SDS_CTRL00_REG04_SP_CFG_EN_LINK_FIB1G_MASK,
 					  0x1
 					);
 				if (ret) return ret;
@@ -946,13 +946,13 @@ static inline int rtl837x_sds_nway_set(struct rtl837x_priv *priv, u8 sds_idx, rt
 			{
 				// Force Disable NWAY
 				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
-							  SDS_CTRL00_REG02_XSG_FRC_NWAY | SDS_CTRL00_REG02_XSG_FRC_NWAY_EN, 
+							  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN, 
 							  0x1
 							);
 				if (ret) return ret;
 				// Set link partner mode to force mode
 				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG04,
-					  SDS_CTRL00_REG04_NWAY_FRC_LINK,
+					  SDS_CTRL00_REG04_SP_CFG_EN_LINK_FIB1G_MASK,
 					  0x1
 					);
 				if (ret) return ret;
