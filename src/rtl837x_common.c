@@ -805,7 +805,7 @@ int rtl837x_rtl8224_sds_reset_R(struct rtl837x_priv *priv, u8 sds_idx)
 	return _rtl837x_sds_reset_R(true, priv, sds_idx);
 }
 
-// 100M/1G/2.5G/5G reset
+// 100M/1G/2.5G reset
 int rtl837x_sds_reset_X(struct rtl837x_priv *priv, u8 sds_idx)
 {
 	int ret;
@@ -853,130 +853,6 @@ do_reset:
 	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x00, 0x00, BIT(1), 1);
 	if (ret) return ret;
 	msleep(1);
-	return 0;
-}
-
-static inline int rtl837x_fiber_fc_en(struct rtl837x_priv *priv, u8 sds_idx, rtk_sds_mode_t mode, bool fc_en)
-{
-	int ret;
-	switch(mode)
-	{
-		case SERDES_100FX:
-			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<2, 0x1);
-			if (ret) return ret;
-			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<3, 0x1);
-			if (ret) return ret;
-			if(fc_en)
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
-						  SDS_CTRL02_XSG_AN_10_100_Pause_MASK | SDS_CTRL02_XSG_AN_10_100_AsymmetricPause_MASK,
-						  0x3
-						);
-			else
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
-						  SDS_CTRL02_XSG_AN_10_100_Pause_MASK | SDS_CTRL02_XSG_AN_10_100_AsymmetricPause_MASK,
-						  0x0
-						);
-			if (ret) return ret;
-			break;
-		case SERDES_1000BASEX:
-		case SERDES_2500BASEX:
-			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<2, 0x1);
-			if (ret) return ret;
-			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<3, 0x0);
-			if (ret) return ret;
-			if(fc_en)
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
-						  SDS_CTRL02_XSG_AN_1G_Pause_MASK | SDS_CTRL02_XSG_AN_1G_AsymmetricPause_MASK,
-						  0x3
-						);
-			else
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
-						  SDS_CTRL02_XSG_AN_1G_Pause_MASK | SDS_CTRL02_XSG_AN_1G_AsymmetricPause_MASK,
-						  0x0
-						);
-			if (ret) return ret;
-			break;  
-		case SERDES_10GR:
-			if(fc_en)
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL1F, SDS_REG_CTRL1F_10GR_AN,
-					  SDS_CTRL1F_10GR_AN_Pause_MASK | SDS_CTRL1F_10GR_AN_AsymmetricPause_MASK,
-					  0x3
-					);
-			else
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL1F, SDS_REG_CTRL1F_10GR_AN,
-					  SDS_CTRL1F_10GR_AN_Pause_MASK | SDS_CTRL1F_10GR_AN_AsymmetricPause_MASK,
-					  0x0
-					);
-			if (ret) return ret;
-			break; 	 
-		default:
-			break;  
-	}
-	return 0;
-}
-
-static inline int rtl837x_sds_nway_set(struct rtl837x_priv *priv, u8 sds_idx, rtk_sds_mode_t mode, bool an_en)
-{
-	int ret;
-	switch(mode)
-	{
-		case SERDES_100FX:
-		case SERDES_10GR:			 
-			break;
-		case SERDES_1000BASEX:
-		case SERDES_2500BASEX:
-		case SERDES_SG:
-		case SERDES_HSG:
-			if(an_en)
-			{
-				// Force Enable NWAY
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
-							  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN, 
-							  0x3
-							);
-				if (ret) return ret;
-				// Set link partner mode to force mode
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG04,
-					  SDS_CTRL00_REG04_SP_CFG_EN_LINK_FIB1G_MASK,
-					  0x1
-					);
-				if (ret) return ret;
-			}
-			else
-			{
-				// Force Disable NWAY
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
-							  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN, 
-							  0x1
-							);
-				if (ret) return ret;
-				// Set link partner mode to force mode
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG04,
-					  SDS_CTRL00_REG04_SP_CFG_EN_LINK_FIB1G_MASK,
-					  0x1
-					);
-				if (ret) return ret;
-			}
-			break;
-		case SERDES_10GUSXG:
-		case SERDES_10GQXG:
-			if(an_en)
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_NWAY_AN, SDS_REG_NWAY_AN,
-						  SDS_NWAY_QHSG_AN_CH0_EN_MASK | SDS_NWAY_QHSG_AN_CH1_EN_MASK |
-						  SDS_NWAY_QHSG_AN_CH2_EN_MASK | SDS_NWAY_QHSG_AN_CH3_EN_MASK,
-						  0xf
-						);
-			else
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_NWAY_AN, SDS_REG_NWAY_AN,
-						  SDS_NWAY_QHSG_AN_CH0_EN_MASK | SDS_NWAY_QHSG_AN_CH1_EN_MASK |
-						  SDS_NWAY_QHSG_AN_CH2_EN_MASK | SDS_NWAY_QHSG_AN_CH3_EN_MASK,
-						  0x0
-						);
-			if (ret) return ret;	
-			break;
-		default:
-			break;
-	}
 	return 0;
 }
 
@@ -1191,7 +1067,132 @@ int rtl837x_serdes_on(struct rtl837x_priv *priv, u8 sds_idx)
 	return _rtl837x_serdes_on(priv, false, sds_idx);
 }
 
-static int _rtl837x_serdes_patch(struct rtl837x_priv *priv, bool is_8224, u8 sds_idx, rtk_sds_mode_t mode)
+
+static inline int __deprecated rtl837x_fiber_fc_en(struct rtl837x_priv *priv, u8 sds_idx, rtk_sds_mode_t mode, bool fc_en)
+{
+	int ret;
+	switch(mode)
+	{
+		case SERDES_100FX:
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<2, 0x1);
+			if (ret) return ret;
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<3, 0x1);
+			if (ret) return ret;
+			if(fc_en)
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
+						  SDS_CTRL02_XSG_AN_10_100_Pause_MASK | SDS_CTRL02_XSG_AN_10_100_AsymmetricPause_MASK,
+						  0x3
+						);
+			else
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
+						  SDS_CTRL02_XSG_AN_10_100_Pause_MASK | SDS_CTRL02_XSG_AN_10_100_AsymmetricPause_MASK,
+						  0x0
+						);
+			if (ret) return ret;
+			break;
+		case SERDES_1000BASEX:
+		case SERDES_2500BASEX:
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<2, 0x1);
+			if (ret) return ret;
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<3, 0x0);
+			if (ret) return ret;
+			if(fc_en)
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
+						  SDS_CTRL02_XSG_AN_1G_Pause_MASK | SDS_CTRL02_XSG_AN_1G_AsymmetricPause_MASK,
+						  0x3
+						);
+			else
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
+						  SDS_CTRL02_XSG_AN_1G_Pause_MASK | SDS_CTRL02_XSG_AN_1G_AsymmetricPause_MASK,
+						  0x0
+						);
+			if (ret) return ret;
+			break;  
+		case SERDES_10GR:
+			if(fc_en)
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL1F, SDS_REG_CTRL1F_10GR_AN,
+					  SDS_CTRL1F_10GR_AN_Pause_MASK | SDS_CTRL1F_10GR_AN_AsymmetricPause_MASK,
+					  0x3
+					);
+			else
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL1F, SDS_REG_CTRL1F_10GR_AN,
+					  SDS_CTRL1F_10GR_AN_Pause_MASK | SDS_CTRL1F_10GR_AN_AsymmetricPause_MASK,
+					  0x0
+					);
+			if (ret) return ret;
+			break; 	 
+		default:
+			break;  
+	}
+	return 0;
+}
+
+static inline int __deprecated rtl837x_sds_nway_set(struct rtl837x_priv *priv, u8 sds_idx, rtk_sds_mode_t mode, bool an_en)
+{
+	int ret;
+	switch(mode)
+	{
+		case SERDES_100FX:
+		case SERDES_10GR:			 
+			break;
+		case SERDES_1000BASEX:
+		case SERDES_2500BASEX:
+		case SERDES_SG:
+		case SERDES_HSG:
+			if(an_en)
+			{
+				// Force Enable NWAY
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
+							  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN, 
+							  0x3
+							);
+				if (ret) return ret;
+				// Set link partner mode to force mode
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG04,
+					  SDS_CTRL00_REG04_SP_CFG_EN_LINK_FIB1G_MASK,
+					  0x1
+					);
+				if (ret) return ret;
+			}
+			else
+			{
+				// Force Disable NWAY
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
+							  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN, 
+							  0x1
+							);
+				if (ret) return ret;
+				// Set link partner mode to force mode
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG04,
+					  SDS_CTRL00_REG04_SP_CFG_EN_LINK_FIB1G_MASK,
+					  0x1
+					);
+				if (ret) return ret;
+			}
+			break;
+		case SERDES_10GUSXG:
+		case SERDES_10GQXG:
+			if(an_en)
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_NWAY_AN, SDS_REG_NWAY_AN,
+						  SDS_NWAY_QHSG_AN_CH0_EN_MASK | SDS_NWAY_QHSG_AN_CH1_EN_MASK |
+						  SDS_NWAY_QHSG_AN_CH2_EN_MASK | SDS_NWAY_QHSG_AN_CH3_EN_MASK,
+						  0xf
+						);
+			else
+				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_NWAY_AN, SDS_REG_NWAY_AN,
+						  SDS_NWAY_QHSG_AN_CH0_EN_MASK | SDS_NWAY_QHSG_AN_CH1_EN_MASK |
+						  SDS_NWAY_QHSG_AN_CH2_EN_MASK | SDS_NWAY_QHSG_AN_CH3_EN_MASK,
+						  0x0
+						);
+			if (ret) return ret;	
+			break;
+		default:
+			break;
+	}
+	return 0;
+}
+
+static int __deprecated _rtl837x_serdes_patch(struct rtl837x_priv *priv, bool is_8224, u8 sds_idx, rtk_sds_mode_t mode)
 {
 	int ret;
 	const u16 (*an_patch)[3];
@@ -1275,12 +1276,17 @@ static int _rtl837x_serdes_patch(struct rtl837x_priv *priv, bool is_8224, u8 sds
 	return 0;
 }
 
-static int _set_serdes_mode(struct rtl837x_priv *priv, bool is_8224, u8 sds_idx, rtk_sds_mode_t mode)
+static int __deprecated _set_serdes_mode(struct rtl837x_priv *priv, bool is_8224, u8 sds_idx, rtk_sds_mode_t mode)
 {
 	int ret;
+	u32 SDS_USX_SUB_MODE = 0;
 	
 	dev_dbg(priv->dev, "[%s] is_8224: %d\n", __func__, is_8224);
-	u32 SDS_USX_SUB_MODE = mode==SERDES_10GQXG ? 2 : 0;
+	if (mode==SERDES_10GQXG)
+	{
+		mode = SERDES_10GUSXG;
+		SDS_USX_SUB_MODE = 2;
+	}
 
 	if(sds_idx == 0)
 	{
@@ -1338,8 +1344,7 @@ static int _set_serdes_mode(struct rtl837x_priv *priv, bool is_8224, u8 sds_idx,
 	return 0;
 }
 
-
-int rtl837x_serdes_set_mode(struct rtl837x_priv *priv, u8 sds_idx, rtk_sds_mode_t mode)
+int __deprecated rtl837x_serdes_set_mode(struct rtl837x_priv *priv, u8 sds_idx, rtk_sds_mode_t mode)
 {
 	int ret;
 

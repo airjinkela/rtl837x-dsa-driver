@@ -710,8 +710,6 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 			  sds_idx, 
 			  phy_modes(interface), neg_mode);
 
-	// return rtl837x_serdes_set_mode(priv, PORT_TO_SERDES_IDX(port), phy_interface_to_rtk_sds_mode(interface));
-
 	if (sds_idx == 0)
 		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, RTL8373_SDS_MODE_SEL_CFG_MAC3_8221B_MASK, 0);
 	else
