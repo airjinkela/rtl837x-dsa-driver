@@ -2362,6 +2362,13 @@ enum RTL8373_MSTP_STATE {
 #define RTL8373_STP_STATE_MASK(port) \
 	RTL8373_STP_STATE((port), GENMASK(1, 0))
 
+enum rtl8373_rma_action {
+	RTL8373_RMA_ACTION_FORWARD = 0,
+	RTL8373_RMA_ACTION_TRAP_TO_CPU,
+	RTL8373_RMA_ACTION_DROP,
+	RTL8373_RMA_ACTION_FORWARD_EXCLUDE_CPU,
+};
+
 static void rtl8372n_port_stp_state_set(struct dsa_switch *ds, int port, u8 state)
 {
 	struct rtl837x_priv *priv = ds->priv;
@@ -2859,6 +2866,19 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		ret = -EPROTONOSUPPORT;
 	}
 	rtnl_unlock();
+	if (ret)
+		return ret;
+
+	/*
+	 * BPDUs use the reserved 802.1D bridge group address
+	 * (01:80:c2:00:00:00). Per-port STP state does not prevent this
+	 * reserved-multicast class from being forwarded, so trap it to the
+	 * external CPU for Linux bridge processing instead of flooding it
+	 * between switch ports.
+	 */
+	ret = rtl837x_reg_bits_write(priv, RTL8373_RMA_OP_CTRL_00_ADDR,
+				     RTL8373_RMA_OP_CTRL_00_RMA_ACT_00_MASK,
+				     RTL8373_RMA_ACTION_TRAP_TO_CPU);
 	if (ret)
 		return ret;
 
