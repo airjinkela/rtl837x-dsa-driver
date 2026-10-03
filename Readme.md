@@ -77,6 +77,19 @@ sfp0: sfp {
 				label = "lan1";
 				phy-mode = "internal";
 				phy-handle = <&internal_phy1>;
+
+				leds {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					led@0 {
+						reg = <0>;
+						led-pin = <3>;
+						color = <LED_COLOR_ID_GREEN>;
+						function = LED_FUNCTION_LAN;
+						default-state = "off";
+					};
+				};
+
 			};
 
 			port@5 {
@@ -84,6 +97,18 @@ sfp0: sfp {
 				label = "lan2";
 				phy-mode = "internal";
 				phy-handle = <&internal_phy2>;
+
+				leds {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					led@0 {
+						reg = <0>;
+						led-pin = <6>;
+						color = <LED_COLOR_ID_GREEN>;
+						function = LED_FUNCTION_LAN;
+						default-state = "off";
+					};
+				};
 			};
 
 			port@6 {
@@ -91,6 +116,18 @@ sfp0: sfp {
 				label = "lan3";
 				phy-mode = "internal";
 				phy-handle = <&internal_phy3>;
+
+				leds {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					led@0 {
+						reg = <0>;
+						led-pin = <10>;
+						color = <LED_COLOR_ID_GREEN>;
+						function = LED_FUNCTION_LAN;
+						default-state = "off";
+					};
+				};
 			};
 
 			port@7 {
@@ -98,6 +135,18 @@ sfp0: sfp {
 				label = "lan4";
 				phy-mode = "internal";
 				phy-handle = <&internal_phy4>;
+
+				leds {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					led@0 {
+						reg = <0>;
+						led-pin = <18>;
+						color = <LED_COLOR_ID_GREEN>;
+						function = LED_FUNCTION_LAN;
+						default-state = "off";
+					};
+				};
 			};
 
 			port@8 {
