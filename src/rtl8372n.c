@@ -1283,7 +1283,7 @@ static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 		restore_ret = rtl8372n_enable_bpdu_trap(priv);
 		if (restore_ret)
 			dev_err(priv->dev, "BPDU trap recovery failed: %d\n",
-				 restore_ret);
+				restore_ret);
 		return ret;
 	}
 
