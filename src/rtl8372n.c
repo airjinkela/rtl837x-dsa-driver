@@ -1254,7 +1254,7 @@ static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *dp, *cpu_dp = NULL;
 	struct net_device *master_dev = NULL;
-	int ret;
+	int ret, restore_ret;
 
 
 	// Only support one CPU port
@@ -1278,8 +1278,14 @@ static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 	}
 
 	ret = rtl8372n_restore_bpdu_policy(priv);
-	if (ret)
+	if (ret) {
+		/* The old native tagger is still active after a failed change. */
+		restore_ret = rtl8372n_enable_bpdu_trap(priv);
+		if (restore_ret)
+			dev_err(priv->dev, "BPDU trap recovery failed: %d\n",
+				 restore_ret);
 		return ret;
+	}
 
 	// Set external CPU DSA tag insert mode
 	/*

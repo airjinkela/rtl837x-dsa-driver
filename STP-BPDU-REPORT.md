@@ -30,7 +30,7 @@ The source confirms why the original proposal was incomplete:
 | BPDU format | Set action TRAP and clear BPDU CKEEP to permit native tag insertion; preserve its storm, VLAN-leak and isolation-leak fields |
 | VLAN transport | Restore the saved BPDU action/CKEEP and shared CPU-selection fields before native CPU tagging is disabled; retain the existing VLAN mode with an explicit unresolved-STP warning |
 | Return to native | Reapply the native trap after the native tag is ready |
-| Error handling | Check new reads/writes, preserve the first enable error, attempt restoration after an enable-write error, and report restoration failure; reject teardown if restoration fails |
+| Error handling | Check new reads/writes, preserve the first enable error, attempt restoration after an enable-write error, and report restoration failure; reject teardown if restoration fails and attempt to reapply the trap for the still-active native tagger |
 
 The saved fields are the values observed before this revision first enables its
 trap. They are **not** a proven safe STP policy for VLAN mode. Other RMA action
