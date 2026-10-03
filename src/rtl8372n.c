@@ -261,6 +261,9 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
 	enum switch_chip sw_chip;
 
 	ret = rtl837x_reg_read(priv, RTL8373_MODEL_NAME_INFO_ADDR, &val);
+	if (ret)
+		return ret;
+
 	dev_info(dev, "CHIP_ID: 0x%08x\n", val);
 
 	switch (val >> 8) {
