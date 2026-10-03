@@ -139,7 +139,8 @@ sfp0: sfp {
     if there are different VLANs, packets between 
 	VLANs will leak to each other, even if the two 
 	VLANs do not contain the same port~~ ***--FIXED***
-  2. STP successfully prevented packet flooding,
-    but STP packets were allowed to pass through and forward,
-    resulting in a large number of STP packets flooding
-    the network and exhausting the resources of the switching chip
+  2. STP blocks ordinary traffic, but BPDUs can still flood between ports.
+     This branch proposes CPU trapping for **`rtl8_4` only**; hardware
+     validation is pending. With `mxl862xx-8021q`, trapped frames bypass
+     S-VLAN processing and lose source-port metadata, so the STP issue
+     remains unresolved. See [the diagnosis and review procedure](STP-BPDU-REPORT.md).

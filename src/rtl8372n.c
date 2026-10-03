@@ -235,6 +235,9 @@ struct rtl8372n_pcs {
 struct rtl8372n {
 	struct rtl8372n_pcs pcs[RTL8372N_NUM_PORTS];
 	netdev_features_t csum_feature_backup;
+	u32 bpdu_rma_saved;
+	u32 rma_cpu_saved;
+	bool bpdu_policy_saved;
 	bool pvid_enabled[RTL8372N_NUM_PORTS];
 	bool dsa_tag_8021q_vid[RTL8372N_VLAN_MAX+1];
 };
@@ -258,6 +261,9 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
 	enum switch_chip sw_chip;
 
 	ret = rtl837x_reg_read(priv, RTL8373_MODEL_NAME_INFO_ADDR, &val);
+	if (ret)
+		return ret;
+
 	dev_info(dev, "CHIP_ID: 0x%08x\n", val);
 
 	switch (val >> 8) {
@@ -1098,6 +1104,82 @@ static int of_extra_init(struct dsa_switch *ds)
 	return 0;
 }
 
+#define RTL8372N_BPDU_RMA_MASK \
+	(RTL8373_RMA_OP_CTRL_00_RMA_ACT_00_MASK | \
+	 RTL8373_RMA_OP_CTRL_00_CKEEP_00_MASK)
+
+enum rtl8373_rma_action {
+	RTL8373_RMA_ACTION_FORWARD = 0,
+	RTL8373_RMA_ACTION_TRAP_TO_CPU,
+	RTL8373_RMA_ACTION_DROP,
+	RTL8373_RMA_ACTION_FORWARD_EXCLUDE_CPU,
+};
+
+static int rtl8372n_restore_bpdu_policy(struct rtl837x_priv *priv)
+{
+	struct rtl8372n *chip_data = priv->chip_data;
+	int ret;
+
+	if (!chip_data->bpdu_policy_saved)
+		return 0;
+
+	/* Stop our trap before disabling the native CPU tag. */
+	ret = regmap_update_bits(priv->map, RTL8373_RMA_OP_CTRL_00_ADDR,
+				 RTL8372N_BPDU_RMA_MASK,
+				 chip_data->bpdu_rma_saved);
+	if (ret)
+		return ret;
+
+	return regmap_update_bits(priv->map, RTL8373_RMA_PTP_TRAP_CTRL_ADDR,
+				  RTL8373_RMA_PTP_TRAP_CTRL_CPU_PMSK_MASK,
+				  chip_data->rma_cpu_saved);
+}
+
+static int rtl8372n_enable_bpdu_trap(struct rtl837x_priv *priv)
+{
+	struct rtl8372n *chip_data = priv->chip_data;
+	u32 rma, cpu;
+	int ret, restore_ret;
+
+	if (!chip_data->bpdu_policy_saved) {
+		ret = rtl837x_reg_read(priv, RTL8373_RMA_OP_CTRL_00_ADDR, &rma);
+		if (ret)
+			return ret;
+
+		ret = rtl837x_reg_read(priv, RTL8373_RMA_PTP_TRAP_CTRL_ADDR,
+				       &cpu);
+		if (ret)
+			return ret;
+
+		chip_data->bpdu_rma_saved = rma & RTL8372N_BPDU_RMA_MASK;
+		chip_data->rma_cpu_saved =
+			cpu & RTL8373_RMA_PTP_TRAP_CTRL_CPU_PMSK_MASK;
+		chip_data->bpdu_policy_saved = true;
+	}
+
+	/* This shared RMA/PTP selector uses bit 1 for the external CPU. */
+	ret = rtl837x_reg_bits_write(priv, RTL8373_RMA_PTP_TRAP_CTRL_ADDR,
+				     RTL8373_RMA_PTP_TRAP_CTRL_CPU_PMSK_MASK,
+				     BIT(1));
+	if (ret)
+		goto restore;
+
+	/* Allow native tag insertion instead of keeping the original format. */
+	ret = regmap_update_bits(priv->map, RTL8373_RMA_OP_CTRL_00_ADDR,
+				 RTL8372N_BPDU_RMA_MASK,
+				 FIELD_PREP(RTL8373_RMA_OP_CTRL_00_RMA_ACT_00_MASK,
+					    RTL8373_RMA_ACTION_TRAP_TO_CPU));
+	if (!ret)
+		return 0;
+
+restore:
+	restore_ret = rtl8372n_restore_bpdu_policy(priv);
+	if (restore_ret)
+		dev_err(priv->dev, "BPDU policy restore failed: %d\n", restore_ret);
+
+	return ret;
+}
+
 static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 {
 	int ret;
@@ -1166,7 +1248,7 @@ static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 	master_dev->wanted_features &= ~NETIF_F_HW_CSUM;
 	netdev_update_features(master_dev);
 
-	return 0;
+	return rtl8372n_enable_bpdu_trap(priv);
 }
 
 static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
@@ -1175,6 +1257,7 @@ static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *dp, *cpu_dp = NULL;
 	struct net_device *master_dev = NULL;
+	int ret, restore_ret;
 
 
 	// Only support one CPU port
@@ -1195,6 +1278,16 @@ static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 	if (!master_dev) {
 		dev_err(priv->dev, "Cannot get master netdev from cpu port\n");
 		return -ENODEV;
+	}
+
+	ret = rtl8372n_restore_bpdu_policy(priv);
+	if (ret) {
+		/* The old native tagger is still active after a failed change. */
+		restore_ret = rtl8372n_enable_bpdu_trap(priv);
+		if (restore_ret)
+			dev_err(priv->dev, "BPDU trap recovery failed: %d\n",
+				restore_ret);
+		return ret;
 	}
 
 	// Set external CPU DSA tag insert mode
@@ -1302,6 +1395,9 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 	ret = dsa_tag_8021q_register(ds, htons(ETH_P_8021Q));
 	if (ret)
 		return ret;
+
+	dev_warn(priv->dev,
+		 "BPDU trap fix requires rtl8_4; 8021q STP remains unresolved\n");
 
 	return 0;
 }
