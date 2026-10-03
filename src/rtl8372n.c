@@ -1750,6 +1750,47 @@ fail_rollback:
 	return ret;
 }
 
+
+/*
+ * The well-known bridge group address 01:80:C2:00:00:00 is treated by the
+ * hardware as an ordinary L2 multicast address, so BPDUs received on one port
+ * are flooded to every other member port of the bridge instead of being
+ * terminated locally.
+ *
+ * Steer them to the CPU port only, per VLAN, by installing an L2 multicast
+ * entry whose member port mask holds nothing but the CPU port.
+ *
+ * An L2 multicast entry is used instead of an RMA rule because the RMA actions
+ * (forward, trap to CPU, drop, forward excluding CPU) cannot express "deliver
+ * to the CPU and to no other port", whereas the member port mask of an L2
+ * multicast entry can.
+ */
+static int rtl8372n_set_bpdu_l2mc_cpu_trap(struct rtl837x_priv *priv, u32 vid,
+					   u32 cpu_port_mask, bool add)
+{
+	const u8 bpdu[] = { 0x01, 0x80, 0xC2, 0x00, 0x00, 0x00 };
+	struct rtl837x_lut_entry entry = {0};
+	int ret;
+
+	entry.type = LUT_TYPE_L2_MC;
+	memcpy(entry.mc.key.mac_addr, bpdu, ETH_ALEN);
+	entry.mc.key.ivl = true;
+	entry.mc.key.vid_fid = vid;
+
+	if (add) {
+		entry.mc.mbr = (u16)cpu_port_mask;
+		return rtl837x_lut_set(priv, &entry);
+	}
+
+	ret = rtl837x_lut_query(priv, LUT_READ_METHOD_MAC, &entry);
+	if (ret == -ENOENT)
+		return 0;
+	if (ret)
+		return ret;
+
+	return rtl837x_lut_del(priv, entry.addr);
+}
+
 static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 			    const struct switchdev_obj_port_vlan *vlan,
 			    struct netlink_ext_ack *extack)
@@ -1793,6 +1834,14 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 			vid);
 		goto fail_rollback;
 	}
+
+	/* Add bpdu trap rule for vlan */
+	ret = rtl8372n_set_bpdu_l2mc_cpu_trap(priv, vid,
+					      dsa_cpu_ports(priv->ds), true);
+	if (ret)
+		dev_warn(priv->dev,
+			 "failed to install BPDU trap for VLAN %04x: %d\n",
+			 vid, ret);
 
 	if (!pvid)
 		return 0;
@@ -1849,6 +1898,16 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 			vlan->vid);
 		return ret;
 	}
+
+	/* The VLAN is really gone now, drop the BPDU trap rule with it */
+	if (!vlan4k.member) {
+		ret = rtl8372n_set_bpdu_l2mc_cpu_trap(priv, vlan->vid, 0, false);
+		if (ret)
+			dev_warn(priv->dev,
+				 "failed to remove BPDU trap for VLAN %04x: %d\n",
+				 vlan->vid, ret);
+	}
+
 	return 0;
 }
 
@@ -2054,31 +2113,6 @@ static int rtl8372n_set_mac_eee(struct dsa_switch *ds, int port, struct ethtool_
 	return 0;
 }
 
-static int rtl8372n_set_bpdu_l2mc_cpu_trap(struct rtl837x_priv *priv, u32 vid, u32 cpu_port_mask, bool add)
-{
-	const u8 bpdu[] = { 0x01, 0x80, 0xC2, 0x00, 0x00, 0x00 };
-	struct rtl837x_lut_entry entry = {0};
-	int ret;
-
-	entry.type = LUT_TYPE_L2_MC;
-	memcpy(entry.mc.key.mac_addr, bpdu, ETH_ALEN);
-	entry.mc.key.ivl = true;
-	entry.mc.key.vid_fid = vid;
-
-	if (add) {
-		entry.mc.mbr = (u16)cpu_port_mask;
-		return rtl837x_lut_set(priv, &entry);
-	}
-
-	ret = rtl837x_lut_query(priv, LUT_READ_METHOD_MAC, &entry);
-	if (ret == -ENOENT)
-		return 0;
-	if (ret)
-		return ret;
-
-	return rtl837x_lut_del(priv, entry.addr);
-}
-
 static int
 rtl8372n_port_fdb_static_add(struct rtl837x_priv *priv, int port,
 		    const unsigned char *addr, u16 vid)
@@ -2169,16 +2203,11 @@ rtl8372n_port_fdb_add(struct dsa_switch *ds, int port,
 					return ret;
 			}
 		} else {
-			if (dsa_is_cpu_port(ds, port))
-				rtl8372n_set_bpdu_l2mc_cpu_trap(priv, vid, BIT(port), true);
 			ret = rtl8372n_port_fdb_static_add(priv, port, addr, vid);
 			if (ret)
 				return ret;
-
 		}
 	} else {
-		if (dsa_is_cpu_port(ds, port))
-			rtl8372n_set_bpdu_l2mc_cpu_trap(priv, vid, BIT(port), true);
 		return rtl8372n_port_fdb_static_add(priv, port, addr, vid);
 	}
 	return 0;
@@ -2209,13 +2238,9 @@ rtl8372n_port_fdb_del(struct dsa_switch *ds, int port,
 					return ret;
 			}
 		} else {
-			if (dsa_is_cpu_port(ds, port))
-				rtl8372n_set_bpdu_l2mc_cpu_trap(priv, vid, 0, false);
 			return rtl8372n_port_fdb_static_del(priv, addr, vid);
 		}
 	} else {
-		if (dsa_is_cpu_port(ds, port))
-			rtl8372n_set_bpdu_l2mc_cpu_trap(priv, vid, 0, false);
 		return rtl8372n_port_fdb_static_del(priv, addr, vid);
 	}
 	return 0;
