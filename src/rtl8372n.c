@@ -2054,6 +2054,31 @@ static int rtl8372n_set_mac_eee(struct dsa_switch *ds, int port, struct ethtool_
 	return 0;
 }
 
+static int rtl8372n_set_bpdu_l2mc_cpu_trap(struct rtl837x_priv *priv, u32 vid, u32 cpu_port_mask, bool add)
+{
+	const u8 bpdu[] = { 0x01, 0x80, 0xC2, 0x00, 0x00, 0x00 };
+	struct rtl837x_lut_entry entry = {0};
+	int ret;
+
+	entry.type = LUT_TYPE_L2_MC;
+	memcpy(entry.mc.key.mac_addr, bpdu, ETH_ALEN);
+	entry.mc.key.ivl = true;
+	entry.mc.key.vid_fid = vid;
+
+	if (add) {
+		entry.mc.mbr = (u16)cpu_port_mask;
+		return rtl837x_lut_set(priv, &entry);
+	}
+
+	ret = rtl837x_lut_query(priv, LUT_READ_METHOD_MAC, &entry);
+	if (ret == -ENOENT)
+		return 0;
+	if (ret)
+		return ret;
+
+	return rtl837x_lut_del(priv, entry.addr);
+}
+
 static int
 rtl8372n_port_fdb_static_add(struct rtl837x_priv *priv, int port,
 		    const unsigned char *addr, u16 vid)
@@ -2144,11 +2169,16 @@ rtl8372n_port_fdb_add(struct dsa_switch *ds, int port,
 					return ret;
 			}
 		} else {
+			if (dsa_is_cpu_port(ds, port))
+				rtl8372n_set_bpdu_l2mc_cpu_trap(priv, vid, BIT(port), true);
 			ret = rtl8372n_port_fdb_static_add(priv, port, addr, vid);
 			if (ret)
 				return ret;
+
 		}
 	} else {
+		if (dsa_is_cpu_port(ds, port))
+			rtl8372n_set_bpdu_l2mc_cpu_trap(priv, vid, BIT(port), true);
 		return rtl8372n_port_fdb_static_add(priv, port, addr, vid);
 	}
 	return 0;
@@ -2179,9 +2209,13 @@ rtl8372n_port_fdb_del(struct dsa_switch *ds, int port,
 					return ret;
 			}
 		} else {
+			if (dsa_is_cpu_port(ds, port))
+				rtl8372n_set_bpdu_l2mc_cpu_trap(priv, vid, 0, false);
 			return rtl8372n_port_fdb_static_del(priv, addr, vid);
 		}
 	} else {
+		if (dsa_is_cpu_port(ds, port))
+			rtl8372n_set_bpdu_l2mc_cpu_trap(priv, vid, 0, false);
 		return rtl8372n_port_fdb_static_del(priv, addr, vid);
 	}
 	return 0;
