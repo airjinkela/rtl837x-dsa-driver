@@ -19,6 +19,7 @@ rtl8372n_dsa-objs += rtl837x_dbg.o
 rtl8372n_dsa-objs += rtl837x_mdio.o
 rtl8372n_dsa-objs += rtl837x_common.o
 rtl8372n_dsa-objs += rtl837x_common_l2.o
+rtl8372n_dsa-objs += rtl837x_led.o
 
 ifeq ($(CONFIG_RTL837X_PHY_PATCH),y)
 ccflags-y += -DRTL837X_PHY_PATCH

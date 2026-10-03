@@ -215,6 +215,10 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 
 	priv->write_reg_noack = rtl837x_mdio_write;
 
+	for (int i = 0; i < RTL837X_LED_SET_COUNT; i++) {
+		priv->led_set[i].priv = priv;
+		priv->led_set[i].idx = i;
+	}
 
 	dev_set_drvdata(dev, priv);
 
@@ -300,6 +304,8 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 			dev_err(priv->dev, "Failed to register gpiochip. ret = %d\n", ret);
 	}
 #endif /* CONFIG_GPIOLIB */
+
+	rtl837x_set_led(priv);
 
 	rtl837x_debug_proc_init(priv);
 

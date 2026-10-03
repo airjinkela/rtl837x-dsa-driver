@@ -18,8 +18,11 @@
 #define MDC_MDIO_READ_CMD           0x1B
 #define MDC_MDIO_WRITE_CMD          0x19
 
-#define RTL837x_C2SIDXMAX (127)
-#define RTL837x_FIDMAX    (15)
+#define RTL837x_C2SIDXMAX       127
+#define RTL837x_FIDMAX          15
+#define RTL837X_PORT_LED_COUNT  4
+#define RTL837X_LED_SET_COUNT   4
+#define RTL837X_MAX_PORT_COUNT  8
 
 /* Chip identification */
 #define RTL837X_MODEL_NAME_INFO_ADDR                   0x4
@@ -391,6 +394,23 @@ struct rtl837x_mib_counter {
 	const char	*name;
 };
 
+struct rtl837x_led_set {
+	struct rtl837x_priv *priv;
+	u8 idx;
+	u32 led_cfg_mask[RTL837X_PORT_LED_COUNT];
+	atomic_t refcnt;
+};
+
+struct rtl837x_led {
+	u8 port_num;
+	u8 led_id;
+	u8 led_pin;
+	bool is_hw_offload;
+	struct rtl837x_led_set *led_set;
+	struct rtl837x_priv *priv;
+	struct led_classdev cdev;
+};
+
 struct rtl837x_priv {
 	struct device *dev;
 	struct gpio_desc	*reset;
@@ -417,6 +437,9 @@ struct rtl837x_priv {
 	const struct rtl837x_mib_counter *mib_counters;
 	unsigned int num_mib_counters;
 	struct mutex mib_lock;
+
+	struct rtl837x_led_set led_set[RTL837X_LED_SET_COUNT];
+	struct rtl837x_led ports_led[RTL837X_PORT_LED_COUNT*RTL837X_MAX_PORT_COUNT];
 
 	const struct rtl837x_ops *ops;
 	int			(*write_reg_noack)(void *ctx, u32 addr, u32 data);
@@ -548,6 +571,7 @@ extern int rtl837x_reg_bits_read(struct rtl837x_priv *priv, u32 reg, u32 mask, u
 extern int rtl837x_reg_bits_write(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 val);
 
 extern int rtl837x_gpiochip_init(struct rtl837x_priv *priv);
+extern int rtl837x_set_led(struct rtl837x_priv *priv);
 extern enum rtk_sds_mode phy_interface_to_rtk_sds_mode(phy_interface_t interface);
 
 extern int rtl837x_debug_proc_init(struct rtl837x_priv *priv);
