@@ -83,18 +83,46 @@ For a complete VLAN-mode solution, evaluate these alternatives:
 - `git diff --check`: PASS for the source revision.
 - Strict Linux `checkpatch.pl` on the source change: PASS, zero errors, warnings
   or checks.
-- Exact-source ARM64 module/API build: PENDING at preparation.
+- [Exact-source ARM64/Linux 6.18.39 module/API build](https://github.com/MNeroba/rtl837x-dsa-driver/actions/runs/37098771613): PASS
+  for `82499ca4cc58d8c6b23476cb5196c1231d9dd1ba`, all seven driver objects
+  with `W=1`, native/VLAN tagger builds, modpost and `.ko` linking. The candidate
+  log contains no compiler warnings or errors after the chip-ID error fix.
 - Complete OpenWrt package/image build: NOT RUN.
 - RTL8372N hardware, packet captures and failure injection: NOT RUN.
 
 A module/API build cannot prove tag generation, BPDU delivery or loop safety.
 
+Build evidence:
+
+- [Artifact: `bpdu-arm64-82499ca4cc58`](https://github.com/MNeroba/rtl837x-dsa-driver/actions/runs/37098771613/artifacts/11265068172)
+  includes `.config`, logs, the verified source SHA, tagger/header input patches
+  and the AArch64 module.
+- Module SHA-256: `72bf826221eb3d5e4479292b4146a917129882e7f77d5ed1c2e84ade0da3b0f6`.
+  The downloaded module matches the CI checksum.
+- The [separate validation workflow](https://github.com/MNeroba/rtl837x-dsa-driver/blob/6ead43befb3123a68e3dbcceb88a89e39a96a9f9/.github/workflows/bpdu-module.yml)
+  pins mainline Linux 6.18.39 and its archive checksum. It installs only the
+  OpenWrt MaxLinear protocol header additions and unchanged VLAN tagger from
+  `MNeroba/openwrt-flint3` at `e56812ba8bb3cfa758153e49d04d2a0ca42ececf`.
+  This is an API compatibility fixture, not the complete OpenWrt kernel patch
+  set. GPIO, debugfs and the package's default PHY-patch object are included.
+- `CONFIG_KUNIT=y` / `REGMAP_BUILD=y` enable the required regmap core in the
+  minimal kernel; `KUNIT_ALL_TESTS` is disabled. No runtime/KUnit test is run.
+- Tested driver source-tree ID: `822ca253d34f6b9d5f986d70002ddd69629e5e16`.
+  Subsequent report-only updates leave driver/Makefile inputs unchanged.
+
+
 ## Requested maintainer tests
+
+Build the actual OpenWrt package/image for the tested driver revision, target
+kernel and device tree before bench work. The API-build module is not a
+qualified module for the board image.
 
 Use an isolated bench with a recovery path. Establish correct BPDU delivery
 without a physical loop before testing redundant links. Record PASS, FAIL,
 BLOCKED or NOT RUN per row, exact source/kernel/image identifiers, chip
-revision, CPU-port index and complete logs.
+revision, CPU-port index and complete logs. For raw-tag captures, record conduit
+RX VLAN-offload settings and the capture point; attach an external capture if
+the host stack strips the relevant bytes before they are visible.
 
 | Check | Evidence required |
 | --- | --- |
