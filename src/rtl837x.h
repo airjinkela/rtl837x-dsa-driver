@@ -20,9 +20,9 @@
 
 #define RTL837x_C2SIDXMAX       127
 #define RTL837x_FIDMAX          15
+#define RTL837X_MAX_PORT_COUNT  9 /* 0~8 */
 #define RTL837X_PORT_LED_COUNT  4
 #define RTL837X_LED_SET_COUNT   4
-#define RTL837X_MAX_PORT_COUNT  8
 
 /* Chip identification */
 #define RTL837X_MODEL_NAME_INFO_ADDR                   0x4

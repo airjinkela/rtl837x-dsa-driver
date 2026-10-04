@@ -912,6 +912,65 @@ static const struct file_operations _port_eee_status_dump_fops = {
 	.read = _port_eee_status_dump_read
 };
 
+static ssize_t _led_dump_read(struct file *filep, char __user *ubuf,
+			      size_t count, loff_t *offp)
+{
+	struct rtl837x_led_set *led_set;
+	struct rtl837x_led *port_led;
+	struct seq_file *sfile;
+	struct rtl837x_priv *priv;
+	int ret, len = 0;
+	char *buf;
+	int i;
+
+	sfile = filep->private_data;
+	priv = sfile->private;
+
+	buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	/* Software view of the LED sets: reference count plus the four masks */
+	len += scnprintf(buf + len, PAGE_SIZE - len, "led sets:\n");
+	for (i = 0; i < RTL837X_LED_SET_COUNT; i++) {
+		led_set = &priv->led_set[i];
+		len += scnprintf(buf + len, PAGE_SIZE - len,
+			"  set%d refcnt:%d mask: 0x%08x 0x%08x 0x%08x 0x%08x\n",
+			i, atomic_read(&led_set->refcnt),
+			led_set->led_cfg_mask[0], led_set->led_cfg_mask[1],
+			led_set->led_cfg_mask[2], led_set->led_cfg_mask[3]);
+	}
+
+	/* Per-port LEDs currently registered, skipping the unused slots */
+	len += scnprintf(buf + len, PAGE_SIZE - len, "port leds:\n");
+	for (i = 0; i < ARRAY_SIZE(priv->ports_led); i++) {
+		port_led = &priv->ports_led[i];
+		if (!port_led->priv)
+			continue;
+
+		led_set = port_led->led_set;
+		len += scnprintf(buf + len, PAGE_SIZE - len,
+			"  port%d led%d pin%d hw_offload:%d set:%d mask:0x%08x\n",
+			port_led->port_num, port_led->led_id,
+			port_led->led_pin, port_led->is_hw_offload,
+			led_set ? led_set->idx : -1,
+			led_set ? led_set->led_cfg_mask[port_led->led_id] : 0);
+
+		if (len >= PAGE_SIZE - 64)
+			break;
+	}
+
+	ret = simple_read_from_buffer(ubuf, count, offp, buf, len);
+	kfree(buf);
+	return ret;
+}
+
+static const struct file_operations _led_dump_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_debugfs_open,
+	.read = _led_dump_read
+};
+
 int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 {
 	char name[64];
@@ -977,6 +1036,10 @@ int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 	debugfs_create_file("port_eee_status_dump", 0400,
 		priv->debugfs_parent, priv,
 		&_port_eee_status_dump_fops);
+
+	debugfs_create_file("led_dump", 0400,
+		priv->debugfs_parent, priv,
+		&_led_dump_fops);
 
 	return 0;
 }
