@@ -258,11 +258,7 @@ static int rtl837x_parse_netdev(unsigned long rules, u32 *offload_trigger)
 {
 	/* Parsing specific to netdev trigger */
 	if (test_bit(TRIGGER_NETDEV_LINK, &rules))
-		*offload_trigger |= RTL837X_LED_LINK_LINK_EN_MASK | RTL837X_LED_LINK_MASK;
-	if (test_bit(TRIGGER_NETDEV_RX, &rules))
-		*offload_trigger |= RTL837X_LED_LINK_RX_EN_MASK;
-	if (test_bit(TRIGGER_NETDEV_TX, &rules))
-		*offload_trigger |= RTL837X_LED_LINK_TX_EN_MASK;
+		*offload_trigger |= RTL837X_LED_LINK_MASK;
 	if (test_bit(TRIGGER_NETDEV_LINK_10, &rules))
 		*offload_trigger |= RTL837X_LED_LINK_10M_EN_MASK;
 	if (test_bit(TRIGGER_NETDEV_LINK_100, &rules))
@@ -276,9 +272,18 @@ static int rtl837x_parse_netdev(unsigned long rules, u32 *offload_trigger)
 	if (test_bit(TRIGGER_NETDEV_LINK_10000, &rules))
 		*offload_trigger |= RTL837X_LED_LINK_10000M_EN_MASK;
 
+	if (*offload_trigger & RTL837X_LED_LINK_MASK)
+		*offload_trigger |= RTL837X_LED_LINK_LINK_EN_MASK;
+
 	if ((*offload_trigger & RTL837X_LED_LINK_RX_EN_MASK) &&
 		(*offload_trigger & RTL837X_LED_LINK_TX_EN_MASK))
 		*offload_trigger |= RTL837X_LED_LINK_ACT_EN_MASK;
+	else {
+		if (test_bit(TRIGGER_NETDEV_RX, &rules))
+			*offload_trigger |= RTL837X_LED_LINK_RX_EN_MASK;
+		if (test_bit(TRIGGER_NETDEV_TX, &rules))
+			*offload_trigger |= RTL837X_LED_LINK_TX_EN_MASK;
+	}
 
 	if (rules && !*offload_trigger)
 		return -EOPNOTSUPP;
@@ -433,8 +438,10 @@ rtl837x_cled_hw_control_get(struct led_classdev *ldev, unsigned long *rules)
 		set_bit(TRIGGER_NETDEV_LINK_5000, rules);
 	if (offload_trigger & RTL837X_LED_LINK_10000M_EN_MASK)
 		set_bit(TRIGGER_NETDEV_LINK_10000, rules);
-	if (offload_trigger & RTL837X_LED_LINK_LINK_EN_MASK)
+
+	if ((offload_trigger & RTL837X_LED_LINK_MASK) == RTL837X_LED_LINK_MASK)
 		set_bit(TRIGGER_NETDEV_LINK, rules);
+
 	if (offload_trigger & RTL837X_LED_LINK_ACT_EN_MASK) {
 		set_bit(TRIGGER_NETDEV_TX, rules);
 		set_bit(TRIGGER_NETDEV_RX, rules);
