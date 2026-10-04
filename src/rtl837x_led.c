@@ -441,8 +441,14 @@ static int rtl837x_set_led_mux(struct rtl837x_led *port_led)
 {
 	struct rtl837x_priv *priv = port_led->priv;
 
+	/*
+	 * CFG_PAD_LEDn_MUX = (port << 2) | led_id
+	 *
+	 *   port   : DSA port index, i.e. the 'reg' of the port node
+	 *   led_id : the led0..led3 slot of that port
+	 */
 	u32 tmp = FIELD_PREP(0x03, port_led->led_id) |
-		  FIELD_PREP(0x3c, port_led->port_num);
+			  FIELD_PREP(0x3c, port_led->port_num);
 
 	return rtl837x_reg_bits_write(priv, RTL837X_LED_GLB_MUX_ADDR(port_led->led_pin),
 			RTL837X_LED_GLB_MUX_LEDx_MUX_MASK(port_led->led_pin), tmp);
