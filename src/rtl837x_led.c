@@ -497,6 +497,11 @@ static int rtl837x_parse_port_leds(struct rtl837x_priv *priv, struct fwnode_hand
 			continue;
 		}
 
+		if (port_num >= RTL837X_MAX_PORT_COUNT) {
+			dev_warn(priv->dev, "Invalid port %d for LED\n", port_num);
+			continue;
+		}
+
 		led_index = RTL837X_LED_PORT_INDEX(port_num, led_id);
 
 		port_led = &priv->ports_led[led_index];
