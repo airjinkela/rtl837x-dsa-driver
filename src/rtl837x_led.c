@@ -277,8 +277,6 @@ static int rtl837x_set_led_hw_offload(struct rtl837x_led *port_led, bool enable)
 	int ret;
 	struct rtl837x_priv *priv = port_led->priv;
 
-	port_led->is_hw_offload = enable;
-
 	if (enable) {
 
 		ret = rtl837x_reg_bits_write(priv, RTL837X_IO_MUX_SEL_0_ADDR,
@@ -287,6 +285,8 @@ static int rtl837x_set_led_hw_offload(struct rtl837x_led *port_led, bool enable)
 			return ret;
 		ret = rtl837x_reg_bits_write(priv, RTL837X_LED_GLB_IO_EN_ADDR,
 			    BIT(port_led->led_pin), 1);
+		if (ret)
+			return ret;
 	} else {
 		/*
 		 * Back to GPIO control: this LED no longer references its set,
@@ -307,8 +307,11 @@ static int rtl837x_set_led_hw_offload(struct rtl837x_led *port_led, bool enable)
 			return ret;
 		ret = rtl837x_reg_bits_write(priv, RTL837X_GPIO_OE0_ADDR,
 				BIT(port_led->led_pin), 1);
+		if (ret)
+			return ret;
 	}
 
+	port_led->is_hw_offload = enable;
 	return ret;
 }
 
@@ -319,6 +322,8 @@ static int rtl837x_led_set_brightness(struct rtl837x_led *port_led,
 	struct rtl837x_priv *priv = port_led->priv;
 
 	ret = rtl837x_set_led_hw_offload(port_led, false);
+	if (ret)
+		return ret;
 	if (brightness)
 		ret = rtl837x_reg_bits_write(priv, RTL837X_GPIO_OUT0_ADDR,
 				BIT(port_led->led_pin), 1);
@@ -376,7 +381,7 @@ rtl837x_cled_hw_control_get(struct led_classdev *ldev, unsigned long *rules)
 	u32 offload_trigger = 0;
 	u32 tmp;
 
-	if (!port_led->is_hw_offload)
+	if (!port_led->is_hw_offload || !port_led->led_set)
 		return -EINVAL;
 
 	ret = rtl837x_reg_bits_read(priv,
@@ -516,6 +521,7 @@ static int rtl837x_parse_port_leds(struct rtl837x_priv *priv, struct fwnode_hand
 			break;
 		case LEDS_DEFSTATE_KEEP:
 			port_led->cdev.brightness = 1;
+			rtl837x_led_set_brightness(port_led, 1);
 			break;
 		default:
 			port_led->cdev.brightness = 0;
