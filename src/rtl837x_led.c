@@ -67,7 +67,7 @@
 	     RTL837X_LED_LINK_10000M_EN_MASK | \
 		 RTL837X_LED_LINK_2PAIR_1000M_EN_MASK |\
 		 RTL837X_LED_LINK_2PAIR_5000M_EN_MASK |\
-		 RTL837X_LED_LINK_2PAIR_2500M_EN_MASK |\
+		 RTL837X_LED_LINK_2PAIR_2500M_EN_MASK \
 		)
 
 static inline void led_set_refinc(struct rtl837x_led_set *led_set)
