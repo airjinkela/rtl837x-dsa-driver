@@ -81,6 +81,7 @@ sfp0: sfp {
 				leds {
 					#address-cells = <1>;
 					#size-cells = <0>;
+
 					led@0 {
 						reg = <0>;
 						led-pin = <3>;
@@ -101,6 +102,7 @@ sfp0: sfp {
 				leds {
 					#address-cells = <1>;
 					#size-cells = <0>;
+
 					led@0 {
 						reg = <0>;
 						led-pin = <6>;
@@ -120,6 +122,7 @@ sfp0: sfp {
 				leds {
 					#address-cells = <1>;
 					#size-cells = <0>;
+
 					led@0 {
 						reg = <0>;
 						led-pin = <10>;
@@ -139,6 +142,7 @@ sfp0: sfp {
 				leds {
 					#address-cells = <1>;
 					#size-cells = <0>;
+
 					led@0 {
 						reg = <0>;
 						led-pin = <18>;
