@@ -950,9 +950,9 @@ static ssize_t _led_dump_read(struct file *filep, char __user *ubuf,
 
 		led_set = port_led->led_set;
 		len += scnprintf(buf + len, PAGE_SIZE - len,
-			"  port%d led%d pin%d hw_offload:%d set:%d mask:0x%08x\n",
+			"  port%d led%d pin%d active_low:%d hw_offload:%d set:%d mask:0x%08x\n",
 			port_led->port_num, port_led->led_id,
-			port_led->led_pin, port_led->is_hw_offload,
+			port_led->led_pin, port_led->active_low, port_led->is_hw_offload,
 			led_set ? led_set->idx : -1,
 			led_set ? led_set->led_cfg_mask[port_led->led_id] : 0);
 

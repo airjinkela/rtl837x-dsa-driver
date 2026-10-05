@@ -10,6 +10,9 @@
 #define   RTL837X_LED_GLB_MUX_LEDx_MUX_MASK(_led_pin) \
 	    (0x3F<<((_led_pin%5)*6))
 
+#define RTL837X_LED_ACTIVE_LOW_ADDR   0x65D8
+#define    RTL8372_LED_ACTIVE_LOW_MASK(_led_pin) BIT(_led_pin)
+
 #define RTL837X_PORT_LED_SET_SEL_ADDR        0x654C
 #define   RTL837X_PORT_LED_SET_SEL_MASK(_p)  (0x3<<(_p<<1))
 
@@ -297,13 +300,18 @@ static int rtl837x_set_led_hw_offload(struct rtl837x_led *port_led, bool enable)
 	struct rtl837x_priv *priv = port_led->priv;
 
 	if (enable) {
-
 		ret = rtl837x_reg_bits_write(priv, RTL837X_IO_MUX_SEL_0_ADDR,
 			    BIT(port_led->led_pin), 0);
 		if (ret)
 			return ret;
 		ret = rtl837x_reg_bits_write(priv, RTL837X_LED_GLB_IO_EN_ADDR,
 			    BIT(port_led->led_pin), 1);
+		if (ret)
+			return ret;
+		ret = rtl837x_reg_bits_write(priv, RTL837X_LED_ACTIVE_LOW_ADDR,
+				    RTL8372_LED_ACTIVE_LOW_MASK(port_led->led_pin),
+				    !!port_led->active_low
+				);
 		if (ret)
 			return ret;
 	} else {
@@ -339,16 +347,17 @@ static int rtl837x_led_set_brightness(struct rtl837x_led *port_led,
 {
 	int ret;
 	struct rtl837x_priv *priv = port_led->priv;
+	int br_val = port_led->active_low ? 0 : 1;
 
 	ret = rtl837x_set_led_hw_offload(port_led, false);
 	if (ret)
 		return ret;
 	if (brightness)
 		ret = rtl837x_reg_bits_write(priv, RTL837X_GPIO_OUT0_ADDR,
-				BIT(port_led->led_pin), 1);
+				BIT(port_led->led_pin), br_val);
 	else
 		ret = rtl837x_reg_bits_write(priv, RTL837X_GPIO_OUT0_ADDR,
-				BIT(port_led->led_pin), 0);
+				BIT(port_led->led_pin), !br_val);
 	return ret;
 }
 
@@ -526,6 +535,7 @@ static int rtl837x_parse_port_leds(struct rtl837x_priv *priv, struct fwnode_hand
 		led_index = RTL837X_LED_PORT_INDEX(port_num, led_id);
 
 		port_led = &priv->ports_led[led_index];
+		port_led->active_low = !!fwnode_property_read_bool(led, "active-low");
 		port_led->port_num = port_num;
 		port_led->led_id = led_id;
 		port_led->led_pin = led_pin;
@@ -564,9 +574,9 @@ static int rtl837x_parse_port_leds(struct rtl837x_priv *priv, struct fwnode_hand
 		init_data.default_label = ":port";
 		init_data.fwnode = led;
 		init_data.devname_mandatory = true;
-		init_data.devicename = kasprintf(GFP_KERNEL, "%s:0%d",
-						 priv->bus->id,
-						 port_num);
+		init_data.devicename = kasprintf(GFP_KERNEL, "%s:0%d:0%d",
+						    priv->bus->id, port_num, led_id
+						);
 		if (!init_data.devicename) {
 			fwnode_handle_put(led);
 			fwnode_handle_put(leds);

@@ -405,6 +405,7 @@ struct rtl837x_led {
 	u8 port_num;
 	u8 led_id;
 	u8 led_pin;
+	bool active_low;
 	bool is_hw_offload;
 	struct rtl837x_led_set *led_set;
 	struct rtl837x_priv *priv;
