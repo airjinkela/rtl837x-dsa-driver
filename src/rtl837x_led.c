@@ -2,6 +2,8 @@
 /*
  * Copyright (C) 2025 StarField Xu <air_jinkela@163.com>
  */
+#include <linux/version.h>
+
 #include "rtl837x.h"
 
 #define RTL837X_LED_GLB_IO_EN_ADDR    0x65DC
@@ -448,8 +450,14 @@ static struct device *rtl837x_cled_hw_control_get_device(struct led_classdev *ld
 	dp = dsa_to_port(priv->ds, port_led->port_num);
 	if (!dp)
 		return NULL;
+
+#if KERNEL_VERSION(6, 12, 44) >= LINUX_VERSION_CODE
+	if (dp->slave)
+		return &dp->slave->dev;
+#else
 	if (dp->user)
 		return &dp->user->dev;
+#endif
 	return NULL;
 }
 
