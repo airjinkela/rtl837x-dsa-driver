@@ -80,12 +80,6 @@ static inline void led_set_refinc(struct rtl837x_led_set *led_set)
 
 static inline void led_set_refdec(struct rtl837x_led_set *led_set)
 {
-	/*
-	 * The last user is gone, so the masks no longer describe anything:
-	 * clear them here so that an idle set is always seen as all-zero
-	 * (rtl837x_match_same_led_set() relies on that when probing for a
-	 * matching set).
-	 */
 	if (atomic_dec_and_test(&led_set->refcnt))
 		memset(led_set->led_cfg_mask, 0, sizeof(led_set->led_cfg_mask));
 }
