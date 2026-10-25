@@ -98,7 +98,7 @@ out:
 	return ret;
 }
 
-int rtl837x_vlan_port_set_pvid(struct rtl837x_priv *priv, int port, int pvid)
+int rtl837x_vlan_port_set_pvid(struct rtl837x_priv *priv, int port, u16 pvid)
 {
 	return rtl837x_reg_bits_write(priv, RTL837X_VLAN_PVID_REG(port),
 			  RTL837X_VLAN_PVID_MASK(port),
@@ -106,7 +106,7 @@ int rtl837x_vlan_port_set_pvid(struct rtl837x_priv *priv, int port, int pvid)
 			);
 }
 
-int rtl837x_vlan_port_get_pvid(struct rtl837x_priv *priv, int port, int *pvid)
+int rtl837x_vlan_port_get_pvid(struct rtl837x_priv *priv, int port, u16 *pvid)
 {
 	int ret;
 	u32 tmp;

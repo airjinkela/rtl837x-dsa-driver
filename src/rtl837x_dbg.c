@@ -151,7 +151,7 @@ ssize_t MAKE_WRITE_FUNCNAME(pvid)(struct file *filep, const char __user *ubuf,
 			kfree(buf);
 			return -EFAULT;
 		}
-		rtl837x_vlan_port_set_pvid(priv, port, pvid);
+		rtl837x_vlan_port_set_pvid(priv, port, (u16)pvid);
 		goto readback;
 	} else if (buf[0] == 'r') {
 		if (sscanf(buf, "r %d", &port) != 1) {
@@ -163,7 +163,7 @@ ssize_t MAKE_WRITE_FUNCNAME(pvid)(struct file *filep, const char __user *ubuf,
 			return -EFAULT;
 		}
 readback:
-		ret = rtl837x_vlan_port_get_pvid(priv, port, &pvid);
+		ret = rtl837x_vlan_port_get_pvid(priv, port, (u16*)&pvid);
 		if (ret) {
 			kfree(buf);
 			return -EIO;

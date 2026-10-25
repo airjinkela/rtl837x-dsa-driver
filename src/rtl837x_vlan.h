@@ -58,8 +58,8 @@ enum rtl837x_vlan_egress_mode {
 
 int rtl837x_vlan_set(struct rtl837x_priv *priv, int vid, struct rtl837x_vlan_data *vlan);
 int rtl837x_vlan_get(struct rtl837x_priv *priv, int vid, struct rtl837x_vlan_data *vlan);
-int rtl837x_vlan_port_set_pvid(struct rtl837x_priv *priv, int port, int pvid);
-int rtl837x_vlan_port_get_pvid(struct rtl837x_priv *priv, int port, int *pvid);
+int rtl837x_vlan_port_set_pvid(struct rtl837x_priv *priv, int port, u16 pvid);
+int rtl837x_vlan_port_get_pvid(struct rtl837x_priv *priv, int port, u16 *pvid);
 
 int rtl837x_vlan_port_set_framefilter(struct rtl837x_priv *priv, int port,
 		    enum rtl837x_frame_ingress frame_type);
