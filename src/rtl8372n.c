@@ -539,8 +539,10 @@ static int rtl8372n_get_mib_counter(struct rtl837x_priv *priv,
 		ret = rtl837x_reg_read(priv, RTL837X_INDIRECT_ACCESS_CNT_H_ADDR, &val);
 	else
 		ret = rtl837x_reg_read(priv, RTL837X_INDIRECT_ACCESS_CNT_L_ADDR, &val);
+	if (ret)
+		return ret;
 	*mibvalue = val;
-	return ret;
+	return 0;
 }
 
 static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
@@ -1652,6 +1654,17 @@ static void rtl8372n_get_mac_stats(struct dsa_switch *ds, int port,
 			break;
 	}
 	mutex_unlock(&priv->mib_lock);
+	if (ret)
+		return;
+
+	/* A failed or inconsistent sample must not expose marker values or
+	 * make unsigned octet subtraction wrap around.
+	 */
+	if (cnt[RTL837X_MIB_TxGoodCnt] >
+	    cnt[RTL837X_MIB_ifOutOctets] / (ETH_HLEN + ETH_FCS_LEN) ||
+	    cnt[RTL837X_MIB_RxGoodCnt] >
+	    cnt[RTL837X_MIB_ifInOctets] / (ETH_HLEN + ETH_FCS_LEN))
+		return;
 
 	mac_stats->FramesTransmittedOK = cnt[RTL837X_MIB_TxGoodCnt];
 	mac_stats->SingleCollisionFrames =
