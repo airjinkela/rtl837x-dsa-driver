@@ -5,10 +5,14 @@
 #include <linux/version.h>
 #include <linux/regmap.h>
 #include <linux/if_bridge.h>
+#include <linux/jiffies.h>
+#include <linux/spinlock.h>
+#include <linux/workqueue.h>
 
 #include "rtl837x.h"
 
 #define RTL8372N_NUM_PORTS 9
+#define RTL8372N_STATS_INTERVAL HZ
 #define RTL8372N_VLAN_UNTAG_MASK 0x3FF
 #define RTL8372N_VLAN_MEMBER_MASK 0x3FF
 #define RTL8372N_VLAN_FID_MASK 0xF
@@ -237,6 +241,14 @@ struct rtl8372n {
 	netdev_features_t csum_feature_backup;
 	bool pvid_enabled[RTL8372N_NUM_PORTS];
 	bool dsa_tag_8021q_vid[RTL8372N_VLAN_MAX+1];
+
+	struct rtl837x_priv *stats_priv;
+	struct delayed_work stats_work;
+	spinlock_t stats_lock;
+	struct rtnl_link_stats64 stats[RTL8372N_NUM_PORTS];
+	unsigned long stats_port_mask;
+	bool stats_initialized;
+	bool stats_running;
 };
 
 static bool is_8021q_tag(enum dsa_tag_protocol tag_proto)
@@ -1547,6 +1559,176 @@ static int rtl8372n_port_remove_egr_vlan_keep(struct rtl837x_priv *priv, int por
 					);
 }
 
+/* Like rtl8365mb, keep sleeping MIB access out of .get_stats64. */
+static int rtl8372n_stats_from_mib(const u64 *cnt,
+				   struct rtnl_link_stats64 *stats)
+{
+	u64 rx_packets, tx_packets;
+
+	rx_packets = cnt[RTL837X_MIB_ifInUcastPkts] +
+		     cnt[RTL837X_MIB_ifInMulticastPkts] +
+		     cnt[RTL837X_MIB_ifInBroadcastPkts];
+	tx_packets = cnt[RTL837X_MIB_ifOutUcastPkts] +
+		     cnt[RTL837X_MIB_ifOutMulticastPkts] +
+		     cnt[RTL837X_MIB_ifOutBroadcastPkts];
+
+	/* The existing MAC-stat conversion treats if{In,Out}Octets as
+	 * including the Ethernet header and FCS. Standard link byte counters
+	 * retain the header and exclude only FCS, unlike payload MAC octets.
+	 * Reject inconsistent samples rather than underflowing a u64.
+	 */
+	if (rx_packets > cnt[RTL837X_MIB_ifInOctets] / ETH_FCS_LEN ||
+	    tx_packets > cnt[RTL837X_MIB_ifOutOctets] / ETH_FCS_LEN)
+		return -ERANGE;
+
+	stats->rx_packets = rx_packets;
+	stats->tx_packets = tx_packets;
+	stats->rx_bytes = cnt[RTL837X_MIB_ifInOctets] -
+			  ETH_FCS_LEN * rx_packets;
+	stats->tx_bytes = cnt[RTL837X_MIB_ifOutOctets] -
+			  ETH_FCS_LEN * tx_packets;
+	stats->multicast = cnt[RTL837X_MIB_ifInMulticastPkts];
+
+	/* Error/drop MIB semantics are not interchangeable. Keep those
+	 * available through ethtool rather than inventing aggregate errors.
+	 */
+	return 0;
+}
+
+static int rtl8372n_stats_update(struct rtl837x_priv *priv, int port)
+{
+	static const unsigned int indices[] = {
+		RTL837X_MIB_ifInOctets,
+		RTL837X_MIB_ifOutOctets,
+		RTL837X_MIB_ifInUcastPkts,
+		RTL837X_MIB_ifInMulticastPkts,
+		RTL837X_MIB_ifInBroadcastPkts,
+		RTL837X_MIB_ifOutUcastPkts,
+		RTL837X_MIB_ifOutMulticastPkts,
+		RTL837X_MIB_ifOutBroadcastPkts,
+	};
+	struct rtl8372n *chip_data = priv->chip_data;
+	struct rtnl_link_stats64 stats = {};
+	u64 cnt[RTL837X_MIB_END] = {};
+	unsigned long flags;
+	unsigned int i;
+	int ret = 0;
+
+	mutex_lock(&priv->mib_lock);
+	for (i = 0; i < ARRAY_SIZE(indices); i++) {
+		unsigned int index = indices[i];
+
+		ret = priv->ops->get_mib_counter(priv, port,
+					      &priv->mib_counters[index],
+					      &cnt[index]);
+		if (ret)
+			break;
+	}
+	mutex_unlock(&priv->mib_lock);
+	if (ret)
+		return ret;
+
+	ret = rtl8372n_stats_from_mib(cnt, &stats);
+	if (ret)
+		return ret;
+
+	/* Publish a complete snapshot; no MDIO operation under this lock. */
+	spin_lock_irqsave(&chip_data->stats_lock, flags);
+	chip_data->stats[port] = stats;
+	spin_unlock_irqrestore(&chip_data->stats_lock, flags);
+
+	return 0;
+}
+
+static void rtl8372n_stats_poll(struct work_struct *work)
+{
+	struct rtl8372n *chip_data = container_of(to_delayed_work(work),
+						struct rtl8372n, stats_work);
+	struct rtl837x_priv *priv = chip_data->stats_priv;
+	int port, ret;
+
+	for (port = 0; port < RTL8372N_NUM_PORTS; port++) {
+		if (!READ_ONCE(chip_data->stats_running))
+			return;
+		if (!(chip_data->stats_port_mask & BIT(port)))
+			continue;
+
+		ret = rtl8372n_stats_update(priv, port);
+		if (ret)
+			dev_warn_ratelimited(priv->dev,
+				"port %d MIB stats sample failed: %d\n",
+				port, ret);
+	}
+
+	if (READ_ONCE(chip_data->stats_running))
+		schedule_delayed_work(&chip_data->stats_work,
+				      RTL8372N_STATS_INTERVAL);
+}
+
+static void rtl8372n_get_stats64(struct dsa_switch *ds, int port,
+				struct rtnl_link_stats64 *stats)
+{
+	struct rtl837x_priv *priv = ds->priv;
+	struct rtl8372n *chip_data = priv->chip_data;
+	unsigned long flags;
+
+	if (port < 0 || port >= RTL8372N_NUM_PORTS)
+		return;
+
+	spin_lock_irqsave(&chip_data->stats_lock, flags);
+	*stats = chip_data->stats[port];
+	spin_unlock_irqrestore(&chip_data->stats_lock, flags);
+}
+
+static void rtl8372n_stats_stop(struct rtl837x_priv *priv)
+{
+	struct rtl8372n *chip_data = priv->chip_data;
+
+	if (!chip_data->stats_initialized)
+		return;
+
+	WRITE_ONCE(chip_data->stats_running, false);
+	cancel_delayed_work_sync(&chip_data->stats_work);
+}
+
+static void rtl8372n_stats_release(void *data)
+{
+	rtl8372n_stats_stop(data);
+}
+
+static int rtl8372n_stats_init(struct dsa_switch *ds)
+{
+	struct rtl837x_priv *priv = ds->priv;
+	struct rtl8372n *chip_data = priv->chip_data;
+	struct dsa_port *dp;
+
+	chip_data->stats_priv = priv;
+	chip_data->stats_port_mask = 0;
+	dsa_switch_for_each_user_port(dp, ds)
+		chip_data->stats_port_mask |= BIT(dp->index);
+
+	spin_lock_init(&chip_data->stats_lock);
+	INIT_DELAYED_WORK(&chip_data->stats_work, rtl8372n_stats_poll);
+	chip_data->stats_initialized = true;
+
+	/* Also covers registration failure after .setup has succeeded. */
+	return devm_add_action_or_reset(priv->dev, rtl8372n_stats_release,
+					priv);
+}
+
+static void rtl8372n_stats_start(struct rtl837x_priv *priv)
+{
+	struct rtl8372n *chip_data = priv->chip_data;
+
+	WRITE_ONCE(chip_data->stats_running, true);
+	schedule_delayed_work(&chip_data->stats_work, 0);
+}
+
+static void rtl8372n_teardown(struct dsa_switch *ds)
+{
+	rtl8372n_stats_stop(ds->priv);
+}
+
 static void rtl8372n_get_strings(struct dsa_switch *ds, int port, u32 stringset,
 			 uint8_t *data)
 {
@@ -2474,6 +2656,9 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *dp;
 
+	ret = rtl8372n_stats_init(ds);
+	if (ret)
+		return ret;
 
 	ret = rtl8372n_soft_reset_chip(priv);
 	if (ret) {
@@ -2931,6 +3116,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	if (ret)
 		return ret;
 
+	rtl8372n_stats_start(priv);
 	return 0;
 }
 
@@ -2938,9 +3124,11 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.get_tag_protocol = rtl8372n_get_tag_protocol,
 	.change_tag_protocol = rtl8372n_change_tag_protocol,
 	.setup = rtl8372n_setup,
+	.teardown = rtl8372n_teardown,
 
 	.phylink_get_caps = rtl8372n_phylink_get_caps,
 
+	.get_stats64 = rtl8372n_get_stats64,
 	.get_strings = rtl8372n_get_strings,
 	.get_ethtool_stats = rtl8372n_get_ethtool_stats,
 	.get_sset_count = rtl8372n_get_sset_count,
@@ -2981,6 +3169,7 @@ static const struct rtl837x_ops rtl8372n_ops = {
 	.get_vlan_4k	= rtl8372n_get_vlan_4k,
 	.set_vlan_4k	= rtl8372n_set_vlan_4k,
 	.get_mib_counter = rtl8372n_get_mib_counter,
+	.stats_stop = rtl8372n_stats_stop,
 
 	.phy_read_c22   = rtl837x_phy_read_c22,
 	.phy_write_c22  = rtl837x_phy_write_c22,

@@ -321,6 +321,9 @@ static void rtl837x_mdio_remove(struct mdio_device *mdiodev)
 	if (!priv)
 		return;
 
+	if (priv->ops->stats_stop)
+		priv->ops->stats_stop(priv);
+
 	rtl837x_debug_proc_deinit(priv);
 
 	if (priv->ds->tag_8021q_ctx) {
@@ -342,6 +345,9 @@ static void rtl837x_mdio_shutdown(struct mdio_device *mdiodev)
 
 	if (!priv)
 		return;
+
+	if (priv->ops->stats_stop)
+		priv->ops->stats_stop(priv);
 
 	dsa_switch_shutdown(priv->ds);
 

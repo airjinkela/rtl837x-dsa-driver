@@ -542,6 +542,7 @@ struct rtl837x_variant {
 struct rtl837x_ops {
 	int	(*detect)(struct rtl837x_priv *priv);
 	int	(*reset_chip)(struct rtl837x_priv *priv);
+	void	(*stats_stop)(struct rtl837x_priv *priv);
 
 	int	(*get_mib_counter)(struct rtl837x_priv *priv,
 					int port,
