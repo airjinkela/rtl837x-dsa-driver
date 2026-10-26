@@ -8,7 +8,8 @@
 #include "rtl837x.h"
 #include "rtl837x_l2.h"
 
-#define RTL837X_LUT_TABLE_SIZE         (3)
+#define RTL837X_LUT_TABLE_SIZE     3
+#define RTL837X_LEARN_LIMIT_MAX    2112
 
 #define RTL837X_ITA_L2_CTRL_ADDR                     0x5CB0
 #define   RTL837X_ITA_L2_CTRL_PORT_NUM_MASK          GENMASK(22, 19)
@@ -16,6 +17,9 @@
 #define   RTL837X_ITA_L2_CTRL_READ_MTHD_MASK         GENMASK(17, 14)
 #define   RTL837X_ITA_L2_CTRL_ACT_STS_MASK           BIT(12)
 #define   RTL837X_ITA_L2_CTRL_TBL_ADDR_MASK          GENMASK(11, 0)
+
+#define RTL837X_LUT_PORT_LEARN_LIMIT_REG(port)   (0x5384 + (((port) << 2))) /* port: 0-9 */
+#define   RTL837X_LUT_PORT_LEARN_LIMIT_MASK      0x1FFF
 
 /* unicast field define */
 #define RTL837X_L2_UC_D0_MAC5_MSK		GENMASK(7, 0)
@@ -473,4 +477,17 @@ int rtl837x_lut_del(struct rtl837x_priv *priv,
 out:
 	mutex_unlock(&priv->ita_lock);
 	return ret;
+}
+
+int rtl837x_lut_port_set_learning(struct rtl837x_priv *priv, int port,
+				       bool enable)
+{
+	/* Enable/disable learning by limiting the number of L2 addresses the
+	 * port can learn. Realtek documentation states that a limit of zero
+	 * disables learning. When enabling learning, set it to the chip's
+	 * maximum.
+	 */
+	return rtl837x_reg_bits_write(priv, RTL837X_LUT_PORT_LEARN_LIMIT_REG(port),
+			    RTL837X_LUT_PORT_LEARN_LIMIT_MASK,
+			    enable ? RTL837X_LEARN_LIMIT_MAX : 0);
 }

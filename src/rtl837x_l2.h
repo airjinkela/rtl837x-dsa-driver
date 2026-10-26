@@ -75,4 +75,7 @@ int rtl837x_lut_set(struct rtl837x_priv *priv,
 int rtl837x_lut_del(struct rtl837x_priv *priv,
 				  u32 addr);
 
+int rtl837x_lut_port_set_learning(struct rtl837x_priv *priv, int port,
+				       bool enable);
+
 #endif /* _RTL837X_L2_H */

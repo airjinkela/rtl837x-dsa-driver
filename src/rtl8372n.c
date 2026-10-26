@@ -11,11 +11,11 @@
 #include "rtl837x_vlan.h"
 
 #define RTL8372N_NUM_PORTS 9
-#define RTL8372N_VLAN_UNTAG_MASK 0x3FF
-#define RTL8372N_VLAN_MEMBER_MASK 0x3FF
-#define RTL8372N_VLAN_FID_MASK 0xF
 #define RTL8372N_VLAN_MAX 4095
 #define RTL8372N_LUT_MAX 4160
+
+#define RTL8372N_SUPPORTED_BRIDGE_FLAGS \
+	    (BR_LEARNING)
 
 // TODO: this should check port is serdes mode or port mode
 #define IS_SERDES_PORT(port) (((port) == 3) || ((port) == 8))
@@ -1466,38 +1466,6 @@ static int rtl8372n_port_remove_isolation(struct rtl837x_priv *priv, int port,
 				  mask, 0);
 }
 
-static int rtl8372n_port_add_cpu_vlan_transparent(struct rtl837x_priv *priv, int port)
-{
-	int ret;
-	struct dsa_port *cpu_dp = NULL;
-
-	dsa_switch_for_each_cpu_port(cpu_dp, priv->ds) {
-		ret = rtl837x_vlan_port_set_transparent(priv, port, cpu_dp->index, true);
-		if (ret)
-			return ret;
-		ret = rtl837x_vlan_port_set_transparent(priv, cpu_dp->index, port, true);
-		if (ret)
-			return ret;
-	}
-	return 0;
-}
-
-static int rtl8372n_port_remove_cpu_vlan_transparent(struct rtl837x_priv *priv, int port)
-{
-	int ret;
-	struct dsa_port *cpu_dp = NULL;
-
-	dsa_switch_for_each_cpu_port(cpu_dp, priv->ds) {
-		ret = rtl837x_vlan_port_set_transparent(priv, port, cpu_dp->index, false);
-		if (ret)
-			return ret;
-		ret = rtl837x_vlan_port_set_transparent(priv, cpu_dp->index, port, false);
-		if (ret)
-			return ret;
-	}
-	return 0;
-}
-
 static void rtl8372n_get_strings(struct dsa_switch *ds, int port, u32 stringset,
 			 uint8_t *data)
 {
@@ -1921,6 +1889,41 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 	return 0;
 }
 
+static int rtl8372n_port_pre_bridge_flags(struct dsa_switch *ds, int port,
+					   struct switchdev_brport_flags flags,
+					   struct netlink_ext_ack *extack)
+{
+	struct rtl837x_priv *priv = ds->priv;
+
+	dev_dbg(priv->dev, "[%s] port:%d flags:%lx supported:%lx\n", __func__,
+		port, flags.mask, RTL8372N_SUPPORTED_BRIDGE_FLAGS);
+
+	if (flags.mask & ~RTL8372N_SUPPORTED_BRIDGE_FLAGS)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int rtl8372n_port_bridge_flags(struct dsa_switch *ds, int port,
+			      struct switchdev_brport_flags flags,
+			      struct netlink_ext_ack *extack)
+{
+	struct rtl837x_priv *priv = ds->priv;
+	bool enable;
+	int ret;
+
+	if (flags.mask & BR_LEARNING) {
+		enable = !!(flags.val & BR_LEARNING);
+		dev_dbg(priv->dev, "[%s] port:%d BR_LEARNING %s\n", __func__,
+		port, enable ? "Enable" : "Disable");
+
+		ret = rtl837x_lut_port_set_learning(priv, port, enable);
+		if (ret)
+			return ret;
+	}
+	return 0;
+}
+
 static int
 rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 			   struct dsa_bridge bridge,
@@ -1962,6 +1965,10 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 		dev_err(priv->dev, "failed to join port %d: %d\n", port, ret);
 		goto fail_rollback;
 	}
+
+	ret = rtl837x_lut_port_set_learning(priv, port, true);
+	if (ret)
+		goto fail_rollback;
 
 	return 0;
 
@@ -2027,6 +2034,12 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 	ret = rtl8372n_port_remove_isolation(priv, port, port_bitmap);
 	if (ret)
 		dev_err(priv->dev, "failed to remove port(%d) isolation err: %d\n", port, ret);
+
+	ret = rtl837x_lut_port_set_learning(priv, port, false);
+	if (ret)
+		dev_err(priv->dev,
+			"failed to disable learning on port %d: %pe\n",
+			port, ERR_PTR(ret));
 }
 
 static int rtl8372n_port_enable(struct dsa_switch *ds, int port,
@@ -2421,7 +2434,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	struct rtl837x_priv *priv = ds->priv;
 	struct device_node *np = priv->dev->of_node;
 	struct rtl8372n *chip_data = priv->chip_data;
-	struct dsa_port *dp, *dp1;
+	struct dsa_port *dp;
 
 	int cpu_dp_cnt = 0;
 
@@ -2600,7 +2613,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	dsa_switch_for_each_port(dp, ds) {
 		int port = dp->index;
 
-	ret = rtl837x_reg_write(priv, RTL837X_FC_PORT_ACT_CTRL_ADDR(port), 0x1050);
+		ret = rtl837x_reg_write(priv, RTL837X_FC_PORT_ACT_CTRL_ADDR(port), 0x1050);
 		if (ret)
 			return ret;
 
@@ -2613,6 +2626,11 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		ret = rtl837x_reg_bits_write(priv, RTL837X_MAC_L2_PORT_CTRL_ADDR(port),
 			  RTL837X_MAC_L2_PORT_CTRL_CLOCK_SWITCH_MASK, 1
 			);
+		if (ret)
+			return ret;
+
+		/* Disable learning */
+		ret = rtl837x_lut_port_set_learning(priv, port, false);
 		if (ret)
 			return ret;
 
@@ -2639,17 +2657,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 			return ret;
 	}
 
-	dsa_switch_for_each_available_port(dp, ds) {
-		/* Disable vlan-filtering for all ports */
-		ret = rtl8372n_port_vlan_filtering(ds, dp->index, false, NULL);
-		if (ret) {
-			dev_err(priv->dev,
-				"Failed to disable vlan filtering on port %d\n",
-				dp->index);
-			return ret;
-		}
-	}
-
 	dsa_switch_for_each_user_port(dp, ds) {
 		/* Forward only to the CPU */
 		ret = rtl8372n_port_set_isolation(priv, dp->index,
@@ -2663,6 +2670,17 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 							dsa_user_ports(ds));
 		if (ret)
 			return ret;
+	}
+
+	dsa_switch_for_each_available_port(dp, ds) {
+		/* Disable vlan-filtering for all ports */
+		ret = rtl8372n_port_vlan_filtering(ds, dp->index, false, NULL);
+		if (ret) {
+			dev_err(priv->dev,
+				"Failed to disable vlan filtering on port %d\n",
+				dp->index);
+			return ret;
+		}
 	}
 
 	/*
@@ -2846,6 +2864,8 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 
 	.port_stp_state_set = rtl8372n_port_stp_state_set,
 
+	.port_pre_bridge_flags = rtl8372n_port_pre_bridge_flags,
+	.port_bridge_flags = rtl8372n_port_bridge_flags,
 	.port_bridge_join = rtl8372n_port_bridge_join,
 	.port_bridge_leave = rtl8372n_port_bridge_leave,
 
