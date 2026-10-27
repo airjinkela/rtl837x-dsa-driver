@@ -484,7 +484,7 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 			kfree(buf);
 			return -EFAULT;
 		}
-		ret = rtl837x_lut_del(priv, index);
+		ret = rtl837x_lut_del(priv, (u16)index);
 		BUF_APPEND(l2uc, "addr:%d deleted %d\n", index, ret);
 	} else {
 		BUF_APPEND(l2uc, "echo \"r/d <Dindex>\" > l2uc\n");

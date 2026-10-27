@@ -5,6 +5,15 @@
 #include "rtl837x.h"
 #include "rtl837x_table.h"
 
+/* ITA table access */
+#define RTL837X_ITA_CTRL0_ADDR                       0x5CAC
+#define   RTL837X_ITA_CTRL0_TBL_ADDR_MASK            GENMASK(28, 16)
+#define   RTL837X_ITA_CTRL0_TLB_TYPE_MASK            GENMASK(10, 8)
+#define   RTL837X_ITA_CTRL0_TLB_ACT_MASK             BIT(1)
+#define   RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK         BIT(0)
+#define RTL837X_ITA_WRITE_DATA0_ADDR(_i)             (0x5CB8 + (((_i) << 2))) /* index: 0-4 */
+#define RTL837X_ITA_READ_DATA0_ADDR(_i)              (0x5CCC + (((_i) << 2))) /* index: 0-4 */
+
 #define RTL837X_ITA_L2_CTRL_ADDR                     0x5CB0
 #define   RTL837X_ITA_L2_CTRL_PORT_NUM_MASK          GENMASK(22, 19)
 #define   RTL837X_ITA_L2_CTRL_ENTRY_CLR_MASK         BIT(18)
@@ -26,7 +35,7 @@ int rtl837x_ita_execute(struct rtl837x_priv *priv, enum rtl837x_table table,
 	cmd = 0;
 	cmd |= FIELD_PREP(RTL837X_ITA_CTRL0_TLB_TYPE_MASK, table);
 	cmd |= FIELD_PREP(RTL837X_ITA_CTRL0_TLB_ACT_MASK, opera);
-	cmd |= FIELD_PREP(RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK, RTL837X_TABLE_EXECUTE);
+	cmd |= FIELD_PREP(RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK, 1);
 
 	// check busy
 	ret = regmap_read_poll_timeout(priv->map, RTL837X_ITA_CTRL0_ADDR, tmp,

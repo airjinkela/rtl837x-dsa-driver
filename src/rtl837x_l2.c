@@ -332,13 +332,12 @@ int rtl837x_lut_set(struct rtl837x_priv *priv,
 }
 
 int rtl837x_lut_del(struct rtl837x_priv *priv,
-			  u32 addr)
+			  u16 addr)
 {
 	int ret;
-	u16 addrl = addr;
 
-	ret = rtl837x_ita_execute(priv, RTL837X_TABLE_L2, RTL837X_TABLE_OPERA_WRITE,
-		   &addrl, -0, RTL837X_TABLE_OPERA_DELETE, NULL, 0);
+	ret = rtl837x_ita_execute(priv, RTL837X_TABLE_L2, RTL837X_TABLE_OPERA_DELETE,
+		   &addr, -0, -0, NULL, 0);
 	return ret;
 }
 

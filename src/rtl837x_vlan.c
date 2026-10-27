@@ -5,6 +5,7 @@
 
 #include "rtl837x.h"
 #include "rtl837x_vlan.h"
+#include "rtl837x_table.h"
 
 /* vlan ingress filter */
 #define RTL837X_VLAN_INGRESS_FILTER_REG(_p)            (0x4E18 + (((_p / 10) << 2)))
@@ -30,72 +31,24 @@
 #define RTL837X_VLAN_PVID_REG(_p)                       (0x4E1C + (((_p >> 1) << 2)))
 #define   RTL837X_VLAN_PVID_MASK(_p)                    (GENMASK(11, 0) << ((_p & 0x1) * 12))
 
-int rtl837x_vlan_set(struct rtl837x_priv *priv, int vid, struct rtl837x_vlan_data *vlan)
+int rtl837x_vlan_set(struct rtl837x_priv *priv, u16 vid, struct rtl837x_vlan_data *vlan)
 {
-	int ret;
-	u32 tmp;
-
-	mutex_lock(&priv->ita_lock);
-
-	ret = rtl837x_reg_write(priv, RTL837X_ITA_WRITE_DATA0_ADDR(0), vlan->val);
-	if (ret)
-		goto out;
-
-	tmp = FIELD_PREP(RTL837X_ITA_CTRL0_TBL_ADDR_MASK, vid) |
-		  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_CVLAN) |
-		  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_ACT_MASK, TB_OP_WRITE) |
-		  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
-
-	ret = rtl837x_reg_write(priv, RTL837X_ITA_CTRL0_ADDR, tmp);
-	if (ret)
-		goto out;
-
-	ret = regmap_read_poll_timeout(priv->map, RTL837X_ITA_CTRL0_ADDR, tmp,
-		  ((tmp & RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
-		  0, 1000);
-	if (ret)
-		goto out;
-out:
-	mutex_unlock(&priv->ita_lock);
-	return ret;
+	return rtl837x_ita_execute(priv, RTL837X_TABLE_CVLAN, RTL837X_TABLE_OPERA_WRITE,
+			    &vid, -0, -0, &vlan->val, 1);
 }
 
-int rtl837x_vlan_get(struct rtl837x_priv *priv, int vid, struct rtl837x_vlan_data *vlan)
+int rtl837x_vlan_get(struct rtl837x_priv *priv, u16 vid, struct rtl837x_vlan_data *vlan)
 {
 	int ret;
 	u32 tmp;
 
-	mutex_lock(&priv->ita_lock);
-
-	ret = regmap_read_poll_timeout(priv->map, RTL837X_ITA_CTRL0_ADDR, tmp,
-		  ((tmp & RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
-		  0, 1000);
-	if (ret)
-		goto out;
-
-	tmp = FIELD_PREP(RTL837X_ITA_CTRL0_TBL_ADDR_MASK, vid) |
-		  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_CVLAN) |
-		  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_ACT_MASK, TB_OP_READ) |
-		  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
-
-	ret = rtl837x_reg_write(priv, RTL837X_ITA_CTRL0_ADDR, tmp);
+	ret = rtl837x_ita_execute(priv, RTL837X_TABLE_CVLAN, RTL837X_TABLE_OPERA_READ,
+		    &vid, -0, -0, &tmp, 1);
 	if (ret)
 		return ret;
-
-	ret = regmap_read_poll_timeout(priv->map, RTL837X_ITA_CTRL0_ADDR, tmp,
-		  ((tmp & RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
-		  0, 1000);
-	if (ret)
-		goto out;
-
-	ret = rtl837x_reg_read(priv, RTL837X_ITA_READ_DATA0_ADDR(0), &tmp);
-	if (ret)
-		goto out;
 	vlan->val = tmp;
 
-out:
-	mutex_unlock(&priv->ita_lock);
-	return ret;
+	return 0;
 }
 
 int rtl837x_vlan_port_set_pvid(struct rtl837x_priv *priv, int port, u16 pvid)

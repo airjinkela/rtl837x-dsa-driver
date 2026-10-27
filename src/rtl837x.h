@@ -130,17 +130,8 @@
 #define   RTL837X_EXT_CPU_CTRL_PORT_MASK                    GENMASK(3, 0)
 #define RTL837X_CPU_TAG_AWARE_CTRL_ADDR                     0x603C
 
-/* ITA table access */
-#define RTL837X_ITA_CTRL0_ADDR                       0x5CAC
-#define   RTL837X_ITA_CTRL0_TBL_ADDR_MASK            GENMASK(28, 16)
-#define   RTL837X_ITA_CTRL0_TLB_TYPE_MASK            GENMASK(10, 8)
-#define   RTL837X_ITA_CTRL0_TLB_ACT_MASK             BIT(1)
-#define   RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK         BIT(0)
-#define RTL837X_ITA_WRITE_DATA0_ADDR(_i)             (0x5CB8 + (((_i) << 2))) /* index: 0-4 */
-#define RTL837X_ITA_READ_DATA0_ADDR(_i)              (0x5CCC + (((_i) << 2))) /* index: 0-4 */
 
 /* VLAN and VLAN stacking */
-
 #define RTL837X_VLAN_CTRL_ADDR                                   0x4E14
 #define   RTL837X_VLAN_CTRL_TABLE_RST_MASK                       BIT(3)
 #define   RTL837X_VLAN_CTRL_CVLAN_FILTER_MASK                    BIT(2)

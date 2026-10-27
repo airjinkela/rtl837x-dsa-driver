@@ -16,11 +16,6 @@ enum rtl837x_table_opera {
 	RTL837X_TABLE_OPERA_DELETE = 3,
 };
 
-enum rtl837x_table_execute {
-	RTL837X_TABLE_NOT_EXECUTE = 0,
-	RTL837X_TABLE_EXECUTE,
-};
-
 enum rtl837x_table {
 	RTL837X_TABLE_ACLRULE = 1,
 	RTL837X_TABLE_ACLACT,
