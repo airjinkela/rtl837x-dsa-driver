@@ -19,3 +19,4 @@ rtl8372n_dsa-objs += rtl837x_vlan.o
 rtl8372n_dsa-objs += rtl837x_gpio.o
 rtl8372n_dsa-objs += rtl837x_led.o
 rtl8372n_dsa-objs += rtl837x_serdes.o
+rtl8372n_dsa-objs += rtl837x_table.o
