@@ -78,7 +78,8 @@ int rtl837x_ita_execute(struct rtl837x_priv *priv, enum rtl837x_table table,
 		cmd |= FIELD_PREP(RTL837X_ITA_CTRL0_TBL_ADDR_MASK, *addr);
 		if (opera == RTL837X_TABLE_OPERA_WRITE)
 			write_data = true;
-	}
+	} else if (opera == RTL837X_TABLE_OPERA_WRITE)
+		write_data = true;
 
 	if (write_data) {
 		for (int i = 0; i < size; i++) {
