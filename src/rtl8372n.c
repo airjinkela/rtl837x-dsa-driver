@@ -1681,7 +1681,7 @@ static int rtl8372n_set_bpdu_l2mc_cpu_trap(struct rtl837x_priv *priv, u32 vid,
 	struct rtl837x_lut_entry entry = {0};
 	int ret;
 
-	entry.type = LUT_TYPE_L2_MC;
+	entry.type = RTL837X_LUT_TYPE_L2_MC;
 	memcpy(entry.mc.key.mac_addr, bpdu, ETH_ALEN);
 	entry.mc.key.ivl = true;
 	entry.mc.key.vid_fid = vid;
@@ -1691,7 +1691,7 @@ static int rtl8372n_set_bpdu_l2mc_cpu_trap(struct rtl837x_priv *priv, u32 vid,
 		return rtl837x_lut_set(priv, &entry);
 	}
 
-	ret = rtl837x_lut_query(priv, LUT_READ_METHOD_MAC, &entry);
+	ret = rtl837x_lut_query(priv, RTL837X_LUT_METHOD_MAC, &entry);
 	if (ret == -ENOENT)
 		return 0;
 	if (ret)
@@ -2040,7 +2040,7 @@ rtl8372n_port_fdb_static_add(struct rtl837x_priv *priv, int port,
 	struct rtl837x_lut_entry entry = {0};
 
 	memcpy(entry.uc.key.mac_addr, addr, ETH_ALEN);
-	entry.type = LUT_TYPE_L2_UC;
+	entry.type = RTL837X_LUT_TYPE_L2_UC;
 	entry.uc.key.vid_fid = vid;
 	entry.uc.key.ivl = true;
 
@@ -2070,12 +2070,12 @@ rtl8372n_port_fdb_static_del(struct rtl837x_priv *priv,
 	struct rtl837x_lut_entry entry = {0};
 
 	memcpy(entry.uc.key.mac_addr, addr, ETH_ALEN);
-	entry.type = LUT_TYPE_L2_UC;
+	entry.type = RTL837X_LUT_TYPE_L2_UC;
 	entry.uc.key.vid_fid = vid;
 	entry.uc.key.ivl = true;
 
 	// query the entry in lut table
-	ret = rtl837x_lut_query(priv, LUT_READ_METHOD_MAC, &entry);
+	ret = rtl837x_lut_query(priv, RTL837X_LUT_METHOD_MAC, &entry);
 	if (ret == -ENOENT) {
 		dev_dbg(priv->dev, "[%s]:notfound mac:%02X:%02X:%02X:%02X:%02X:%02X vid:%04d\n", __func__,
 						addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
@@ -2176,7 +2176,7 @@ rtl8372n_port_fdb_dump(struct dsa_switch *ds, int port,
 	for (int i = 0; i < RTL8372N_LUT_MAX; i++) {
 		entry.addr = i;
 		entry.uc.port = port;
-		ret = rtl837x_lut_query(priv, LUT_READ_METHOD_NEXT_L2UCSPA, &entry);
+		ret = rtl837x_lut_query(priv, RTL837X_LUT_METHOD_NEXT_L2UCSPA, &entry);
 		if (ret)
 			break;
 		if (entry.addr < i)
@@ -2205,10 +2205,10 @@ rtl8372n_port_mdb_add(struct dsa_switch *ds, int port,
 	struct rtl837x_lut_entry entry = {0};
 
 	memcpy(entry.mc.key.mac_addr, addr, ETH_ALEN);
-	entry.type = LUT_TYPE_L2_MC;
+	entry.type = RTL837X_LUT_TYPE_L2_MC;
 	entry.mc.key.vid_fid = vid;
 	entry.mc.key.ivl = true;
-	ret = rtl837x_lut_query(priv, LUT_READ_METHOD_MAC, &entry);
+	ret = rtl837x_lut_query(priv, RTL837X_LUT_METHOD_MAC, &entry);
 	if (ret != -ENOENT && ret != 0)
 		return ret;
 
@@ -2216,7 +2216,7 @@ rtl8372n_port_mdb_add(struct dsa_switch *ds, int port,
 		dev_dbg(priv->dev, "[%s]:found mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d addr:%04d\n", __func__,
 						addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
 						port, vid, entry.addr);
-		if (entry.type != LUT_TYPE_L2_MC) {
+		if (entry.type != RTL837X_LUT_TYPE_L2_MC) {
 			dev_err(priv->dev, "[%s]: got an unexpect entry from lut table, this should not happen\n", __func__);
 			return -EINVAL;
 		}
@@ -2252,10 +2252,10 @@ rtl8372n_port_mdb_del(struct dsa_switch *ds, int port,
 					port, vid);
 
 	memcpy(entry.mc.key.mac_addr, addr, ETH_ALEN);
-	entry.type = LUT_TYPE_L2_MC;
+	entry.type = RTL837X_LUT_TYPE_L2_MC;
 	entry.mc.key.vid_fid = vid;
 	entry.mc.key.ivl = true;
-	ret = rtl837x_lut_query(priv, LUT_READ_METHOD_MAC, &entry);
+	ret = rtl837x_lut_query(priv, RTL837X_LUT_METHOD_MAC, &entry);
 	if (ret == -ENOENT)
 		return 0;
 
@@ -2263,7 +2263,7 @@ rtl8372n_port_mdb_del(struct dsa_switch *ds, int port,
 		dev_dbg(priv->dev, "[%s]:found mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d addr:%04d\n", __func__,
 						addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
 						port, vid, entry.addr);
-		if (entry.type != LUT_TYPE_L2_MC) {
+		if (entry.type != RTL837X_LUT_TYPE_L2_MC) {
 			dev_err(priv->dev, "[%s]: got an unexpect entry from lut table, this should not happen\n", __func__);
 			return -EINVAL;
 		}

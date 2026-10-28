@@ -235,7 +235,6 @@ struct rtl837x_priv {
 	struct regmap		*map_nolock;
 	struct mutex		map_lock;
 
-	struct mutex		ita_lock;
 	struct mutex		phy_mmd_lock;
 	struct mutex		phy_ocp_lock;
 

@@ -7,21 +7,23 @@
 #ifndef _RTL837X_L2_H
 #define _RTL837X_L2_H
 
-enum rtl837x_l2_method {
-	LUT_READ_METHOD_MAC = 0,
-	LUT_READ_METHOD_ADDRESS,
-	LUT_READ_METHOD_NEXT_ADDRESS,
-	LUT_READ_METHOD_NEXT_L2UC,
-	LUT_READ_METHOD_NEXT_L2MC,
-	LUT_READ_METHOD_NEXT_L3MC,
-	LUT_READ_METHOD_NEXT_L2L3MC,
-	LUT_READ_METHOD_NEXT_L2UCSPA,
+#include "rtl837x.h"
+
+enum rtl837x_lut_method {
+	RTL837X_LUT_METHOD_MAC = 0,
+	RTL837X_LUT_METHOD_ADDRESS,
+	RTL837X_LUT_METHOD_NEXT_ADDRESS,
+	RTL837X_LUT_METHOD_NEXT_L2UC,
+	RTL837X_LUT_METHOD_NEXT_L2MC,
+	RTL837X_LUT_METHOD_NEXT_L3MC,
+	RTL837X_LUT_METHOD_NEXT_L2L3MC,
+	RTL837X_LUT_METHOD_NEXT_L2UCSPA,
 };
 
 enum rtl837x_lut_type {
-	LUT_TYPE_L2_UC = 1,
-	LUT_TYPE_L2_MC,
-	LUT_TYPE_L3,
+	RTL837X_LUT_TYPE_L2_UC = 1,
+	RTL837X_LUT_TYPE_L2_MC,
+	RTL837X_LUT_TYPE_L3,
 };
 
 struct rtl837x_l2_key {
@@ -74,7 +76,7 @@ enum rtl837x_l2_flush_mode {
 };
 
 int rtl837x_lut_query(struct rtl837x_priv *priv,
-			  enum rtl837x_l2_method method,
+			  enum rtl837x_lut_method method,
 			  struct rtl837x_lut_entry *entry);
 int rtl837x_lut_set(struct rtl837x_priv *priv,
 			  struct rtl837x_lut_entry *entry);

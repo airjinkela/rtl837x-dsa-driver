@@ -428,13 +428,13 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 			return -EFAULT;
 		}
 		entry.addr = index;
-		ret = rtl837x_lut_query(priv, LUT_READ_METHOD_ADDRESS, &entry);
+		ret = rtl837x_lut_query(priv, RTL837X_LUT_METHOD_ADDRESS, &entry);
 		if (ret) {
 			BUF_APPEND(l2uc, "addr: %d Not Hit\n", index);
 			goto out;
 		}
 		switch (entry.type) {
-		case LUT_TYPE_L2_UC:
+		case RTL837X_LUT_TYPE_L2_UC:
 			BUF_APPEND(l2uc, "type:%s ", "l2uc");
 			BUF_APPEND(l2uc, "%02X:%02X:%02X:%02X:%02X:%02X ",
 								entry.uc.key.mac_addr[0],
@@ -451,7 +451,7 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 			BUF_APPEND(l2uc, "auth:%d ", entry.uc.auth);
 			BUF_APPEND(l2uc, "is_static:%d\n", entry.uc.is_static);
 			break;
-		case LUT_TYPE_L2_MC:
+		case RTL837X_LUT_TYPE_L2_MC:
 			BUF_APPEND(l2uc, "type:%s ", "l2mc");
 			BUF_APPEND(l2uc, "%02X:%02X:%02X:%02X:%02X:%02X ",
 								entry.mc.key.mac_addr[0],
@@ -467,7 +467,7 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 			BUF_APPEND(l2uc, "igmp_idx:%d ", entry.mc.igmp_idx);
 			BUF_APPEND(l2uc, "igmp_asic:%d\n", entry.mc.igmp_asic);
 			break;
-		case LUT_TYPE_L3:
+		case RTL837X_LUT_TYPE_L3:
 			BUF_APPEND(l2uc, "type:%s ", "l3");
 			BUF_APPEND(l2uc, "sipaddr: 0x%08X", entry.l3.sip);
 			BUF_APPEND(l2uc, "dipaddr: 0x%08X", entry.l3.dip);
@@ -832,7 +832,7 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 
 	for (int i = 0; i < 4160; i++) {
 		entry.addr = i;
-		ret = rtl837x_lut_query(priv, LUT_READ_METHOD_NEXT_ADDRESS, &entry);
+		ret = rtl837x_lut_query(priv, RTL837X_LUT_METHOD_NEXT_ADDRESS, &entry);
 		if (ret)
 			break;
 		if (entry.addr < i)
@@ -840,7 +840,7 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 
 		BUF_APPEND(l2uc_dump, "addr:%-4d ", entry.addr);
 		switch (entry.type) {
-		case LUT_TYPE_L2_UC:
+		case RTL837X_LUT_TYPE_L2_UC:
 			BUF_APPEND(l2uc_dump, "type:%-4s ", "l2uc");
 			BUF_APPEND(l2uc_dump, "%02X:%02X:%02X:%02X:%02X:%02X ",
 								entry.uc.key.mac_addr[0],
@@ -857,7 +857,7 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 			BUF_APPEND(l2uc_dump, "auth:%d ", entry.uc.auth);
 			BUF_APPEND(l2uc_dump, "is_static:%d\n", entry.uc.is_static);
 			break;
-		case LUT_TYPE_L2_MC:
+		case RTL837X_LUT_TYPE_L2_MC:
 			BUF_APPEND(l2uc_dump, "type:%-4s ", "l2mc");
 			BUF_APPEND(l2uc_dump, "%02X:%02X:%02X:%02X:%02X:%02X ",
 								entry.mc.key.mac_addr[0],
@@ -868,12 +868,12 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 								entry.mc.key.mac_addr[5]
 								);
 			BUF_APPEND(l2uc_dump, "ivl:%d ", entry.mc.key.ivl);
-			BUF_APPEND(l2uc_dump, "vid_fid:%-4d ", entry.mc.key.vid_fid);
+			BUF_APPEND(l2uc_dump, "vid_fid:% -5d ", entry.mc.key.vid_fid);
 			BUF_APPEND(l2uc_dump, "mbr:0x%04X ", entry.mc.mbr);
 			BUF_APPEND(l2uc_dump, "igmp_idx:%d ", entry.mc.igmp_idx);
 			BUF_APPEND(l2uc_dump, "igmp_asic:%d\n", entry.mc.igmp_asic);
 			break;
-		case LUT_TYPE_L3:
+		case RTL837X_LUT_TYPE_L3:
 			BUF_APPEND(l2uc_dump, "type:%-4s ", "l3");
 			BUF_APPEND(l2uc_dump, "sipaddr: 0x%08X", entry.l3.sip);
 			BUF_APPEND(l2uc_dump, "dipaddr: 0x%08X", entry.l3.dip);

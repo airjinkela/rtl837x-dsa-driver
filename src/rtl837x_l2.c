@@ -241,7 +241,7 @@ static void rtl837x_l3_to_data(const struct rtl837x_l3 *l3, u32 *data)
 }
 
 int rtl837x_lut_query(struct rtl837x_priv *priv,
-			  enum rtl837x_l2_method method,
+			  enum rtl837x_lut_method method,
 			  struct rtl837x_lut_entry *entry)
 {
 	int ret;
@@ -250,18 +250,18 @@ int rtl837x_lut_query(struct rtl837x_priv *priv,
 	int port = 0;
 
 	switch (method) {
-	case LUT_READ_METHOD_NEXT_L2UCSPA:
+	case RTL837X_LUT_METHOD_NEXT_L2UCSPA:
 		port = entry->uc.port;
 		fallthrough;
-	case LUT_READ_METHOD_ADDRESS:
-	case LUT_READ_METHOD_NEXT_ADDRESS:
-	case LUT_READ_METHOD_NEXT_L2UC:
-	case LUT_READ_METHOD_NEXT_L2MC:
-	case LUT_READ_METHOD_NEXT_L3MC:
-	case LUT_READ_METHOD_NEXT_L2L3MC:
+	case RTL837X_LUT_METHOD_ADDRESS:
+	case RTL837X_LUT_METHOD_NEXT_ADDRESS:
+	case RTL837X_LUT_METHOD_NEXT_L2UC:
+	case RTL837X_LUT_METHOD_NEXT_L2MC:
+	case RTL837X_LUT_METHOD_NEXT_L3MC:
+	case RTL837X_LUT_METHOD_NEXT_L2L3MC:
 		addr = entry->addr;
 		break;
-	case LUT_READ_METHOD_MAC:
+	case RTL837X_LUT_METHOD_MAC:
 		rtl837x_l2_uc_to_data(&entry->uc, tb_data);
 		break;
 	}
@@ -275,20 +275,20 @@ int rtl837x_lut_query(struct rtl837x_priv *priv,
 
 	// Get entry type
 	if (FIELD_GET(RTL837X_L3_D1_L3LOOKUP_MSK, tb_data[1]))
-		entry->type = LUT_TYPE_L3;
+		entry->type = RTL837X_LUT_TYPE_L3;
 	else if (FIELD_GET(RTL837X_L2_MC_D1_MAC0_MSK, tb_data[1]) & 1) // Check mac0 bit0
-		entry->type = LUT_TYPE_L2_MC;
+		entry->type = RTL837X_LUT_TYPE_L2_MC;
 	else
-		entry->type = LUT_TYPE_L2_UC;
+		entry->type = RTL837X_LUT_TYPE_L2_UC;
 
 	switch (entry->type) {
-	case LUT_TYPE_L2_UC:
+	case RTL837X_LUT_TYPE_L2_UC:
 		rtl837x_l2_data_to_uc(tb_data, &(entry->uc));
 		break;
-	case LUT_TYPE_L2_MC:
+	case RTL837X_LUT_TYPE_L2_MC:
 		rtl837x_l2_data_to_mc(tb_data, &(entry->mc));
 		break;
-	case LUT_TYPE_L3:
+	case RTL837X_LUT_TYPE_L3:
 		rtl837x_data_to_l3(tb_data, &(entry->l3));
 		break;
 	}
@@ -310,13 +310,13 @@ int rtl837x_lut_set(struct rtl837x_priv *priv,
 	u16 addr;
 
 	switch (entry->type) {
-	case LUT_TYPE_L2_UC:
+	case RTL837X_LUT_TYPE_L2_UC:
 		rtl837x_l2_uc_to_data(&entry->uc, tb_data);
 		break;
-	case LUT_TYPE_L2_MC:
+	case RTL837X_LUT_TYPE_L2_MC:
 		rtl837x_l2_mc_to_data(&entry->mc, tb_data);
 		break;
-	case LUT_TYPE_L3:
+	case RTL837X_LUT_TYPE_L3:
 		rtl837x_l3_to_data(&entry->l3, tb_data);
 		break;
 	default:
