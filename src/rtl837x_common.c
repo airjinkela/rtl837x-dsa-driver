@@ -64,28 +64,33 @@ int rtl837x_phy_read_ocp(struct rtl837x_priv *priv, u16 phy, int regnum, u16 *pv
 	int ret;
 	u32 tmp;
 
-	mutex_lock(&priv->phy_ocp_lock);
+	mutex_lock(&priv->map_lock);
 
 	tmp = FIELD_PREP(RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_ADDR_MASK, regnum) |
 		  FIELD_PREP(RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_PHYADR_MASK, phy) |
 		  FIELD_PREP(RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_RW_MASK, 0) |
 		  FIELD_PREP(RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_CMD_MASK, 1);
 
-	ret = rtl837x_reg_write(priv, RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp);
+	ret = regmap_write(priv->map_nolock, RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp);
 	if (ret)
 		goto out;
-	ret = regmap_read_poll_timeout(priv->map, RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp,
+	ret = regmap_read_poll_timeout(priv->map_nolock, RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp,
 		((tmp & (RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_CMD_MASK | RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_FAIL_MASK)) == 0),
 		0, 1000);
+	if (tmp & RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_FAIL_MASK) {
+		ret = -EIO;
+		goto out;
+	}
+
 	if (ret)
 		goto out;
 
-	ret = rtl837x_reg_read(priv, RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_1_ADDR, &tmp);
+	ret = regmap_read(priv->map_nolock, RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_1_ADDR, &tmp);
 	if (ret)
 		goto out;
 	*pval = (tmp & RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_1_INT_PHY_OCP_INDACC_RDDATA_MASK) >> __ffs(RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_1_INT_PHY_OCP_INDACC_RDDATA_MASK);
 out:
-	mutex_unlock(&priv->phy_ocp_lock);
+	mutex_unlock(&priv->map_lock);
 	return ret;
 }
 
@@ -94,9 +99,9 @@ int rtl837x_phy_write_ocp(struct rtl837x_priv *priv, u16 phy, int regnum, u16 va
 	int ret;
 	u32 tmp;
 
-	mutex_lock(&priv->phy_ocp_lock);
+	mutex_lock(&priv->map_lock);
 
-	ret = rtl837x_reg_write(priv, RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_2_ADDR, val);
+	ret = regmap_write(priv->map_nolock, RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_2_ADDR, val);
 	if (ret)
 		goto out;
 
@@ -105,16 +110,21 @@ int rtl837x_phy_write_ocp(struct rtl837x_priv *priv, u16 phy, int regnum, u16 va
 		  FIELD_PREP(RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_RW_MASK, 1) |
 		  FIELD_PREP(RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_CMD_MASK, 1);
 
-	ret = rtl837x_reg_write(priv, RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp);
+	ret = regmap_write(priv->map_nolock, RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp);
 	if (ret)
 		goto out;
-	ret = regmap_read_poll_timeout(priv->map, RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp,
+	ret = regmap_read_poll_timeout(priv->map_nolock, RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp,
 		((tmp & (RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_CMD_MASK | RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_FAIL_MASK)) == 0),
 		0, 1000);
+	if (tmp & RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_FAIL_MASK) {
+		ret = -EIO;
+		goto out;
+	}
+
 	if (ret)
 		goto out;
 out:
-	mutex_unlock(&priv->phy_ocp_lock);
+	mutex_unlock(&priv->map_lock);
 	return ret;
 }
 
@@ -134,10 +144,12 @@ int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regn
 	int ret;
 	u32 tmp;
 
-	mutex_lock(&priv->phy_mmd_lock);
+	mutex_lock(&priv->map_lock);
 
-	ret = rtl837x_reg_bits_write(priv, RTL837X_SMI_ACCESS_PHY_CTRL_3_ADDR,
-			  RTL837X_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK, phy);
+	ret = regmap_update_bits(priv->map_nolock, RTL837X_SMI_ACCESS_PHY_CTRL_3_ADDR,
+			  RTL837X_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK,
+			  FIELD_PREP(RTL837X_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK, phy)
+			);
 	if (ret)
 		goto out;
 
@@ -147,23 +159,28 @@ int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regn
 		FIELD_PREP(RTL837X_SMI_ACCESS_PHY_CTRL_1_TYPE_MASK, 1) |
 		FIELD_PREP(RTL837X_SMI_ACCESS_PHY_CTRL_1_CMD_MASK, 1);
 
-	ret = rtl837x_reg_write(priv, RTL837X_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp);
+	ret = regmap_write(priv->map_nolock, RTL837X_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp);
 	if (ret)
 		goto out;
 
-	ret = regmap_read_poll_timeout(priv->map, RTL837X_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp,
+	ret = regmap_read_poll_timeout(priv->map_nolock, RTL837X_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp,
 		((tmp & (RTL837X_SMI_ACCESS_PHY_CTRL_1_CMD_MASK | RTL837X_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK)) == 0),
 		0, 1000);
+	if (tmp & RTL837X_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK) {
+		ret = -EIO;
+		goto out;
+	}
+
 	if (ret)
 		goto out;
 
-	ret = rtl837x_reg_read(priv, RTL837X_SMI_ACCESS_PHY_CTRL_2_ADDR, &tmp);
+	ret = regmap_read(priv->map_nolock, RTL837X_SMI_ACCESS_PHY_CTRL_2_ADDR, &tmp);
 	if (ret)
 		goto out;
 
 	*pval = (tmp & RTL837X_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK) >> __ffs(RTL837X_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK);
 out:
-	mutex_unlock(&priv->phy_mmd_lock);
+	mutex_unlock(&priv->map_lock);
 	return ret;
 }
 
@@ -172,15 +189,16 @@ int rtl837x_phys_write_c45(struct rtl837x_priv *priv, u16 phy_mask, int devad, i
 	int ret;
 	u32 tmp;
 
-	mutex_lock(&priv->phy_mmd_lock);
+	mutex_lock(&priv->map_lock);
 
-	ret = rtl837x_reg_write(priv, RTL837X_SMI_ACCESS_PHY_CTRL_0_ADDR, phy_mask);
+	ret = regmap_write(priv->map_nolock, RTL837X_SMI_ACCESS_PHY_CTRL_0_ADDR, phy_mask);
 	if (ret)
 		goto out;
 
-	ret = rtl837x_reg_bits_write(priv, RTL837X_SMI_ACCESS_PHY_CTRL_3_ADDR,
+	ret = regmap_update_bits(priv->map_nolock, RTL837X_SMI_ACCESS_PHY_CTRL_3_ADDR,
 			  RTL837X_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK,
-			  val);
+			  FIELD_PREP(RTL837X_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK, val)
+			);
 	if (ret)
 		goto out;
 
@@ -190,15 +208,23 @@ int rtl837x_phys_write_c45(struct rtl837x_priv *priv, u16 phy_mask, int devad, i
 		FIELD_PREP(RTL837X_SMI_ACCESS_PHY_CTRL_1_TYPE_MASK, 1) |
 		FIELD_PREP(RTL837X_SMI_ACCESS_PHY_CTRL_1_CMD_MASK, 1);
 
-	ret = rtl837x_reg_write(priv, RTL837X_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp);
+	ret = regmap_write(priv->map_nolock, RTL837X_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp);
 	if (ret)
 		goto out;
 
-	ret = regmap_read_poll_timeout(priv->map, RTL837X_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp,
+	ret = regmap_read_poll_timeout(priv->map_nolock, RTL837X_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp,
 		((tmp & (RTL837X_SMI_ACCESS_PHY_CTRL_1_CMD_MASK | RTL837X_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK)) == 0),
 		0, 1000);
+	if (tmp & RTL837X_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK) {
+		ret = -EIO;
+		goto out;
+	}
+
+	if (ret)
+		goto out;
+
 out:
-	mutex_unlock(&priv->phy_mmd_lock);
+	mutex_unlock(&priv->map_lock);
 	return ret;
 }
 
@@ -240,11 +266,13 @@ int rtl837x_sds_reg_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u1
 	u32 val, tmp;
 	int ret;
 
-	ret = regmap_read_poll_timeout(priv->map, RTL837X_SDS_INDACS_CMD_ADDR, tmp,
+	mutex_lock(&priv->map_lock);
+
+	ret = regmap_read_poll_timeout(priv->map_nolock, RTL837X_SDS_INDACS_CMD_ADDR, tmp,
 		  ((tmp & RTL837X_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
 		  0, 1000);
 	if (ret)
-		return ret;
+		goto out;
 
 	tmp = FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_INDEX_MASK, sds_idx) |
 				FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_PAGE_MASK, sds_page) |
@@ -252,22 +280,24 @@ int rtl837x_sds_reg_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u1
 				FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_RWOP_MASK, 0) |
 				FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_CMD_MASK, 1);
 
-	ret = rtl837x_reg_write(priv, RTL837X_SDS_INDACS_CMD_ADDR, tmp);
+	ret = regmap_write(priv->map_nolock, RTL837X_SDS_INDACS_CMD_ADDR, tmp);
 	if (ret)
-		return ret;
+		goto out;
 
-	ret = regmap_read_poll_timeout(priv->map, RTL837X_SDS_INDACS_CMD_ADDR, tmp,
+	ret = regmap_read_poll_timeout(priv->map_nolock, RTL837X_SDS_INDACS_CMD_ADDR, tmp,
 		  ((tmp & RTL837X_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
 		  0, 1000);
 	if (ret)
-		return ret;
+		goto out;
 
-	ret = rtl837x_reg_read(priv, RTL837X_SDS_INDACS_RD_ADDR, &val);
+	ret = regmap_read(priv->map_nolock, RTL837X_SDS_INDACS_RD_ADDR, &val);
 	if (ret)
-		return ret;
+		goto out;
 
 	*pdata = val & 0xFFFF;
-	return 0;
+out:
+	mutex_unlock(&priv->map_lock);
+	return ret;
 }
 
 int rtl837x_sds_reg_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 data)
@@ -275,13 +305,17 @@ int rtl837x_sds_reg_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u
 	int ret;
 	u32 tmp;
 
-	ret = regmap_read_poll_timeout(priv->map, RTL837X_SDS_INDACS_CMD_ADDR, tmp,
-			  ((tmp & RTL837X_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
-			  0, 1000);
-	if (ret)
-		return ret;
+	mutex_lock(&priv->map_lock);
 
-	ret = rtl837x_reg_write(priv, RTL837X_SDS_INDACS_WD_ADDR, data);
+	ret = regmap_read_poll_timeout(priv->map_nolock, RTL837X_SDS_INDACS_CMD_ADDR, tmp,
+			  ((tmp & RTL837X_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
+			  10, 10000);
+	if (ret)
+		goto out;
+
+	ret = regmap_write(priv->map_nolock, RTL837X_SDS_INDACS_WD_ADDR, data);
+	if (ret)
+		goto out;
 
 	tmp = FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_INDEX_MASK, sds_idx) |
 				FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_PAGE_MASK, sds_page) |
@@ -289,17 +323,19 @@ int rtl837x_sds_reg_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u
 				FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_RWOP_MASK, 1) |
 				FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_CMD_MASK, 1);
 
-	ret = rtl837x_reg_write(priv, RTL837X_SDS_INDACS_CMD_ADDR, tmp);
+	ret = regmap_write(priv->map_nolock, RTL837X_SDS_INDACS_CMD_ADDR, tmp);
 	if (ret)
-		return ret;
+		goto out;
 
-	ret = regmap_read_poll_timeout(priv->map, RTL837X_SDS_INDACS_CMD_ADDR, tmp,
+	ret = regmap_read_poll_timeout(priv->map_nolock, RTL837X_SDS_INDACS_CMD_ADDR, tmp,
 		  ((tmp & RTL837X_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
-		  0, 1000);
+		  10, 10000);
 	if (ret)
-		return ret;
+		goto out;
 
-	return 0;
+out:
+	mutex_unlock(&priv->map_lock);
+	return ret;
 }
 
 int rtl837x_sds_reg_bits_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 mask, u16 *pdata)

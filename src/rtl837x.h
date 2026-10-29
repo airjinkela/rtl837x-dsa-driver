@@ -237,9 +237,6 @@ struct rtl837x_priv {
 
 	struct gpio_desc	*reset;
 
-	struct mutex		phy_mmd_lock;
-	struct mutex		phy_ocp_lock;
-
 	enum dsa_tag_protocol tag_proto;
 
 	struct dentry *debugfs_parent;

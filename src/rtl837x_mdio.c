@@ -154,13 +154,6 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	ret = devm_mutex_init(dev, &priv->mib_lock);
 	if (ret)
 		return ret;
-	ret = devm_mutex_init(dev, &priv->phy_mmd_lock);
-	if (ret)
-		return ret;
-	ret = devm_mutex_init(dev, &priv->phy_ocp_lock);
-	if (ret)
-		return ret;
-
 
 	ret = devm_mutex_init(dev, &priv->map_lock);
 	if (ret)
