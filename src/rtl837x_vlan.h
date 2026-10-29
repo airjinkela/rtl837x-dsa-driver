@@ -56,8 +56,8 @@ enum rtl837x_vlan_egress_mode {
 	RTL837X_VLAN_EGRESS_MODE_REAL_KEEP = 3,
 };
 
-int rtl837x_vlan_set(struct rtl837x_priv *priv, int vid, struct rtl837x_vlan_data *vlan);
-int rtl837x_vlan_get(struct rtl837x_priv *priv, int vid, struct rtl837x_vlan_data *vlan);
+int rtl837x_vlan_set(struct rtl837x_priv *priv, u16 vid, struct rtl837x_vlan_data *vlan);
+int rtl837x_vlan_get(struct rtl837x_priv *priv, u16 vid, struct rtl837x_vlan_data *vlan);
 int rtl837x_vlan_port_set_pvid(struct rtl837x_priv *priv, int port, u16 pvid);
 int rtl837x_vlan_port_get_pvid(struct rtl837x_priv *priv, int port, u16 *pvid);
 
