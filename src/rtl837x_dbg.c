@@ -64,10 +64,10 @@ REGRWFUNC(vlan_keep, 64);
 ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
-	char *buf;
 	u32 vlan_id, member, untag, fid;
-	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
+	struct seq_file *sfile;
+	char *buf;
 
 	sfile = filep->private_data;
 	priv = sfile->private;
@@ -129,11 +129,11 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 ssize_t MAKE_WRITE_FUNCNAME(pvid)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
+	struct rtl837x_priv *priv;
+	struct seq_file *sfile;
+	u32 port, pvid;
 	char *buf;
 	int ret;
-	u32 port, pvid;
-	struct seq_file *sfile;
-	struct rtl837x_priv *priv;
 
 	sfile = filep->private_data;
 	priv = sfile->private;
@@ -179,11 +179,11 @@ readback:
 ssize_t MAKE_WRITE_FUNCNAME(sdsreg)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
-	char *buf;
 	u32 sds_id, page, reg, val;
-	u16 tmp16;
-	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
+	struct seq_file *sfile;
+	u16 tmp16;
+	char *buf;
 
 	sfile = filep->private_data;
 	priv = sfile->private;
@@ -223,11 +223,11 @@ ssize_t MAKE_WRITE_FUNCNAME(sdsreg)(struct file *filep, const char __user *ubuf,
 ssize_t MAKE_WRITE_FUNCNAME(phyreg_mmd)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
-	char *buf;
 	u32 port, devad, reg, val;
-	u16 tmp16;
-	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
+	struct seq_file *sfile;
+	u16 tmp16;
+	char *buf;
 
 	sfile = filep->private_data;
 	priv = sfile->private;
@@ -271,11 +271,11 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mmd)(struct file *filep, const char __user *u
 ssize_t MAKE_WRITE_FUNCNAME(phyreg_mii)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
-	char *buf;
+	struct rtl837x_priv *priv;
+	struct seq_file *sfile;
 	u32 port, reg, val;
 	u16 tmp16;
-	struct seq_file *sfile;
-	struct rtl837x_priv *priv;
+	char *buf;
 
 	sfile = filep->private_data;
 	priv = sfile->private;
@@ -318,11 +318,11 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mii)(struct file *filep, const char __user *u
 ssize_t MAKE_WRITE_FUNCNAME(phyreg_ocp)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
-	char *buf;
+	struct rtl837x_priv *priv;
+	struct seq_file *sfile;
 	u32 port, reg, val;
 	u16 tmp16;
-	struct seq_file *sfile;
-	struct rtl837x_priv *priv;
+	char *buf;
 
 	sfile = filep->private_data;
 	priv = sfile->private;
@@ -365,10 +365,10 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_ocp)(struct file *filep, const char __user *u
 ssize_t MAKE_WRITE_FUNCNAME(reg)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
-	char *buf;
-	u32 reg, val;
-	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
+	struct seq_file *sfile;
+	u32 reg, val;
+	char *buf;
 
 	if (*offp)
 		return 0;
@@ -405,12 +405,12 @@ reg_readback:
 ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
+	struct rtl837x_lut_entry entry = {0};
+	struct rtl837x_priv *priv;
+	struct seq_file *sfile;
+	u32 index;
 	char *buf;
 	int ret;
-	u32 index;
-	struct seq_file *sfile;
-	struct rtl837x_priv *priv;
-	struct rtl837x_lut_entry entry = {0};
 
 	sfile = filep->private_data;
 	priv = sfile->private;
@@ -497,12 +497,12 @@ out:
 ssize_t MAKE_WRITE_FUNCNAME(vlan_trans)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
-	char *buf;
-	bool is_en = false;
-	int port, igr_port;
-	u32 mbr;
-	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
+	struct seq_file *sfile;
+	int port, igr_port;
+	bool is_en = false;
+	char *buf;
+	u32 mbr;
 
 	sfile = filep->private_data;
 	priv = sfile->private;
@@ -539,12 +539,12 @@ read_back:
 ssize_t MAKE_WRITE_FUNCNAME(vlan_keep)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
-	char *buf;
-	bool is_en = false;
-	int port, igr_port;
-	u32 mbr;
-	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
+	struct seq_file *sfile;
+	int port, igr_port;
+	bool is_en = false;
+	char *buf;
+	u32 mbr;
 
 	sfile = filep->private_data;
 	priv = sfile->private;
@@ -584,11 +584,11 @@ read_back:
 ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
+	struct rtl837x_priv *priv;
+	struct seq_file *sfile;
 	char *buf;
 	int port;
 	u32 tmp;
-	struct seq_file *sfile;
-	struct rtl837x_priv *priv;
 
 	sfile = filep->private_data;
 	priv = sfile->private;
@@ -644,12 +644,12 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __u
 ssize_t MAKE_WRITE_FUNCNAME(vlan_ingress_filter)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
+	struct rtl837x_priv *priv;
+	struct seq_file *sfile;
+	bool igr_flt_en;
 	char *buf;
 	int port;
 	int tmp;
-	bool igr_flt_en;
-	struct seq_file *sfile;
-	struct rtl837x_priv *priv;
 
 	sfile = filep->private_data;
 	priv = sfile->private;
@@ -684,17 +684,17 @@ readback:
 static ssize_t _sds_page_dump_read(struct file *filep, char __user *ubuf,
 				size_t count, loff_t *offp)
 {
+	struct rtl837x_priv *priv;
+	struct seq_file *sfile;
 	int ret, len = 0;
-#define SDS_DUMP_BUF_SIZE 2048
 	char *buf;
 	u16 tmp16;
 	u32 tmp32;
-	struct seq_file *sfile;
-	struct rtl837x_priv *priv;
 
 	sfile = filep->private_data;
 	priv = sfile->private;
 
+#define SDS_DUMP_BUF_SIZE 2048
 	buf = kmalloc(SDS_DUMP_BUF_SIZE, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
@@ -768,12 +768,12 @@ static const struct file_operations _sds_page_dump_fops = {
 static ssize_t _vlan_dump_read(struct file *filep, char __user *ubuf,
 			       size_t count, loff_t *offp)
 {
+	struct rtl837x_vlan_4k vlan4k;
+	struct rtl837x_priv *priv;
+	struct seq_file *sfile;
 	int ret, len = 0;
 	char *buf;
 	u32 vid;
-	struct seq_file *sfile;
-	struct rtl837x_priv *priv;
-	struct rtl837x_vlan_4k vlan4k;
 
 	sfile = filep->private_data;
 	priv = sfile->private;
@@ -814,10 +814,10 @@ static const struct file_operations _vlan_dump_fops = {
 static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 			       size_t count, loff_t *offp)
 {
-	int ret;
-	struct seq_file *sfile;
-	struct rtl837x_priv *priv;
 	struct rtl837x_lut_entry entry = {0};
+	struct rtl837x_priv *priv;
+	struct seq_file *sfile;
+	int ret;
 
 	sfile = filep->private_data;
 	priv = sfile->private;
@@ -903,12 +903,12 @@ static const struct file_operations _l2uc_dump_fops = {
 static ssize_t _port_eee_status_dump_read(struct file *filep, char __user *ubuf,
 					  size_t count, loff_t *offp)
 {
+	struct rtl837x_priv *priv;
+	struct seq_file *sfile;
+	unsigned int port;
 	int ret, len = 0;
 	char *buf;
 	u32 reg;
-	unsigned int port;
-	struct seq_file *sfile;
-	struct rtl837x_priv *priv;
 
 	sfile = filep->private_data;
 	priv = sfile->private;
@@ -961,8 +961,8 @@ static ssize_t _led_dump_read(struct file *filep, char __user *ubuf,
 {
 	struct rtl837x_led_set *led_set;
 	struct rtl837x_led *port_led;
-	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
+	struct seq_file *sfile;
 	int ret, len = 0;
 	char *buf;
 	int i;

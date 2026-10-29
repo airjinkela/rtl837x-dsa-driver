@@ -166,8 +166,8 @@ static struct rtl837x_led_set *rtl837x_get_free_led_set(struct rtl837x_priv *pri
 
 static int rtl837x_apply_led_set(struct rtl837x_led_set *led_set)
 {
-	int ret;
 	struct rtl837x_priv *priv = led_set->priv;
+	int ret;
 
 	for (int i = 0; i < RTL837X_PORT_LED_COUNT; i++) {
 		ret = rtl837x_reg_bits_write(priv, RTL837X_LED_SETx_SEL0_LEDx_ADDR(led_set->idx, i),
@@ -200,9 +200,9 @@ static int rtl837x_apply_port_led_set(struct rtl837x_led *port_led)
 static int rtl837x_set_port_led_hw_offload_trigger(struct rtl837x_led *port_led,
 						   u32 offload_trigger)
 {
-	struct rtl837x_priv *priv = port_led->priv;
+	u32 led_cfg_mask[RTL837X_PORT_LED_COUNT] = {0};
 	struct rtl837x_led_set *cur, *led_set;
-	u32 led_cfg_mask[RTL837X_PORT_LED_COUNT] = { };
+	struct rtl837x_priv *priv = port_led->priv;
 	int ret;
 
 	/*
@@ -284,8 +284,8 @@ static int rtl837x_parse_netdev(unsigned long rules, u32 *offload_trigger)
 
 static int rtl837x_set_led_hw_offload(struct rtl837x_led *port_led, bool enable)
 {
-	int ret;
 	struct rtl837x_priv *priv = port_led->priv;
+	int ret;
 
 	if (enable) {
 		ret = rtl837x_gpio_led_mode_set(priv, port_led->led_pin, false);
@@ -329,9 +329,9 @@ static int rtl837x_set_led_hw_offload(struct rtl837x_led *port_led, bool enable)
 static int rtl837x_led_set_brightness(struct rtl837x_led *port_led,
 			 enum led_brightness brightness)
 {
-	int ret;
 	struct rtl837x_priv *priv = port_led->priv;
 	int br_val = port_led->active_low ? 0 : 1;
+	int ret;
 
 	ret = rtl837x_set_led_hw_offload(port_led, false);
 	if (ret)
@@ -346,9 +346,9 @@ static int rtl837x_led_set_brightness(struct rtl837x_led *port_led,
 static int rtl837x_led_get_brightness(struct rtl837x_led *port_led,
 			 enum led_brightness *brightness)
 {
-	int ret;
 	struct rtl837x_priv *priv = port_led->priv;
 	u32 val;
+	int ret;
 
 	ret = rtl837x_gpio_value_get(priv, port_led->led_pin, &val);
 	if (ret)
@@ -381,11 +381,10 @@ static int rtl837x_brightness_set_blocking(struct led_classdev *ldev,
 static int
 rtl837x_cled_hw_control_set(struct led_classdev *ldev, unsigned long rules)
 {
-	int ret;
 	struct rtl837x_led *port_led = container_of(ldev, struct rtl837x_led, cdev);
 	struct rtl837x_priv *priv = port_led->priv;
 	u32 offload_trigger = 0;
-
+	int ret;
 
 	ret = rtl837x_parse_netdev(rules, &offload_trigger);
 	if (ret)
@@ -404,11 +403,11 @@ rtl837x_cled_hw_control_set(struct led_classdev *ldev, unsigned long rules)
 static int
 rtl837x_cled_hw_control_get(struct led_classdev *ldev, unsigned long *rules)
 {
-	int ret;
 	struct rtl837x_led *port_led = container_of(ldev, struct rtl837x_led, cdev);
 	struct rtl837x_priv *priv = port_led->priv;
 	u32 offload_trigger = 0;
 	u32 tmp;
+	int ret;
 
 	if (!port_led->is_hw_offload || !port_led->led_set)
 		return -EINVAL;
@@ -498,11 +497,11 @@ static int rtl837x_set_led_mux(struct rtl837x_led *port_led)
 
 static int rtl837x_parse_port_leds(struct rtl837x_priv *priv, struct fwnode_handle *port, int port_num)
 {
-	struct fwnode_handle *led = NULL, *leds = NULL;
-	struct led_init_data init_data = { };
+	struct led_init_data init_data = {0};
+	u32 led_id, led_index, led_pin;
 	enum led_default_state state;
 	struct rtl837x_led *port_led;
-	u32 led_id, led_index, led_pin;
+	struct fwnode_handle *led = NULL, *leds = NULL;
 	int ret;
 
 	leds = fwnode_get_named_child_node(port, "leds");

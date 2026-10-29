@@ -244,10 +244,10 @@ int rtl837x_lut_query(struct rtl837x_priv *priv,
 			  enum rtl837x_lut_method method,
 			  struct rtl837x_lut_entry *entry)
 {
-	int ret;
 	u32 tb_data[RTL837X_LUT_TABLE_SIZE] = {0};
-	u16 addr;
 	int port = 0;
+	u16 addr;
+	int ret;
 
 	switch (method) {
 	case RTL837X_LUT_METHOD_NEXT_L2UCSPA:
@@ -305,9 +305,9 @@ int rtl837x_lut_query(struct rtl837x_priv *priv,
 int rtl837x_lut_set(struct rtl837x_priv *priv,
 			  struct rtl837x_lut_entry *entry)
 {
-	int ret;
 	u32 tb_data[RTL837X_LUT_TABLE_SIZE] = {0};
 	u16 addr;
+	int ret;
 
 	switch (entry->type) {
 	case RTL837X_LUT_TYPE_L2_UC:

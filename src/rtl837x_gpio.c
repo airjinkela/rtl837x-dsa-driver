@@ -89,12 +89,12 @@ int rtl837x_gpio_value_get(struct rtl837x_priv *priv, unsigned int offset, int *
 
 int rtl837x_gpio_direction_set(struct rtl837x_priv *priv, unsigned int offset, bool input)
 {
+	u32 value = input ? 0 : 1;
 	int ret;
 
 	if (offset > RTL837X_MAX_GPIO)
 		return -EINVAL;
 
-	u32 value = input ? 0 : 1;
 
 	if (offset < 32)
 		ret = rtl837x_reg_bits_write(priv, RTL837X_GPIO_OE0_ADDR,
@@ -133,9 +133,9 @@ int rtl837x_gpio_direction_get(struct rtl837x_priv *priv, unsigned int offset, b
 #ifdef CONFIG_GPIOLIB
 static int rtl837x_gpiochip_request(struct gpio_chip *gc, unsigned int offset)
 {
-	int ret = 0;
 	struct rtl837x_gpio *gpio = gpiochip_get_data(gc);
 	struct rtl837x_priv *priv = gpio->priv;
+	int ret = 0;
 
 	switch (offset) {
 	case 0 ... 29:
@@ -221,9 +221,9 @@ static int rtl837x_gpiochip_set(struct gpio_chip *gc, unsigned int offset, int v
 static void rtl837x_gpiochip_set(struct gpio_chip *gc, unsigned int offset, int value)
 #endif
 {
-	int ret;
 	struct rtl837x_gpio *gpio = gpiochip_get_data(gc);
 	struct rtl837x_priv *priv = gpio->priv;
+	int ret;
 
 	ret = rtl837x_gpio_value_set(priv, offset, value);
 	if (ret) {
@@ -239,10 +239,10 @@ static void rtl837x_gpiochip_set(struct gpio_chip *gc, unsigned int offset, int 
 
 static int rtl837x_gpiochip_get(struct gpio_chip *gc, unsigned int offset)
 {
-	int ret;
-	u32 value;
 	struct rtl837x_gpio *gpio = gpiochip_get_data(gc);
 	struct rtl837x_priv *priv = gpio->priv;
+	u32 value;
+	int ret;
 
 	ret = rtl837x_gpio_value_get(priv, offset, &value);
 	if (ret) {
@@ -255,9 +255,9 @@ static int rtl837x_gpiochip_get(struct gpio_chip *gc, unsigned int offset)
 
 static int rtl837x_gpiochip_direction_input(struct gpio_chip *gc, unsigned int offset)
 {
-	int ret;
 	struct rtl837x_gpio *gpio = gpiochip_get_data(gc);
 	struct rtl837x_priv *priv = gpio->priv;
+	int ret;
 
 	ret = rtl837x_gpio_direction_set(priv, offset, true);
 	if (ret) {
@@ -270,9 +270,9 @@ static int rtl837x_gpiochip_direction_input(struct gpio_chip *gc, unsigned int o
 static int rtl837x_gpiochip_direction_output(struct gpio_chip *gc,
 					unsigned int offset, int value)
 {
-	int ret;
 	struct rtl837x_gpio *gpio = gpiochip_get_data(gc);
 	struct rtl837x_priv *priv = gpio->priv;
+	int ret;
 
 	ret = rtl837x_gpio_direction_set(priv, offset, false);
 	if (ret) {
@@ -291,10 +291,10 @@ static int rtl837x_gpiochip_direction_output(struct gpio_chip *gc,
 static int rtl837x_gpiochip_get_direction(struct gpio_chip *gc,
 						unsigned int offset)
 {
-	int ret;
-	bool is_input;
 	struct rtl837x_gpio *gpio = gpiochip_get_data(gc);
 	struct rtl837x_priv *priv = gpio->priv;
+	bool is_input;
+	int ret;
 
 	ret = rtl837x_gpio_direction_get(priv, offset, &is_input);
 	if (ret)
@@ -321,12 +321,12 @@ static const struct gpio_chip rtl837x_gp = {
 
 int rtl837x_gpiochip_init(struct rtl837x_priv *priv)
 {
-	struct device *dev = priv->dev;
-	struct device_node *np = dev->of_node;
-
 	struct rtl837x_gpio *gpio;
-
+	struct device_node *np;
+	struct device *dev = priv->dev;
 	int base = 0;
+
+	np = dev->of_node;
 
 	if (of_property_read_u32(np, "base", &base))
 		base = -1;

@@ -52,8 +52,10 @@ out_unlock:
 static int rtl837x_mdio_read(void *ctx, u32 reg, u32 *val)
 {
 	struct rtl837x_priv *priv = ctx;
-	struct mii_bus *bus = priv->bus;
 	int ret, val_l, val_h;
+	struct mii_bus *bus;
+
+	bus = priv->bus;
 
 	mutex_lock(&bus->mdio_lock);
 
@@ -102,11 +104,13 @@ static void rtl837x_mdio_unlock(void *ctx)
 
 static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 {
-	struct rtl837x_priv *priv;
-	struct device *dev = &mdiodev->dev;
-	struct device_node *np = dev->of_node;
 	const struct rtl837x_variant *var;
+	struct rtl837x_priv *priv;
+	struct device_node *np;
+	struct device *dev = &mdiodev->dev;
 	int ret;
+
+	np = dev->of_node;
 
 	var = of_device_get_match_data(dev);
 	if (!var)

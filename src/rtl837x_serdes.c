@@ -208,9 +208,9 @@ int rtl837x_serdes_pnswap_tx(struct rtl837x_priv *priv, u8 sds_idx, bool enable)
 
 int rtl837x_serdes_reset_10G(struct rtl837x_priv *priv, u8 sds_idx)
 {
-	int ret;
-	u16 rx_sts, tmp;
 	bool rx_idle, nsq, sync_ok, link_ok, hi_ber; // nsq:(Noise Squelch) hi_ber:(High bit error rate)
+	u16 rx_sts, tmp;
+	int ret;
 
 	ret = rtl837x_sds_reg_bits_read(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 			  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
@@ -298,9 +298,9 @@ do_reset:
 // 100M/1G/2.5G reset
 int rtl837x_serdes_reset_XSG(struct rtl837x_priv *priv, u8 sds_idx)
 {
-	int ret;
-	u16 rx_sts, tmp;
 	bool sig_ok, sync_ok, link_ok;
+	u16 rx_sts, tmp;
+	int ret;
 
 	ret = rtl837x_sds_reg_bits_read(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 			  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
@@ -351,10 +351,10 @@ do_reset:
 
 int rtl837x_serdes_an_patch(struct rtl837x_priv *priv, u8 sds_idx, phy_interface_t interface)
 {
-	int ret;
 	const u16 (*an_patch)[3];
 	int an_patch_len;
 	u16 chip_ver = 0;
+	int ret;
 
 	ret = rtl837x_get_chip_ver(priv, &chip_ver);
 	if (ret) {
@@ -561,9 +561,9 @@ int rtl837x_serdes_pause_frame_config(struct rtl837x_priv *priv, u8 sds_idx,
 			     phy_interface_t interface,
 				 bool pause, bool asympause)
 {
-	int ret;
 	// Set Auto Negotiation Pause/AsymPause
 	int adv = 0;
+	int ret;
 
 	if (pause)
 		adv |= BIT(0);

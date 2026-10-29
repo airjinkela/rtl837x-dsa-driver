@@ -237,8 +237,8 @@ int rtl837x_phy_bits_write_c45(struct rtl837x_priv *priv, int phy, int devad, in
 
 int rtl837x_sds_reg_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 *pdata)
 {
-	int ret;
 	u32 val, tmp;
+	int ret;
 
 	ret = regmap_read_poll_timeout(priv->map, RTL837X_SDS_INDACS_CMD_ADDR, tmp,
 		  ((tmp & RTL837X_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),

@@ -37,8 +37,8 @@ struct rtl837x_l2_uc {
 	u8 port;
 	u8 age;
 
-	bool auth;
 	bool is_static;
+	bool auth;
 };
 
 struct rtl837x_l2_mc {
@@ -53,10 +53,10 @@ struct rtl837x_l3 {
 	u32 sip;
 	u32 dip;
 
-	bool l3lookup;
-	u16 mbr;
 	bool igmp_asic;
+	bool l3lookup;
 	u8 igmp_idx;
+	u16 mbr;
 };
 
 struct rtl837x_lut_entry {

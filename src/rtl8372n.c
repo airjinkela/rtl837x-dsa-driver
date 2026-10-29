@@ -238,8 +238,8 @@ static const struct rtl837x_mib_counter rtl8372n_mib_counters[] = {
 static_assert(ARRAY_SIZE(rtl8372n_mib_counters) == RTL837X_MIB_END);
 
 struct rtl8372n_pcs {
-	struct phylink_pcs pcs;
 	struct rtl837x_priv *priv;
+	struct phylink_pcs pcs;
 	int index;
 };
 
@@ -262,11 +262,10 @@ static bool is_8021q_tag(enum dsa_tag_protocol tag_proto)
 
 static int rtl8372n_detect(struct rtl837x_priv *priv)
 {
-	struct device *dev = priv->dev;
-	int ret;
-	u32 val;
-
 	enum switch_chip sw_chip;
+	struct device *dev = priv->dev;
+	u32 val;
+	int ret;
 
 	ret = rtl837x_reg_read(priv, RTL837X_MODEL_NAME_INFO_ADDR, &val);
 	dev_info(dev, "CHIP_ID: 0x%08x\n", val);
@@ -326,9 +325,8 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
 static int rtl8372n_get_vlan_4k(struct rtl837x_priv *priv, u32 vid,
 				 struct rtl837x_vlan_4k *vlan4k)
 {
-	int ret;
-
 	struct rtl837x_vlan_data vlan;
+	int ret;
 
 	ret = rtl837x_vlan_get(priv, vid, &vlan);
 	if (ret) {
@@ -346,9 +344,8 @@ static int rtl8372n_get_vlan_4k(struct rtl837x_priv *priv, u32 vid,
 static int rtl8372n_set_vlan_4k(struct rtl837x_priv *priv,
 			       const struct rtl837x_vlan_4k *vlan4k)
 {
-	int ret;
-
 	struct rtl837x_vlan_data vlan = {0};
+	int ret;
 
 	vlan.mbr = vlan4k->member;
 	vlan.untag = vlan4k->untag;
@@ -366,9 +363,8 @@ static int rtl8372n_set_vlan_4k(struct rtl837x_priv *priv,
 static int rtl8372n_vlan_update(struct rtl837x_priv *priv, int vid, u32 member,
 		     u32 untag, u32 fid)
 {
-	int ret;
-
 	struct rtl837x_vlan_data vlan_data;
+	int ret;
 
 	ret = rtl837x_vlan_get(priv, vid, &vlan_data);
 
@@ -388,16 +384,15 @@ static int rtl8372n_vlan_update(struct rtl837x_priv *priv, int vid, u32 member,
 static int rtl8372n_set_pvid(struct rtl837x_priv *priv, int port,
 		     u16 vid)
 {
-	int ret;
-	struct dsa_switch *ds = priv->ds;
-	struct dsa_port *dp;
-	struct rtl8372n *chip_data = priv->chip_data;
-	bool pvid_enabled;
-	bool prev_pvid_enabled = chip_data->pvid_enabled[port];
 	enum rtl837x_frame_ingress prev_accepted_frame;
-	u16 prev_pvid = 0;
+	struct rtl8372n *chip_data = priv->chip_data;
+	bool prev_pvid_enabled = chip_data->pvid_enabled[port];
+	struct dsa_switch *ds = priv->ds;
 	u32 configured_ports = 0;
-
+	struct dsa_port *dp;
+	bool pvid_enabled;
+	u16 prev_pvid = 0;
+	int ret;
 
 	dev_dbg(priv->dev, "[%s]: port (%d), vid (%d)\n", __func__, port, vid);
 	pvid_enabled = !!vid;
@@ -450,13 +445,13 @@ undo_pvid:
 
 static int rtl8372n_clean_pvid(struct rtl837x_priv *priv, int port, u16 vid)
 {
-	int ret;
+	enum rtl837x_frame_ingress accepted_frame, prev_accepted_frame;
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_switch *ds = priv->ds;
-	struct dsa_port *dp;
-	enum rtl837x_frame_ingress accepted_frame, prev_accepted_frame;
-	u16 prev_pvid;
 	u32 configured_ports = 0;
+	struct dsa_port *dp;
+	u16 prev_pvid;
+	int ret;
 
 	ret = rtl837x_vlan_port_get_pvid(priv, port, &prev_pvid);
 	if (ret)
@@ -532,12 +527,11 @@ static int rtl8372n_get_mib_counter(struct rtl837x_priv *priv,
 		const struct rtl837x_mib_counter *mib,
 		u64 *mibvalue)
 {
+	u32 val_h, val_l, val, tmp;
+	int mib_id = (mib->offset) / 2;
 	int ret;
-	u32 val_h, val_l, val;
 
-	int mib_id = (mib->offset)/2;
-
-	u32 tmp = (FIELD_PREP(RTL837X_INDIRECT_ACCESS_CTRL_PORT_ID_MASK, port) |
+	tmp = (FIELD_PREP(RTL837X_INDIRECT_ACCESS_CTRL_PORT_ID_MASK, port) |
 					FIELD_PREP(RTL837X_INDIRECT_ACCESS_CTRL_MIB_ID_MASK, mib_id) |
 					FIELD_PREP(RTL837X_INDIRECT_ACCESS_CTRL_ACC_CMD_MASK, 1));
 
@@ -545,7 +539,10 @@ static int rtl8372n_get_mib_counter(struct rtl837x_priv *priv,
 	if (ret)
 		return ret;
 
-	ret = regmap_read_poll_timeout(priv->map, RTL837X_INDIRECT_ACCESS_CTRL_ADDR, tmp, ((tmp & RTL837X_INDIRECT_ACCESS_CTRL_ACC_CMD_MASK) == 0), 0, 1000);
+	ret = regmap_read_poll_timeout(priv->map, RTL837X_INDIRECT_ACCESS_CTRL_ADDR, tmp,
+			  ((tmp & RTL837X_INDIRECT_ACCESS_CTRL_ACC_CMD_MASK) == 0),
+			  0, 1000
+			);
 	if (ret)
 		return ret;
 
@@ -584,8 +581,9 @@ static int rtl8372n_mdio_phy_read_c22(struct mii_bus *bus, int addr, int regnum)
 {
 	struct rtl837x_priv *priv = bus->priv;
 	u16 val;
+	int ret;
 
-	int ret = priv->ops->phy_read_c22(priv, addr, regnum, &val);
+	ret = priv->ops->phy_read_c22(priv, addr, regnum, &val);
 
 	if (ret)
 		return ret;
@@ -604,8 +602,9 @@ static int rtl8372n_mdio_phy_read_c45(struct mii_bus *bus, int port, int devad, 
 {
 	struct rtl837x_priv *priv = bus->priv;
 	u16 val;
-	int ret = priv->ops->phy_read_c45(priv, port, devad, regnum, &val);
+	int ret;
 
+	ret = priv->ops->phy_read_c45(priv, port, devad, regnum, &val);
 	if (ret)
 		return ret;
 
@@ -621,11 +620,11 @@ static int rtl8372n_mdio_phy_write_c45(struct mii_bus *bus, int port, int devad,
 
 static int rtl8372n_setup_mdio(struct rtl837x_priv *priv)
 {
-	struct device_node *np = priv->dev->of_node;
 	struct device_node *mnp;
+	struct device_node *np = priv->dev->of_node;
 	struct dsa_switch *ds = priv->ds;
-	struct device *dev = priv->dev;
 	struct mii_bus *bus;
+	struct device *dev = priv->dev;
 	static int idx;
 	int ret = 0;
 
@@ -698,11 +697,11 @@ static void rtl8372n_sds_pcs_get_state(struct phylink_pcs *pcs,
 				 struct phylink_link_state *state)
 #endif
 {
-	int ret;
-	u32 tmp;
 	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
 	struct rtl837x_priv *priv = _pcs->priv;
 	int port = _pcs->index;
+	u32 tmp;
+	int ret;
 
 	ret = rtl837x_reg_bits_read(priv, RTL837X_MAC_LINK_STS_ADDR, BIT(port), &tmp);
 	if (ret < 0)
@@ -773,11 +772,13 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 			     const unsigned long *advertising,
 			     bool permit_pause_to_mac)
 {
-	int ret;
 	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
 	struct rtl837x_priv *priv = _pcs->priv;
+	u8 sds_idx;
 	int port = _pcs->index;
-	u8 sds_idx = PORT_TO_SERDES_IDX(port);
+	int ret;
+
+	sds_idx = PORT_TO_SERDES_IDX(port);
 
 	dev_dbg(priv->dev, "[%s]PCS config serdes(%d) mode(%s) neg_mode(0x%x)\n", __func__,
 			  sds_idx,
@@ -933,9 +934,12 @@ static void rtl8372n_phylink_get_caps(struct dsa_switch *ds, int port,
 static struct phylink_pcs *rtl8372n_phylink_mac_select_pcs(struct phylink_config *config,
 						phy_interface_t interface)
 {
+	struct rtl8372n *chip_data;
+	struct rtl837x_priv *priv;
 	struct dsa_port *dp = dsa_phylink_to_port(config);
-	struct rtl837x_priv *priv = dp->ds->priv;
-	struct rtl8372n *chip_data = priv->chip_data;
+
+	priv = dp->ds->priv;
+	chip_data = priv->chip_data;
 
 	if (IS_SERDES_PORT(dp->index))
 		return &(chip_data->pcs[dp->index].pcs);
@@ -946,8 +950,10 @@ static struct phylink_pcs *rtl8372n_phylink_mac_select_pcs(struct phylink_config
 static void rtl8372n_phylink_mac_config(struct phylink_config *config, unsigned int mode,
 			const struct phylink_link_state *state)
 {
+	struct rtl837x_priv *priv;
 	struct dsa_port *dp = dsa_phylink_to_port(config);
-	struct rtl837x_priv *priv = dp->ds->priv;
+
+	priv = dp->ds->priv;
 
 	if (!IS_SERDES_PORT(dp->index))
 		return;
@@ -959,8 +965,10 @@ static void rtl8372n_phylink_mac_config(struct phylink_config *config, unsigned 
 static void rtl8372n_phylink_mac_link_down(struct phylink_config *config, unsigned int mode,
 				phy_interface_t interface)
 {
+	struct rtl837x_priv *priv;
 	struct dsa_port *dp = dsa_phylink_to_port(config);
-	struct rtl837x_priv *priv = dp->ds->priv;
+
+	priv = dp->ds->priv;
 
 	if (!IS_SERDES_PORT(dp->index))
 		return;
@@ -974,8 +982,10 @@ static void rtl8372n_phylink_mac_link_up(struct phylink_config *config,
 			phy_interface_t interface, int speed, int duplex,
 			bool tx_pause, bool rx_pause)
 {
+	struct rtl837x_priv *priv;
 	struct dsa_port *dp = dsa_phylink_to_port(config);
-	struct rtl837x_priv *priv = dp->ds->priv;
+
+	priv = dp->ds->priv;
 
 	if (!IS_SERDES_PORT(dp->index))
 		return;
@@ -1027,11 +1037,13 @@ static int of_extra_init(struct dsa_switch *ds)
 
 static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 {
-	int ret;
-	struct rtl837x_priv *priv = ds->priv;
-	struct rtl8372n *chip_data = priv->chip_data;
-	struct dsa_port *dp, *cpu_dp = NULL;
 	struct net_device *master_dev = NULL;
+	struct dsa_port *dp, *cpu_dp = NULL;
+	struct rtl8372n *chip_data;
+	struct rtl837x_priv *priv = ds->priv;
+	int ret;
+
+	chip_data = priv->chip_data;
 
 
 	// Only support one CPU port
@@ -1098,11 +1110,12 @@ static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 
 static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 {
-	struct rtl837x_priv *priv = ds->priv;
-	struct rtl8372n *chip_data = priv->chip_data;
-	struct dsa_port *dp, *cpu_dp = NULL;
 	struct net_device *master_dev = NULL;
+	struct dsa_port *dp, *cpu_dp = NULL;
+	struct rtl8372n *chip_data;
+	struct rtl837x_priv *priv = ds->priv;
 
+	chip_data = priv->chip_data;
 
 	// Only support one CPU port
 	dsa_switch_for_each_cpu_port(dp, ds) {
@@ -1154,8 +1167,8 @@ static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 
 static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 {
-	int ret;
 	struct rtl837x_priv *priv = ds->priv;
+	int ret;
 
 	//  bit0: internal cpu; bit1: external cpu
 	ret = rtl837x_reg_bits_write(priv, RTL837X_SVLAN_TRAP_CTRL_ADDR,
@@ -1232,9 +1245,12 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 
 static int rtl8372n_teardown_tag_8021q(struct dsa_switch *ds)
 {
+	struct rtl837x_vlan_data vlan_data;
+	struct rtl8372n *chip_data;
 	struct rtl837x_priv *priv = ds->priv;
-	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *dp = NULL;
+
+	chip_data = priv->chip_data;
 
 	if (ds->tag_8021q_ctx)
 		dsa_tag_8021q_unregister(ds);
@@ -1242,7 +1258,6 @@ static int rtl8372n_teardown_tag_8021q(struct dsa_switch *ds)
 	// Clean service port
 	rtl837x_reg_write(priv, RTL837X_VS_UPLINK_PORT_ADDR, 0);
 
-	struct rtl837x_vlan_data vlan_data;
 
 	vlan_data.mbr = 0;
 	vlan_data.untag = 0;
@@ -1270,9 +1285,10 @@ static int rtl8372n_teardown_tag_8021q(struct dsa_switch *ds)
 static int rtl8372n_tag_8021q_vlan_add(struct dsa_switch *ds, int port,
 				       u16 vid, u16 flags)
 {
-	int ret = 0;
+	struct rtl8372n *chip_data;
 	struct rtl837x_priv *priv = ds->priv;
-	struct rtl8372n *chip_data = priv->chip_data;
+	u32 member = 0, untag = 0;
+	int ret = 0;
 
 	dev_dbg(priv->dev, "[%s]: port: %d, vid:%u, flags: %u\n", __func__, port, vid, flags);
 
@@ -1284,7 +1300,6 @@ static int rtl8372n_tag_8021q_vlan_add(struct dsa_switch *ds, int port,
 	if (ret)
 		return ret;
 
-	u32 member = 0, untag = 0;
 
 	member |= BIT(port);
 	if (dsa_is_user_port(ds, port))
@@ -1310,11 +1325,12 @@ fail_rollback:
 static int rtl8372n_tag_8021q_vlan_del(struct dsa_switch *ds, int port,
 				       u16 vid)
 {
-	int ret;
-	struct rtl837x_priv *priv = ds->priv;
-	struct rtl8372n *chip_data = priv->chip_data;
-
 	struct rtl837x_vlan_data vlan_data;
+	struct rtl8372n *chip_data;
+	struct rtl837x_priv *priv = ds->priv;
+	int ret;
+
+	chip_data = priv->chip_data;
 
 	dev_dbg(priv->dev, "[%s]: port: %d, vid: %u\n", __func__, port, vid);
 
@@ -1359,8 +1375,8 @@ static int rtl8372n_tag_8021q_vlan_del(struct dsa_switch *ds, int port,
 static int rtl8372n_change_tag_protocol(struct dsa_switch *ds,
 					enum dsa_tag_protocol proto)
 {
-	int ret;
 	struct rtl837x_priv *priv = ds->priv;
+	int ret;
 
 	dev_dbg(priv->dev, "[%s]: proto: %d\n", __func__, proto);
 
@@ -1413,8 +1429,8 @@ static int rtl8372n_port_remove_isolation(struct rtl837x_priv *priv, int port,
 static void rtl8372n_get_strings(struct dsa_switch *ds, int port, u32 stringset,
 			 uint8_t *data)
 {
-	struct rtl837x_priv *priv = ds->priv;
 	const struct rtl837x_mib_counter *mib;
+	struct rtl837x_priv *priv = ds->priv;
 	int i;
 
 	if (port >= priv->num_ports)
@@ -1429,16 +1445,15 @@ static void rtl8372n_get_strings(struct dsa_switch *ds, int port, u32 stringset,
 
 static void rtl8372n_get_ethtool_stats(struct dsa_switch *ds, int port, uint64_t *data)
 {
-	struct rtl837x_priv *priv = ds->priv;
-	int i;
-	int ret;
 	const struct rtl837x_mib_counter *mib;
+	struct rtl837x_priv *priv = ds->priv;
+	int ret;
 
 	if (port >= priv->num_ports)
 		return;
 
 	mutex_lock(&priv->mib_lock);
-	for (i = 0; i < priv->num_mib_counters; i++) {
+	for (int i = 0; i < priv->num_mib_counters; i++) {
 		u64 mibvalue = 0;
 
 		mib = &priv->mib_counters[i];
@@ -1468,8 +1483,8 @@ static int rtl8372n_get_sset_count(struct dsa_switch *ds, int port, int sset)
 static void rtl8372n_get_phy_stats(struct dsa_switch *ds, int port,
 				    struct ethtool_eth_phy_stats *phy_stats)
 {
-	struct rtl837x_priv *priv = ds->priv;
 	const struct rtl837x_mib_counter *mib;
+	struct rtl837x_priv *priv = ds->priv;
 
 	mib = &priv->mib_counters[RTL837X_MIB_dot3StatsSymbolErrors];
 
@@ -1549,9 +1564,10 @@ static void rtl8372n_get_mac_stats(struct dsa_switch *ds, int port,
 static void rtl8372n_get_ctrl_stats(struct dsa_switch *ds, int port,
 				     struct ethtool_eth_ctrl_stats *ctrl_stats)
 {
+	const struct rtl837x_mib_counter *mib;
 	struct rtl837x_priv *priv = ds->priv;
-	const struct rtl837x_mib_counter *mib =
-		  &priv->mib_counters[RTL837X_MIB_dot3ControlInUnknownOpcodes];
+
+	mib = &priv->mib_counters[RTL837X_MIB_dot3ControlInUnknownOpcodes];
 
 	mutex_lock(&priv->mib_lock);
 	priv->ops->get_mib_counter(priv, port, mib,
@@ -1562,13 +1578,15 @@ static void rtl8372n_get_ctrl_stats(struct dsa_switch *ds, int port,
 static int rtl8372n_port_vlan_filtering(struct dsa_switch *ds, int port,
 					bool vlan_filtering, struct netlink_ext_ack *extack)
 {
-	int ret;
 	enum rtl837x_frame_ingress prev_accepted_frame, accepted_frame;
 	enum rtl837x_vlan_egress_mode mode;
+	struct rtl8372n *chip_data;
+	struct rtl837x_priv *priv = ds->priv;
 	u32 configured_ports = 0;
 	struct dsa_port *dp;
-	struct rtl837x_priv *priv = ds->priv;
-	struct rtl8372n *chip_data = priv->chip_data;
+	int ret;
+
+	chip_data = priv->chip_data;
 
 	dev_dbg(priv->dev, "[%s]: port (%d), filtering: %s\n", __func__,
 				  port, !!vlan_filtering ? "true" : "false");
@@ -1677,8 +1695,8 @@ undo_transparent:
 static int rtl8372n_set_bpdu_l2mc_cpu_trap(struct rtl837x_priv *priv, u32 vid,
 					   u32 cpu_port_mask, bool add)
 {
-	const u8 bpdu[] = { 0x01, 0x80, 0xC2, 0x00, 0x00, 0x00 };
 	struct rtl837x_lut_entry entry = {0};
+	const u8 bpdu[] = { 0x01, 0x80, 0xC2, 0x00, 0x00, 0x00 };
 	int ret;
 
 	entry.type = RTL837X_LUT_TYPE_L2_MC;
@@ -1704,15 +1722,13 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 			    const struct switchdev_obj_port_vlan *vlan,
 			    struct netlink_ext_ack *extack)
 {
-	int ret;
 	struct rtl837x_vlan_data vlan_data_bak;
-	bool untagged = !!(vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED);
-	bool pvid = !!(vlan->flags & BRIDGE_VLAN_INFO_PVID);
 	struct rtl837x_priv *priv = ds->priv;
-
+	bool untagged = !!(vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED);
+	u32 member = 0, untag = 0;
+	bool pvid = !!(vlan->flags & BRIDGE_VLAN_INFO_PVID);
 	u16 vid = vlan->vid;
-	u32 member = 0;
-	u32 untag = 0;
+	int ret;
 
 	if (vid == 0) {
 		NL_SET_ERR_MSG_MOD(extack, "VLAN 0 is reserved by this driver");
@@ -1785,13 +1801,12 @@ fail_rollback:
 static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 				 const struct switchdev_obj_port_vlan *vlan)
 {
-	int ret;
+	struct rtl837x_vlan_data vlan_data;
 	struct rtl837x_priv *priv = ds->priv;
+	int ret;
 
 	dev_dbg(priv->dev, "[%s]: port (%d) vid (%d)\n", __func__,
 							  port, vlan->vid);
-
-	struct rtl837x_vlan_data vlan_data;
 
 	ret = rtl8372n_clean_pvid(priv, port, vlan->vid);
 	if (ret) {
@@ -2036,8 +2051,8 @@ static int
 rtl8372n_port_fdb_static_add(struct rtl837x_priv *priv, int port,
 		    const unsigned char *addr, u16 vid)
 {
-	int ret;
 	struct rtl837x_lut_entry entry = {0};
+	int ret;
 
 	memcpy(entry.uc.key.mac_addr, addr, ETH_ALEN);
 	entry.type = RTL837X_LUT_TYPE_L2_UC;
@@ -2066,8 +2081,8 @@ static int
 rtl8372n_port_fdb_static_del(struct rtl837x_priv *priv,
 		    const unsigned char *addr, u16 vid)
 {
-	int ret;
 	struct rtl837x_lut_entry entry = {0};
+	int ret;
 
 	memcpy(entry.uc.key.mac_addr, addr, ETH_ALEN);
 	entry.type = RTL837X_LUT_TYPE_L2_UC;
@@ -2169,9 +2184,9 @@ static int
 rtl8372n_port_fdb_dump(struct dsa_switch *ds, int port,
 		     dsa_fdb_dump_cb_t *cb, void *data)
 {
+	struct rtl837x_lut_entry entry = {0};
 	struct rtl837x_priv *priv = ds->priv;
 	int ret;
-	struct rtl837x_lut_entry entry = {0};
 
 	for (int i = 0; i < RTL8372N_LUT_MAX; i++) {
 		entry.addr = i;
@@ -2198,11 +2213,11 @@ rtl8372n_port_mdb_add(struct dsa_switch *ds, int port,
 		    const struct switchdev_obj_port_mdb *mdb,
 		    struct dsa_db db)
 {
+	struct rtl837x_lut_entry entry = {0};
 	struct rtl837x_priv *priv = ds->priv;
-	int ret;
 	const u8 *addr = mdb->addr;
 	u16 vid = mdb->vid;
-	struct rtl837x_lut_entry entry = {0};
+	int ret;
 
 	memcpy(entry.mc.key.mac_addr, addr, ETH_ALEN);
 	entry.type = RTL837X_LUT_TYPE_L2_MC;
@@ -2241,11 +2256,11 @@ rtl8372n_port_mdb_del(struct dsa_switch *ds, int port,
 		    const struct switchdev_obj_port_mdb *mdb,
 		    struct dsa_db db)
 {
+	struct rtl837x_lut_entry entry = {0};
 	struct rtl837x_priv *priv = ds->priv;
-	int ret;
 	const u8 *addr = mdb->addr;
 	u16 vid = mdb->vid;
-	struct rtl837x_lut_entry entry = {0};
+	int ret;
 
 	dev_dbg(priv->dev, "[%s]:mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d\n", __func__,
 					addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
@@ -2340,8 +2355,8 @@ static void rtl8372n_port_stp_state_set(struct dsa_switch *ds, int port, u8 stat
 
 static int rtl8372n_of_setup_phy_and_serdes(struct rtl837x_priv *priv)
 {
-	int ret;
 	struct device_node *np = priv->dev->of_node;
+	int ret;
 
 	if (of_property_read_bool(np, "sds0-rx-swap"))
 		ret = rtl837x_serdes_pnswap_rx(priv, 0, true);
@@ -2422,12 +2437,14 @@ static int rtl8372n_of_setup_phy_and_serdes(struct rtl837x_priv *priv)
 
 static int rtl8372n_setup(struct dsa_switch *ds)
 {
-	int ret;
+	struct rtl8372n *chip_data;
 	struct rtl837x_priv *priv = ds->priv;
-	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *dp;
-
 	int cpu_dp_cnt = 0;
+	int ret;
+
+	chip_data = priv->chip_data;
+
 
 	dsa_switch_for_each_port(dp, ds) {
 		if (dsa_port_is_dsa(dp)) {
@@ -2812,7 +2829,6 @@ const struct rtl837x_variant rtl8372n_variant = {
 	.ops = &rtl8372n_ops,
 	.def_tag_proto = DSA_TAG_PROTO_RTL8_4,
 	.pl_mac_ops = &rtl8372n_phylink_mac_ops,
-	.have_8224 = false,
 	.chip_data_sz = sizeof(struct rtl8372n),
 };
 EXPORT_SYMBOL_GPL(rtl8372n_variant);

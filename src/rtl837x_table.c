@@ -28,9 +28,9 @@ int rtl837x_ita_execute(struct rtl837x_priv *priv, enum rtl837x_table table,
 			enum rtl837x_lut_method method,
 		    u32 *data, size_t size)
 {
-	int ret = 0;
-	bool write_data = false;
 	u32 cmd, l2_ctrl, tmp;
+	bool write_data = false;
+	int ret = 0;
 
 	l2_ctrl = 0;
 	cmd = 0;
