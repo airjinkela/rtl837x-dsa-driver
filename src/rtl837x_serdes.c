@@ -7,6 +7,12 @@
 #include "rtl837x.h"
 #include "rtl837x_serdes.h"
 
+#define RTL837X_CHIP_INFO_REG                  0xC
+#define   RTL837X_CHIP_INFO_RELEASE_VID_MASK   GENMASK(31, 28)
+#define   RTL837X_CHIP_INFO_MCID_MASK          GENMASK(27, 24)
+#define   RTL837X_CHIP_INFO_BO_CHIP_MODE_MASK  GENMASK(23, 20)
+#define   RTL837X_CHIP_INFO_EN_MASK            GENMASK(19, 16)
+#define   RTL837X_CHIP_INFO_RELEASE_ID_MASK    GENMASK(15, 0)
 
 /*
  * As Realtek has not released the register manual
@@ -171,6 +177,27 @@ static const u16 patch_data_phy[][3] = {
 	{0x0006, 0x0012, 0x5078}, {0x0006, 0x0003, 0xc45c}, {0x0006, 0x001E, 0x000C},
 	{0x0006, 0x001F, 0x2100}
 };
+
+/* TODO: save in chip private data struct on detect */
+static int rtl837x_get_chip_ver(struct rtl837x_priv *priv, u16 *chip_ver)
+{
+	int ret;
+	u32 tmp;
+
+	ret = rtl837x_reg_bits_write(priv, RTL837X_CHIP_INFO_REG,
+			    RTL837X_CHIP_INFO_EN_MASK, 0xa);
+	if (ret)
+		return ret;
+	ret = rtl837x_reg_bits_read(priv, RTL837X_CHIP_INFO_REG,
+			    RTL837X_CHIP_INFO_RELEASE_VID_MASK, &tmp);
+	if (ret)
+		return ret;
+	ret = rtl837x_reg_bits_write(priv, RTL837X_CHIP_INFO_REG,
+			    RTL837X_CHIP_INFO_EN_MASK, 0);
+
+	*chip_ver = tmp;
+	return 0;
+}
 
 int rtl837x_serdes_pnswap_rx(struct rtl837x_priv *priv, u8 sds_idx, bool enable)
 {

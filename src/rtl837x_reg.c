@@ -14,28 +14,40 @@
 
 #include "rtl837x.h"
 
+#define RTL837X_SDS_INDACS_CMD_ADDR                        0x3F8
+#define   RTL837X_SDS_INDACS_CMD_SDS_CMD_MASK              BIT(15)
+#define   RTL837X_SDS_INDACS_CMD_SDS_RWOP_MASK             BIT(14)
+#define   RTL837X_SDS_INDACS_CMD_SDS_REGAD_MASK            GENMASK(11, 7)
+#define   RTL837X_SDS_INDACS_CMD_SDS_PAGE_MASK             GENMASK(6, 1)
+#define   RTL837X_SDS_INDACS_CMD_SDS_INDEX_MASK            BIT(0)
+#define RTL837X_SDS_INDACS_RD_ADDR                         0x3FC
+#define RTL837X_SDS_INDACS_WD_ADDR                         0x400
 
-char *chipid_to_chip_name(enum switch_chip id)
-{
-	switch (id) {
-	case CHIP_RTL8373:
-	return "RTL8373";
-	case CHIP_RTL8372:
-	return "RTL8372";
-	case CHIP_RTL8224:
-	return "RTL8224";
-	case CHIP_RTL8373N:
-	return "RTL8373N";
-	case CHIP_RTL8372N:
-	return "RTL8372N";
-	case CHIP_RTL8224N:
-	return "RTL8224N";
-	case CHIP_RTL8366U:
-	return "RTL8366U";
-	default:
-	return "Unknow";
-	}
-}
+/* Internal phy SMI access */
+#define RTL837X_SMI_ACCESS_PHY_CTRL_0_ADDR                      0x6438
+#define RTL837X_SMI_ACCESS_PHY_CTRL_1_ADDR                      0x643C
+#define   RTL837X_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK               GENMASK(26, 24)
+#define   RTL837X_SMI_ACCESS_PHY_CTRL_1_MMD_DEVAD_4_0_MASK      GENMASK(23, 19)
+#define   RTL837X_SMI_ACCESS_PHY_CTRL_1_MMD_REG_15_0_MASK       GENMASK(18, 3)
+#define   RTL837X_SMI_ACCESS_PHY_CTRL_1_RWOP_MASK               BIT(2)
+#define   RTL837X_SMI_ACCESS_PHY_CTRL_1_TYPE_MASK               BIT(1)
+#define   RTL837X_SMI_ACCESS_PHY_CTRL_1_CMD_MASK                BIT(0)
+#define RTL837X_SMI_ACCESS_PHY_CTRL_2_ADDR                      0x6440
+#define   RTL837X_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK          GENMASK(15, 0)
+#define RTL837X_SMI_ACCESS_PHY_CTRL_3_ADDR                      0x6444
+#define   RTL837X_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK        GENMASK(15, 0)
+
+/* Internal PHY OCP access */
+#define RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR                                  0xBC8
+#define   RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_ADDR_MASK        GENMASK(31, 16)
+#define   RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_PHYADR_MASK      GENMASK(8, 4)
+#define   RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_FAIL_MASK        BIT(2)
+#define   RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_RW_MASK          BIT(1)
+#define   RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_CMD_MASK         BIT(0)
+#define RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_1_ADDR                                  0xBCC
+#define   RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_1_INT_PHY_OCP_INDACC_RDDATA_MASK      GENMASK(15, 0)
+#define RTL837X_INT_PHY_OCP_INDR_ACC_CTRL_2_ADDR                                  0xBD0
+
 
 /** ================================================= **/
 /** -------------------Register Funcs-----------------**/
@@ -364,27 +376,4 @@ int rtl837x_sds_reg_bits_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_pa
 	val |= (data << __ffs(mask)) & mask;
 
 	return rtl837x_sds_reg_write(priv, sds_idx, sds_page, sds_reg, val);
-}
-
-/** ================================================= **/
-/** --------------------Other Funcs-------------------**/
-/** ================================================= **/
-int rtl837x_get_chip_ver(struct rtl837x_priv *priv, u16 *chip_ver)
-{
-	int ret;
-	u32 tmp;
-
-	ret = rtl837x_reg_bits_write(priv, RTL837X_CHIP_INFO_ADDR,
-			    RTL837X_CHIP_INFO_CHIP_INFO_EN_MASK, 0xa);
-	if (ret)
-		return ret;
-	ret = rtl837x_reg_bits_read(priv, RTL837X_CHIP_INFO_ADDR,
-			    RTL837X_CHIP_INFO_RL_VID_MASK, &tmp);
-	if (ret)
-		return ret;
-	ret = rtl837x_reg_bits_write(priv, RTL837X_CHIP_INFO_ADDR,
-			    RTL837X_CHIP_INFO_CHIP_INFO_EN_MASK, 0);
-
-	*chip_ver = tmp;
-	return 0;
 }

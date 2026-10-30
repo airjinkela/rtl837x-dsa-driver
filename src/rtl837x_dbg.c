@@ -9,6 +9,21 @@
 #include "rtl837x_l2.h"
 #include "rtl837x_vlan.h"
 
+/* EEE control */
+#define RTL837X_EEE_LPI_DLY_CYCLE_ADDR                                0x954
+#define   RTL837X_EEE_LPI_DLY_CYCLE_CFG_WATER_LEVEL_ST_MASK           GENMASK(13, 8)
+#define   RTL837X_EEE_LPI_DLY_CYCLE_TX_LPI_DLY_CYCLE_MASK             GENMASK(7, 4)
+#define   RTL837X_EEE_LPI_DLY_CYCLE_RX_LPI_DLY_CYCLE_MASK             GENMASK(3, 0)
+/* Multiple definitions in rtl8372n.c */
+#define RTL837X_EEE_CTRL_ADDR(_p)                   (0x125C + (((_p) << 8)))
+#define   RTL837X_EEE_CTRL_EEE_RX_STS_MASK          BIT(3)
+#define   RTL837X_EEE_CTRL_EEE_TX_STS_MASK          BIT(2)
+#define   RTL837X_EEE_CTRL_EEE_PORT_TX_EN_MASK      BIT(1)
+#define   RTL837X_EEE_CTRL_EEE_PORT_RX_EN_MASK      BIT(0)
+
+/* Multiple definitions in rtl8372n.c */
+#define RTL837X_SDS_MODE_SEL_ADDR                          0x7B20
+
 #define TO_FOPS(name) _##name##_rw_fops
 
 static int simple_debugfs_open(struct inode *inode, struct file *file)

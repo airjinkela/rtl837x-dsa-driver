@@ -11,20 +11,127 @@
 #include "rtl837x_vlan.h"
 #include "rtl837x_serdes.h"
 
-#define RTL8372N_NUM_PORTS 9
-#define RTL8372N_LUT_MAX 4160
+#define RTL837X_NUM_PORTS 9
+#define RTL837X_LUT_MAX 4160
 
 #define RTL8372N_SUPPORTED_BRIDGE_FLAGS \
 	    (BR_LEARNING)
 
+/* Chip identification */
+#define RTL837X_MODEL_NAME_REG            0x4
+#define   RTL837X_MODEL_NAME_ID_MASK      GENMASK(31, 16)
+#define   RTL837X_MODEL_NAME_CHAR1_MASK   GENMASK(15, 11)
+#define   RTL837X_MODEL_NAME_CHAR2_MASK   GENMASK(10, 6)
+
 #define RTL837X_PORT_POLLING_REG             0x6334
 #define   RTL837X_PORT_POLLING_PORT_MASK(_p) BIT(_p) /* port 0~8 */
-
 #define RTL837X_SMI_MAC_TYPE_CTRL_ADDR                      0x6330
 #define   RTL837X_SMI_MAC_TYPE_CTRL_MAC_PORT_TYPE_MASK(_p)  (0x3 << (_p*2))
-
 #define RTL837X_SMI_GLB_CTRL_REG                        0x632C
 #define   RTL837X_SMI_GLB_CTRL_SMI_POLLING_MASK_MASK    GENMASK(20, 12)
+#define RTL837X_SMI_CTRL_ADDR                                   0x6454
+#define   RTL837X_SMI_CTRL_SMI2_MDC_EN_MASK                     BIT(14)
+#define   RTL837X_SMI_CTRL_SMI1_MDC_EN_MASK                     BIT(13)
+#define   RTL837X_SMI_CTRL_SMI0_MDC_EN_MASK                     BIT(12)
+
+/* Internal SerDes */
+#define RTL837X_SDS_MODE_SEL_ADDR                          0x7B20
+#define   RTL837X_SDS_MODE_SEL_CFG_MAC8_8221B_MASK         BIT(22)
+#define   RTL837X_SDS_MODE_SEL_CFG_MAC3_8221B_MASK         BIT(21)
+#define   RTL837X_SDS_MODE_SEL_SDS1_USX_SUB_MODE_MASK      GENMASK(20, 16)
+#define   RTL837X_SDS_MODE_SEL_SDS0_USX_SUB_MODE_MASK      GENMASK(14, 10)
+#define   RTL837X_SDS_MODE_SEL_SDS1_MODE_SEL_MASK          GENMASK(9, 5)
+#define   RTL837X_SDS_MODE_SEL_SDS0_MODE_SEL_MASK          GENMASK(4, 0)
+
+/* PHY configuration */
+#define RTL837X_CFG_PHY_MDI_REVERSE_ADDR                              0xA90
+#define   RTL837X_CFG_PHY_MDI_REVERSE_P3_MDI_REVERSE_MASK             BIT(3)
+#define   RTL837X_CFG_PHY_MDI_REVERSE_P2_MDI_REVERSE_MASK             BIT(2)
+#define   RTL837X_CFG_PHY_MDI_REVERSE_P1_MDI_REVERSE_MASK             BIT(1)
+#define   RTL837X_CFG_PHY_MDI_REVERSE_P0_MDI_REVERSE_MASK             BIT(0)
+#define RTL837X_CFG_PHY_TX_POLARITY_SWAP_ADDR                         0xA94
+#define   RTL837X_CFG_PHY_TX_POLARITY_SWAP_P3_TX_POLARITY_SWAP_MASK   GENMASK(15, 12)
+#define   RTL837X_CFG_PHY_TX_POLARITY_SWAP_P2_TX_POLARITY_SWAP_MASK   GENMASK(11, 8)
+#define   RTL837X_CFG_PHY_TX_POLARITY_SWAP_P1_TX_POLARITY_SWAP_MASK   GENMASK(7, 4)
+#define   RTL837X_CFG_PHY_TX_POLARITY_SWAP_P0_TX_POLARITY_SWAP_MASK   GENMASK(3, 0)
+
+/* MIB Control */
+#define RTL837X_INDIRECT_ACCESS_CTRL_ADDR                     0xF60
+#define   RTL837X_INDIRECT_ACCESS_CTRL_MIB_ID_MASK            GENMASK(10, 5)
+#define   RTL837X_INDIRECT_ACCESS_CTRL_PORT_ID_MASK           GENMASK(4, 1)
+#define   RTL837X_INDIRECT_ACCESS_CTRL_ACC_CMD_MASK           BIT(0)
+#define RTL837X_INDIRECT_ACCESS_CNT_L_ADDR                    0xF64
+#define RTL837X_INDIRECT_ACCESS_CNT_H_ADDR                    0xF68
+
+/* Port MAC, link status */
+#define RTL837X_MAC_PORT_CTRL_ADDR(_p)                          (0x122C + (((_p) << 8)))
+#define   RTL837X_MAC_PORT_CTRL_BKPRES_EN_MASK                  BIT(0)
+
+#define RTL837X_MAC_LINK_STS_ADDR                               0x63E8
+#define RTL837X_MAC_LINK_SPD_STS_ADDR(_p)                       (0x63F0 + (((_p >> 3) << 2)))
+#define   RTL837X_MAC_LINK_SPD_STS_SPD_STS_9_0_MASK(_p)         (GENMASK(3, 0) << ((_p & 0x7) << 2))
+#define RTL837X_MAC_LINK_DUP_STS_ADDR                           0x63F8
+#define RTL837X_MAC_TX_PAUSE_STS_ADDR                           0x63FC
+#define RTL837X_MAC_RX_PAUSE_STS_ADDR                           0x6400
+
+/* EEE control */
+#define RTL837X_EEE_CTRL_ADDR(_p)                   (0x125C + (((_p) << 8)))
+#define   RTL837X_EEE_CTRL_EEE_RX_STS_MASK          BIT(3)
+#define   RTL837X_EEE_CTRL_EEE_TX_STS_MASK          BIT(2)
+#define   RTL837X_EEE_CTRL_EEE_PORT_TX_EN_MASK      BIT(1)
+#define   RTL837X_EEE_CTRL_EEE_PORT_RX_EN_MASK      BIT(0)
+
+/* L2 learning control */
+#define RTL837X_MAC_L2_GLOBAL_CTRL0_ADDR                          0x5FD4
+#define   RTL837X_MAC_L2_GLOBAL_CTRL0_FWD_INVLD_MAC_CTRL_EN_MASK  BIT(20)
+#define   RTL837X_MAC_L2_GLOBAL_CTRL0_FWD_UNKN_OPCODE_EN_MASK     BIT(19)
+#define RTL837X_MAC_L2_PORT_CTRL_ADDR(_p)                         (0x1238 + (((_p) << 8)))
+#define   RTL837X_MAC_L2_PORT_CTRL_CLOCK_SWITCH_MASK              BIT(8)
+#define   RTL837X_MAC_L2_PORT_CTRL_RX_CHK_CRC_EN_MASK             BIT(4)
+
+/* CPU tagging */
+#define RTL837X_CPU_TAG_CTRL_ADDR                           0x6720
+#define   RTL837X_CPU_TAG_CTRL_EXT_CPUTAG_INSERTMOD_MASK    GENMASK(11, 10)
+#define   RTL837X_CPU_TAG_CTRL_EXT_CPUTAG_EN_MASK           BIT(1)
+#define RTL837X_EXT_CPU_CTRL_ADDR                           0x6724
+#define   RTL837X_EXT_CPU_CTRL_PORT_MASK                    GENMASK(3, 0)
+#define RTL837X_CPU_TAG_AWARE_CTRL_ADDR                     0x603C
+
+/* VLAN and VLAN stacking */
+#define RTL837X_VLAN_CTRL_ADDR                                   0x4E14
+#define   RTL837X_VLAN_CTRL_TABLE_RST_MASK                       BIT(3)
+#define   RTL837X_VLAN_CTRL_CVLAN_FILTER_MASK                    BIT(2)
+
+#define RTL837X_VS_GLB_CTRL_ADDR                                 0x6044
+#define RTL837X_VS_UPLINK_PORT_ADDR                              0x57C0
+#define RTL837X_VS_CTRL_ADDR                                     0x57C4
+#define   RTL837X_VS_CTRL_SPRISEL_MASK                           GENMASK(4, 3)
+#define   RTL837X_VS_CTRL_UIFSEG_MASK                            BIT(2)
+#define   RTL837X_VS_CTRL_UNTAG_MASK                             GENMASK(1, 0)
+#define RTL837X_VS_PORT_DFLT_SVID_ADDR(_p)                       (0x57CC + (((_p >> 1) << 2)))
+#define   RTL837X_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(_p)      (GENMASK(11, 0) << ((_p & 0x1) * 12))
+#define RTL837X_SVLAN_TRAP_CTRL_ADDR                             0x4EC8
+#define   RTL837X_SVLAN_TRAP_CTRL_CPU_PMSK_MASK                  GENMASK(17, 16)
+#define RTL837X_VLAN_C2S_ENTRY_ADDR(_i)                          (0x57E0 + (((_i) << 3))) /* RTL837x_C2SIDXMAX */
+
+/* Spanning tree */
+#define RTL837X_MSPT_STATE_ADDR(_fid)       (0x5310 + (((_fid) << 2))) /* RTL837x_FIDMAX */
+#define RTL837X_MSTP_STATE(port, state) \
+	((state) << ((port) * 2))
+#define RTL837X_MSTP_STATE_MASK(port) \
+	RTL837X_MSTP_STATE((port), GENMASK(1, 0))
+
+/* Isolation */
+#define RTL837X_PORT_ISO_PORT_PMSK_ADDR(_p)                    (0x50C0 + (((_p) << 2)))
+#define   RTL837X_PORT_ISO_PORT_PMSK_PMSK_MASK                 GENMASK(9, 0)
+
+/* Flow control */
+#define RTL837X_FC_PORT_ACT_CTRL_ADDR(_p)                      (0x7124 + (((_p) << 2)))
+#define   RTL837X_FC_PORT_ACT_CTRL_ACT_MASK                                                                   BIT(12)
+#define   RTL837X_FC_PORT_ACT_CTRL_ALLOW_PAGE_CNT_MASK                                                        GENMASK(11, 0)
+
+#define RTL837X_RS_LAYER_CONFIG_ADDR                                  0xB7C
+#define   RTL837X_RS_LAYER_CONFIG_RS_LINK_FAULT_INDI_OFF_MASK         BIT(5)
 
 // TODO: this should check port is serdes mode or port mode
 #define IS_SERDES_PORT(port) (((port) == 3) || ((port) == 8))
@@ -237,6 +344,100 @@ static const struct rtl837x_mib_counter rtl8372n_mib_counters[] = {
 
 static_assert(ARRAY_SIZE(rtl8372n_mib_counters) == RTL837X_MIB_END);
 
+enum rtl837x_port_feature {
+	RTL837X_PORT_FEATURE_NONEXIST = 0,
+	RTL837X_PORT_FEATURE_PORT = BIT(0),
+	RTL837X_PORT_FEATURE_SERDES = BIT(1),
+	RTL837X_PORT_FEATURE_QSXGMII = BIT(2),
+};
+
+struct rtl837x_chip_info {
+	const char *name;
+	u32 chip_model_id;
+	u32 chip_model_char1;
+	unsigned int port_feature[RTL837X_NUM_PORTS];
+	bool is_support;
+};
+
+static const struct rtl837x_chip_info rtl837x_chip_infos[] = {
+	{
+		.name = "RTL8372N",
+		.chip_model_id = 0x8372,
+		.chip_model_char1 = 14, // 'N' = 78 = 64('@') + 14
+		.port_feature = {
+			[3] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_SERDES,
+			[4] = RTL837X_PORT_FEATURE_PORT,
+			[5] = RTL837X_PORT_FEATURE_PORT,
+			[6] = RTL837X_PORT_FEATURE_PORT,
+			[7] = RTL837X_PORT_FEATURE_PORT,
+			[8] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_SERDES,
+		},
+		.is_support = true,
+	},
+	{
+		.name = "RTL8372",
+		.chip_model_id = 0x8372,
+		.chip_model_char1 = 0,
+		.port_feature = {
+			[3] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_SERDES,
+			[4] = RTL837X_PORT_FEATURE_PORT,
+			[5] = RTL837X_PORT_FEATURE_PORT,
+			[6] = RTL837X_PORT_FEATURE_PORT,
+			[7] = RTL837X_PORT_FEATURE_PORT,
+			[8] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_SERDES,
+		},
+		.is_support = true,
+	},
+	{
+		.name = "RTL8373N",
+		.chip_model_id = 0x8373,
+		.chip_model_char1 = 14,
+		.port_feature = {
+			[0] = RTL837X_PORT_FEATURE_PORT,
+			[1] = RTL837X_PORT_FEATURE_PORT,
+			[2] = RTL837X_PORT_FEATURE_PORT,
+			[3] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_QSXGMII,
+			[4] = RTL837X_PORT_FEATURE_PORT,
+			[5] = RTL837X_PORT_FEATURE_PORT,
+			[6] = RTL837X_PORT_FEATURE_PORT,
+			[7] = RTL837X_PORT_FEATURE_PORT,
+			[8] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_SERDES,
+		},
+		.is_support = false,
+	},
+	{
+		.name = "RTL8373",
+		.chip_model_id = 0x8373,
+		.chip_model_char1 = 0,
+		.port_feature = {
+			[0] = RTL837X_PORT_FEATURE_PORT,
+			[1] = RTL837X_PORT_FEATURE_PORT,
+			[2] = RTL837X_PORT_FEATURE_PORT,
+			[3] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_QSXGMII,
+			[4] = RTL837X_PORT_FEATURE_PORT,
+			[5] = RTL837X_PORT_FEATURE_PORT,
+			[6] = RTL837X_PORT_FEATURE_PORT,
+			[7] = RTL837X_PORT_FEATURE_PORT,
+			[8] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_SERDES,
+		},
+		.is_support = false,
+	},
+	{
+		.name = "RTL8366U",
+		.chip_model_id = 0x8366,
+		.chip_model_char1 = 21,  // 'U' = 85 = 64('@') + 21
+		.port_feature = {
+			[3] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_SERDES,
+			[4] = RTL837X_PORT_FEATURE_PORT,
+			[5] = RTL837X_PORT_FEATURE_PORT,
+			[6] = RTL837X_PORT_FEATURE_PORT,
+			[7] = RTL837X_PORT_FEATURE_PORT,
+			[8] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_SERDES,
+		},
+		.is_support = false,
+	},
+};
+
 struct rtl8372n_pcs {
 	struct rtl837x_priv *priv;
 	struct phylink_pcs pcs;
@@ -244,9 +445,9 @@ struct rtl8372n_pcs {
 };
 
 struct rtl8372n {
-	struct rtl8372n_pcs pcs[RTL8372N_NUM_PORTS];
+	struct rtl8372n_pcs pcs[RTL837X_NUM_PORTS];
 	netdev_features_t csum_feature_backup;
-	bool pvid_enabled[RTL8372N_NUM_PORTS];
+	bool pvid_enabled[RTL837X_NUM_PORTS];
 	bool dsa_tag_8021q_vid[4096];
 };
 
@@ -260,64 +461,49 @@ static bool is_8021q_tag(enum dsa_tag_protocol tag_proto)
 	}
 }
 
-static int rtl8372n_detect(struct rtl837x_priv *priv)
+static int rtl837x_get_chip_info(struct rtl837x_priv *priv, const struct rtl837x_chip_info **chip_info)
 {
-	enum switch_chip sw_chip;
-	struct device *dev = priv->dev;
-	u32 val;
+	u32 model_id, model_char1, val;
 	int ret;
 
-	ret = rtl837x_reg_read(priv, RTL837X_MODEL_NAME_INFO_ADDR, &val);
-	dev_info(dev, "CHIP_ID: 0x%08x\n", val);
+	ret = regmap_read(priv->map, RTL837X_MODEL_NAME_REG, &val);
+	if (ret)
+		return ret;
 
-	switch (val >> 8) {
-	case 0x837300:
-		sw_chip = CHIP_RTL8373;
-		break;
-	case 0x837200:
-		sw_chip = CHIP_RTL8372;
-		break;
-	case 0x822400:
-		sw_chip = CHIP_RTL8224;
-		break;
-	case 0x837370:
-		sw_chip = CHIP_RTL8373N;
-		break;
-	case 0x837270:
-		sw_chip = CHIP_RTL8372N;
-		break;
-	case 0x822470:
-		sw_chip = CHIP_RTL8224N;
-		break;
-	case 0x8366A8:
-		sw_chip = CHIP_RTL8366U;
-		break;
-	default:
-		sw_chip = CHIP_END;
-		break;
+	model_id = FIELD_GET(RTL837X_MODEL_NAME_ID_MASK, val);
+	model_char1 = FIELD_GET(RTL837X_MODEL_NAME_CHAR1_MASK, val);
+
+	for (int i = 0; i < ARRAY_SIZE(rtl837x_chip_infos); i++) {
+		if (rtl837x_chip_infos[i].chip_model_id == model_id &&
+			  rtl837x_chip_infos[i].chip_model_char1 == model_char1) {
+			*chip_info = &rtl837x_chip_infos[i];
+			return 0;
+		}
 	}
 
-	switch (sw_chip) {
-	case CHIP_RTL8372N:
-		dev_info(dev, "found an %s switch\n", chipid_to_chip_name(sw_chip));
-		priv->num_ports = RTL8372N_NUM_PORTS;
-		priv->mib_counters = rtl8372n_mib_counters;
-		priv->num_mib_counters = ARRAY_SIZE(rtl8372n_mib_counters);
-		break;
-	case CHIP_RTL8373:
-	case CHIP_RTL8224:
-	case CHIP_RTL8372:
-	case CHIP_RTL8373N:
-	case CHIP_RTL8221B:
-	case CHIP_RTL8224N:
-		dev_info(dev, "found an %s switch\n", chipid_to_chip_name(sw_chip));
-		dev_err(dev, "This switch is not yet supported!\n");
-		return -ENODEV;
-	default:
-		dev_info(dev, "found an Unknown Realtek switch (id=0x%04x)\n",
-		val);
+	dev_err(priv->dev, "unrecognized switch (MODEL_NAME_REG=0x%08x)\n", val);
+	return -ENODEV;
+}
+
+static int rtl8372n_detect(struct rtl837x_priv *priv)
+{
+	const struct rtl837x_chip_info *chip_info;
+	struct device *dev = priv->dev;
+	int ret;
+
+	ret = rtl837x_get_chip_info(priv, &chip_info);
+	if (ret)
+		return ret;
+
+	dev_info(dev, "found an %s switch\n", chip_info->name);
+	if (!chip_info->is_support) {
+		dev_err(priv->dev, "Chip %s is not support now\n", chip_info->name);
 		return -ENODEV;
 	}
+
+	priv->num_ports = RTL837X_NUM_PORTS;
+	priv->mib_counters = rtl8372n_mib_counters;
+	priv->num_mib_counters = ARRAY_SIZE(rtl8372n_mib_counters);
 
 	return 0;
 }
@@ -379,7 +565,6 @@ static int rtl8372n_vlan_update(struct rtl837x_priv *priv, int vid, u32 member,
 
 	return rtl837x_vlan_set(priv, vid, &vlan_data);
 }
-
 
 static int rtl8372n_set_pvid(struct rtl837x_priv *priv, int port,
 		     u16 vid)
@@ -996,6 +1181,7 @@ static void rtl8372n_phylink_mac_link_up(struct phylink_config *config,
 			);
 }
 
+/* TODO: config port based on port_feature */
 static const struct phylink_mac_ops rtl8372n_phylink_mac_ops = {
 	.mac_select_pcs	= rtl8372n_phylink_mac_select_pcs,
 	.mac_config	= rtl8372n_phylink_mac_config,
@@ -2189,7 +2375,7 @@ rtl8372n_port_fdb_dump(struct dsa_switch *ds, int port,
 	struct rtl837x_priv *priv = ds->priv;
 	int ret;
 
-	for (int i = 0; i < RTL8372N_LUT_MAX; i++) {
+	for (int i = 0; i < RTL837X_LUT_MAX; i++) {
 		entry.addr = i;
 		entry.uc.port = port;
 		ret = rtl837x_lut_query(priv, RTL837X_LUT_METHOD_NEXT_L2UCSPA, &entry);
@@ -2436,6 +2622,7 @@ static int rtl8372n_of_setup_phy_and_serdes(struct rtl837x_priv *priv)
 	return 0;
 }
 
+// TODO: init chip based on rtl837x_chip_info
 static int rtl8372n_setup(struct dsa_switch *ds)
 {
 	struct rtl8372n *chip_data;
@@ -2496,7 +2683,14 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 			 0
 			);
 
-	/* Configure ports 4–7 to poll the internal status register. */
+	/*
+	 * Configure ports 4–7 to poll the internal status register.
+	 *
+	 * Will this have any effect on the RTL8372N/RTL8372? I tried
+	 * disabling these bits and checked the status of the MAC
+	 * and MIB registers; it did not affect the normal
+	 * behavior/updates of these registers.
+	 */
 	rtl837x_reg_bits_write(priv, RTL837X_PORT_POLLING_REG,
 			 RTL837X_PORT_POLLING_PORT_MASK(4) | RTL837X_PORT_POLLING_PORT_MASK(5) |
 			  RTL837X_PORT_POLLING_PORT_MASK(6) | RTL837X_PORT_POLLING_PORT_MASK(7),
@@ -2632,112 +2826,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 			return ret;
 		}
 	}
-
-	/*
-	 * Warning!
-	 * The following understanding may be incorrect
-	 */
-
-	/*
-	 * If a frame send from CPU (CPU->switch) whithout cvid only with a DSA TAG
-	 * ================================================================================
-	 * --------------------------------------------------------------------------------
-	 *                                 SVLAN Process
-	 *  |DMAC|SMAC|DSA TAG(SVLAN)|...| -------------> |DMAC|SMAC|...| ----..
-	 *              remove dsa tag (maybe? or remove the tag before the frame sent out?)
-	 *                              mark destination port
-	 *
-	 * --------------------------------------------------------------------------------
-	 *       CVLAN process                            Send to dest port
-	 * ..---------------------> |DMAC|SMAC|CVLAN|...| -----------------> |DMAC|SMAC|...|
-	 *  frame with out CVLAN tag                We set vlan keep on all user ports
-	 *  mark the cpuport pvid(1)               so the origin frame will be send out(without DSA TAG)
-	 * --------------------------------------------------------------------------------
-	 * ================================================================================
-	 *
-	 * If a frame send from CPU (CPU->switch) whith DSA tag(SVLAN) and CVLAN
-	 * ================================================================================
-	 * --------------------------------------------------------------------------------
-	 *                                       SVLAN Process
-	 *  |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN|...| -------------> |DMAC|SMAC|CVLAN|...| ----..
-	 *                                       remove dsa tag
-	 *                                    mark destination port
-	 * --------------------------------------------------------------------------------
-	 *       CVLAN process                            Send to dest port
-	 * ..---------------------> |DMAC|SMAC|CVLAN|...| -----------------> |DMAC|SMAC|CVLAN(may not exist)|...|
-	 *  frame already with CVLAN tag             remove or keep the CVLAN tag
-	 *
-	 * --------------------------------------------------------------------------------
-	 * ================================================================================
-	 *
-	 * If a frame send to CPU (switch->CPU) whithout vlan tag
-	 * ================================================================================
-	 * --------------------------------------------------------------------------------
-	 *                  Port based vlan tag
-	 *  |DMAC|SMAC|...| -------------------> |DMAC|SMAC|CVLAN|...| ----...
-	 *               add the port based vlan id
-	 *
-	 * --------------------------------------------------------------------------------
-	 *   SVLAN process                                        (CPU Port) Port Egress Tag Mode
-	 *  ..-----------------> |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN|...|..-----------------> |DMAC|SMAC|DSA TAG(SVLAN)|...
-	 * mark the src port svid                                         Keep Format
-	 *                                                             remove the vlan tag
-	 * --------------------------------------------------------------------------------
-	 * ================================================================================
-	 *
-	 * If a frame send to CPU (switch->CPU) whit vlan tag
-	 * ================================================================================
-	 * --------------------------------------------------------------------------------
-	 *                        Port Ingerss check
-	 *  |DMAC|SMAC|CVLAN|...| -------------------> |DMAC|SMAC|CVLAN|...| ----...
-	 *                         drop or forward
-	 *
-	 * --------------------------------------------------------------------------------
-	 *   SVLAN process
-	 *  ..-----------------> |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN|...|
-	 * mark the src port svid
-	 *
-	 * --------------------------------------------------------------------------------
-	 * ================================================================================
-	 */
-
-	/*
-	 * So when a port is not in the bridge
-	 * what will happens
-	 *
-	 * when the port is not in the bridge, it will enable vlan transparent on it
-	 * This way, the port will not be restricted by the VLAN table
-	 * the frame will only add/remove the DSA TAG(SVLAN), and there will be no changes to CVLAN
-	 *
-	 * If a frame send to CPU (switch->CPU)
-	 * ================================================================================
-	 * --------------------------------------------------------------------------------
-	 *                                Port Ingerss check
-	 *  |DMAC|SMAC|CVLAN(or not)|...| -------------------> |DMAC|SMAC|CVLAN(or not)|...| ----...
-	 *                                 check is disabled
-	 *                               all frames can came in
-	 * --------------------------------------------------------------------------------
-	 *   SVLAN process
-	 *  ..-----------------> |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN(or not)|...|
-	 * mark the src port svid
-	 *
-	 * --------------------------------------------------------------------------------
-	 * ================================================================================
-	 *
-	 * If a frame send from CPU (CPU->switch)
-	 * ================================================================================
-	 * --------------------------------------------------------------------------------
-	 *                                               SVLAN Process
-	 *  |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN(or not)|...| -------------> |DMAC|SMAC|CVLAN(or not)|...| ----..
-	 *                                              remove dsa tag
-	 *                                           mark destination port
-	 * --------------------------------------------------------------------------------
-	 *       CVLAN process                                    Send to dest port
-	 * ..---------------------> |DMAC|SMAC|CVLAN(or not)|...| -----------------> |DMAC|SMAC|CVLAN((or not))|...|
-	 *        do nothing
-	 * --------------------------------------------------------------------------------
-	 * ================================================================================
-	 */
 
 	ret = rtl837x_lut_l2_flush_all(priv);
 	if (ret)
