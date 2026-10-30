@@ -5,6 +5,7 @@
 #include <linux/version.h>
 #include <linux/regmap.h>
 #include <linux/if_bridge.h>
+#include <linux/of_net.h>
 
 #include "rtl837x.h"
 #include "rtl837x_l2.h"
@@ -25,10 +26,15 @@
 
 #define RTL837X_PORT_POLLING_REG             0x6334
 #define   RTL837X_PORT_POLLING_PORT_MASK(_p) BIT(_p) /* port 0~8 */
-#define RTL837X_SMI_MAC_TYPE_CTRL_ADDR                      0x6330
-#define   RTL837X_SMI_MAC_TYPE_CTRL_MAC_PORT_TYPE_MASK(_p)  (0x3 << (_p*2))
-#define RTL837X_SMI_GLB_CTRL_REG                        0x632C
-#define   RTL837X_SMI_GLB_CTRL_SMI_POLLING_MASK_MASK    GENMASK(20, 12)
+
+#define RTL837X_SMI_MAC_TYPE_REG             0x6330
+#define   RTL837X_SMI_MAC_TYPE_PORT_MASK(_p)  (0x3 << (_p*2))
+#define   RTL837X_SMI_MAC_TYPE_SERDES         0
+#define   RTL837X_SMI_MAC_TYPE_PORT           1
+
+#define RTL837X_SMI_GLB_CTRL_REG                          0x632C
+#define   RTL837X_SMI_GLB_CTRL_SMI_POLLING_MASK_MASK      GENMASK(20, 12)
+#define   RTL837X_SMI_GLB_CTRL_SMI_POLLING_PORT_MASK(_p)  (BIT(_p) << 12)
 #define RTL837X_SMI_CTRL_ADDR                                   0x6454
 #define   RTL837X_SMI_CTRL_SMI2_MDC_EN_MASK                     BIT(14)
 #define   RTL837X_SMI_CTRL_SMI1_MDC_EN_MASK                     BIT(13)
@@ -349,6 +355,7 @@ enum rtl837x_port_feature {
 	RTL837X_PORT_FEATURE_PORT = BIT(0),
 	RTL837X_PORT_FEATURE_SERDES = BIT(1),
 	RTL837X_PORT_FEATURE_QSXGMII = BIT(2),
+	RTL837X_PORT_FEATURE_INTERNAL = BIT(2),
 };
 
 struct rtl837x_chip_info {
@@ -359,6 +366,21 @@ struct rtl837x_chip_info {
 	bool is_support;
 };
 
+struct rtl8372n_port {
+	struct realtek_priv *priv;
+	struct phylink_pcs pcs;
+	bool have_pcs;
+	int index;
+};
+
+struct rtl8372n {
+	netdev_features_t csum_feature_backup;
+	bool pvid_enabled[RTL837X_NUM_PORTS];
+	bool dsa_tag_8021q_vid[4096];
+	struct rtl8372n_port ports[RTL837X_NUM_PORTS];
+	const struct rtl837x_chip_info *chip_info;
+};
+
 static const struct rtl837x_chip_info rtl837x_chip_infos[] = {
 	{
 		.name = "RTL8372N",
@@ -366,10 +388,10 @@ static const struct rtl837x_chip_info rtl837x_chip_infos[] = {
 		.chip_model_char1 = 14, // 'N' = 78 = 64('@') + 14
 		.port_feature = {
 			[3] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_SERDES,
-			[4] = RTL837X_PORT_FEATURE_PORT,
-			[5] = RTL837X_PORT_FEATURE_PORT,
-			[6] = RTL837X_PORT_FEATURE_PORT,
-			[7] = RTL837X_PORT_FEATURE_PORT,
+			[4] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_INTERNAL,
+			[5] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_INTERNAL,
+			[6] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_INTERNAL,
+			[7] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_INTERNAL,
 			[8] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_SERDES,
 		},
 		.is_support = true,
@@ -380,10 +402,10 @@ static const struct rtl837x_chip_info rtl837x_chip_infos[] = {
 		.chip_model_char1 = 0,
 		.port_feature = {
 			[3] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_SERDES,
-			[4] = RTL837X_PORT_FEATURE_PORT,
-			[5] = RTL837X_PORT_FEATURE_PORT,
-			[6] = RTL837X_PORT_FEATURE_PORT,
-			[7] = RTL837X_PORT_FEATURE_PORT,
+			[4] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_INTERNAL,
+			[5] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_INTERNAL,
+			[6] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_INTERNAL,
+			[7] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_INTERNAL,
 			[8] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_SERDES,
 		},
 		.is_support = true,
@@ -397,10 +419,10 @@ static const struct rtl837x_chip_info rtl837x_chip_infos[] = {
 			[1] = RTL837X_PORT_FEATURE_PORT,
 			[2] = RTL837X_PORT_FEATURE_PORT,
 			[3] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_QSXGMII,
-			[4] = RTL837X_PORT_FEATURE_PORT,
-			[5] = RTL837X_PORT_FEATURE_PORT,
-			[6] = RTL837X_PORT_FEATURE_PORT,
-			[7] = RTL837X_PORT_FEATURE_PORT,
+			[4] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_INTERNAL,
+			[5] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_INTERNAL,
+			[6] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_INTERNAL,
+			[7] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_INTERNAL,
 			[8] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_SERDES,
 		},
 		.is_support = false,
@@ -414,10 +436,10 @@ static const struct rtl837x_chip_info rtl837x_chip_infos[] = {
 			[1] = RTL837X_PORT_FEATURE_PORT,
 			[2] = RTL837X_PORT_FEATURE_PORT,
 			[3] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_QSXGMII,
-			[4] = RTL837X_PORT_FEATURE_PORT,
-			[5] = RTL837X_PORT_FEATURE_PORT,
-			[6] = RTL837X_PORT_FEATURE_PORT,
-			[7] = RTL837X_PORT_FEATURE_PORT,
+			[4] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_INTERNAL,
+			[5] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_INTERNAL,
+			[6] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_INTERNAL,
+			[7] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_INTERNAL,
 			[8] = RTL837X_PORT_FEATURE_PORT | RTL837X_PORT_FEATURE_SERDES,
 		},
 		.is_support = false,
@@ -436,19 +458,6 @@ static const struct rtl837x_chip_info rtl837x_chip_infos[] = {
 		},
 		.is_support = false,
 	},
-};
-
-struct rtl8372n_pcs {
-	struct realtek_priv *priv;
-	struct phylink_pcs pcs;
-	int index;
-};
-
-struct rtl8372n {
-	struct rtl8372n_pcs pcs[RTL837X_NUM_PORTS];
-	netdev_features_t csum_feature_backup;
-	bool pvid_enabled[RTL837X_NUM_PORTS];
-	bool dsa_tag_8021q_vid[4096];
 };
 
 static bool is_8021q_tag(enum dsa_tag_protocol tag_proto)
@@ -488,6 +497,7 @@ static int rtl837x_get_chip_info(struct realtek_priv *priv, const struct rtl837x
 static int rtl8372n_detect(struct realtek_priv *priv)
 {
 	const struct rtl837x_chip_info *chip_info;
+	struct rtl8372n *chip_data = priv->chip_data;
 	struct device *dev = priv->dev;
 	int ret;
 
@@ -501,6 +511,7 @@ static int rtl8372n_detect(struct realtek_priv *priv)
 		return -ENODEV;
 	}
 
+	chip_data->chip_info = chip_info;
 	priv->num_ports = RTL837X_NUM_PORTS;
 	priv->mib_counters = rtl8372n_mib_counters;
 	priv->num_mib_counters = ARRAY_SIZE(rtl8372n_mib_counters);
@@ -851,8 +862,8 @@ out:
 static unsigned int rtl8372n_sds_pcs_inband_caps(struct phylink_pcs *pcs,
 					      phy_interface_t interface)
 {
-	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
-	int port = _pcs->index;
+	struct rtl8372n_port *port_priv = container_of(pcs, struct rtl8372n_port, pcs);
+	int port = port_priv->index;
 
 	switch (port) {
 	case 3:
@@ -882,9 +893,9 @@ static void rtl8372n_sds_pcs_get_state(struct phylink_pcs *pcs,
 				 struct phylink_link_state *state)
 #endif
 {
-	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
-	struct realtek_priv *priv = _pcs->priv;
-	int port = _pcs->index;
+	struct rtl8372n_port *port_priv = container_of(pcs, struct rtl8372n_port, pcs);
+	struct realtek_priv *priv = port_priv->priv;
+	int port = port_priv->index;
 	u32 tmp;
 	int ret;
 
@@ -957,10 +968,10 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 			     const unsigned long *advertising,
 			     bool permit_pause_to_mac)
 {
-	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
-	struct realtek_priv *priv = _pcs->priv;
+	struct rtl8372n_port *port_priv = container_of(pcs, struct rtl8372n_port, pcs);
+	struct realtek_priv *priv = port_priv->priv;
 	u8 sds_idx;
-	int port = _pcs->index;
+	int port = port_priv->index;
 	int ret;
 
 	sds_idx = PORT_TO_SERDES_IDX(port);
@@ -1075,9 +1086,9 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 static void rtl8372n_sds_pcs_link_up(struct phylink_pcs *pcs, unsigned int neg_mode,
 			    phy_interface_t interface, int speed, int duplex)
 {
-	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
-	struct realtek_priv *priv = _pcs->priv;
-	int port = _pcs->index;
+	struct rtl8372n_port *port_priv = container_of(pcs, struct rtl8372n_port, pcs);
+	struct realtek_priv *priv = port_priv->priv;
+	int port = port_priv->index;
 
 	dev_dbg(priv->dev, "[%s]PCS link up serdes (%d) mode (%s)\n", __func__,
 			  PORT_TO_SERDES_IDX(port),
@@ -1126,8 +1137,8 @@ static struct phylink_pcs *rtl8372n_phylink_mac_select_pcs(struct phylink_config
 	priv = dp->ds->priv;
 	chip_data = priv->chip_data;
 
-	if (IS_SERDES_PORT(dp->index))
-		return &(chip_data->pcs[dp->index].pcs);
+	if (chip_data->ports[dp->index].have_pcs)
+		return &(chip_data->ports[dp->index].pcs);
 	return NULL;
 }
 
@@ -2622,6 +2633,126 @@ static int rtl8372n_of_setup_phy_and_serdes(struct realtek_priv *priv)
 	return 0;
 }
 
+static int rtl8372n_setup_port(struct realtek_priv *priv, int port)
+{
+	const struct rtl837x_chip_info *chip_info;
+	struct rtl8372n_port *port_priv;
+	struct rtl8372n *chip_data;
+	struct ethtool_keee eee = {0};
+	struct device_node *dn;
+	phy_interface_t mode;
+	struct dsa_port *dp = dsa_to_port(priv->ds, port);
+	u32 port_type = RTL837X_SMI_MAC_TYPE_PORT;
+	int ret;
+
+	chip_data = priv->chip_data;
+	port_priv = &(chip_data->ports[port]);
+	chip_info = chip_data->chip_info;
+	dn = dp->dn;
+
+	port_priv->index = port;
+	port_priv->priv = priv;
+	port_priv->have_pcs = false;
+
+	if (chip_info->port_feature[port] == RTL837X_PORT_FEATURE_NONEXIST)
+		return 0;
+
+	if (of_get_phy_mode(dn, &mode)) {
+		dev_warn(priv->dev,
+		      "Failed to get port(%d) phy-mode, Use PHY_INTERFACE_MODE_INTERNAL by default",
+		      port
+			);
+		mode = PHY_INTERFACE_MODE_INTERNAL;
+	}
+
+	if (mode != PHY_INTERFACE_MODE_INTERNAL) {
+		if (chip_info->port_feature[port] & RTL837X_PORT_FEATURE_SERDES)
+			port_type = RTL837X_SMI_MAC_TYPE_SERDES;
+		if (chip_info->port_feature[port] & RTL837X_PORT_FEATURE_QSXGMII)
+			port_type = RTL837X_SMI_MAC_TYPE_PORT;
+	}
+
+	ret = regmap_update_bits(priv->map, RTL837X_SMI_MAC_TYPE_REG,
+				    RTL837X_SMI_MAC_TYPE_PORT_MASK(port),
+				    port_type << __ffs(RTL837X_SMI_MAC_TYPE_PORT_MASK(port))
+				);
+	if (ret)
+		return ret;
+
+	if (!dsa_port_is_unused(dp)) {
+		if (port_type == RTL837X_SMI_MAC_TYPE_PORT) {
+			// TODO?: may be we can add poll phy status?
+			port_priv->have_pcs = false;
+
+			/*
+			 * Configure ports to poll the phy internal status register.
+			 *
+			 * Will this have any effect on the RTL8372N/RTL8372? I tried
+			 * disabling these bits and checked the status of the MAC
+			 * and MIB registers; it did not affect the normal
+			 * behavior/updates of these registers.
+			 */
+			ret = regmap_set_bits(priv->map, RTL837X_PORT_POLLING_REG,
+						 RTL837X_PORT_POLLING_PORT_MASK(port)
+						);
+			if (ret)
+				return ret;
+		} else if (port_type == RTL837X_SMI_MAC_TYPE_SERDES) {
+			port_priv->have_pcs = true;
+			port_priv->pcs.ops = &rtl8372n_sds_pcs_ops;
+#if  KERNEL_VERSION(6, 18, 0) >= LINUX_VERSION_CODE
+			port_priv->pcs.neg_mode = true;
+#endif
+			port_priv->pcs.poll = true;
+		}
+
+		/* Use the polled (PHY/Serdes). */
+		ret = regmap_set_bits(priv->map, RTL837X_SMI_GLB_CTRL_REG,
+			 RTL837X_SMI_GLB_CTRL_SMI_POLLING_PORT_MASK(port)
+			);
+		if (ret)
+			return ret;
+	}
+
+	// TODO: set ext phy id
+
+	ret = regmap_write(priv->map, RTL837X_FC_PORT_ACT_CTRL_ADDR(port), 0x1050);
+	if (ret)
+		return ret;
+
+	ret = regmap_set_bits(priv->map, RTL837X_MAC_L2_PORT_CTRL_ADDR(port),
+		  RTL837X_MAC_L2_PORT_CTRL_RX_CHK_CRC_EN_MASK |
+		   RTL837X_MAC_L2_PORT_CTRL_CLOCK_SWITCH_MASK
+		);
+	if (ret)
+		return ret;
+	/* Disable learning */
+	ret = rtl837x_lut_port_set_learning(priv, port, false);
+	if (ret)
+		return ret;
+
+	rtl8372n_port_stp_state_set(priv->ds, port, BR_STATE_DISABLED);
+	/* Start with all port completely isolated */
+	ret = rtl8372n_port_set_isolation(priv, port, 0);
+	if (ret)
+		return ret;
+
+	// Disable port EEE feature by default
+	eee.eee_enabled = false;
+	ret = rtl8372n_set_mac_eee(priv->ds, port, &eee);
+	if (ret)
+		return ret;
+
+	// Enable backpressure
+	ret = regmap_set_bits(priv->map, RTL837X_MAC_PORT_CTRL_ADDR(port),
+			  RTL837X_MAC_PORT_CTRL_BKPRES_EN_MASK
+			);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 // TODO: init chip based on rtl837x_chip_info
 static int rtl8372n_setup(struct dsa_switch *ds)
 {
@@ -2661,55 +2792,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		}
 	}
 
-	/* Configure the PCS solely for the SerDes port (port3, port8). */
-	chip_data->pcs[3].pcs.ops = &rtl8372n_sds_pcs_ops;
-#if  KERNEL_VERSION(6, 18, 0) >= LINUX_VERSION_CODE
-	chip_data->pcs[3].pcs.neg_mode = true;
-#endif
-	chip_data->pcs[3].priv = priv;
-	chip_data->pcs[3].index = 3;
-
-	chip_data->pcs[8].pcs.ops = &rtl8372n_sds_pcs_ops;
-#if  KERNEL_VERSION(6, 18, 0) >= LINUX_VERSION_CODE
-	chip_data->pcs[8].pcs.neg_mode = true;
-#endif
-	chip_data->pcs[8].priv = priv;
-	chip_data->pcs[8].index = 8;
-
-	/* Configure port 3 and port 8 as serdes port */
-	rtl837x_reg_bits_write(priv, RTL837X_SMI_MAC_TYPE_CTRL_ADDR,
-			 RTL837X_SMI_MAC_TYPE_CTRL_MAC_PORT_TYPE_MASK(3) |
-			  RTL837X_SMI_MAC_TYPE_CTRL_MAC_PORT_TYPE_MASK(8),
-			 0
-			);
-
-	/*
-	 * Configure ports 4–7 to poll the internal status register.
-	 *
-	 * Will this have any effect on the RTL8372N/RTL8372? I tried
-	 * disabling these bits and checked the status of the MAC
-	 * and MIB registers; it did not affect the normal
-	 * behavior/updates of these registers.
-	 */
-	rtl837x_reg_bits_write(priv, RTL837X_PORT_POLLING_REG,
-			 RTL837X_PORT_POLLING_PORT_MASK(4) | RTL837X_PORT_POLLING_PORT_MASK(5) |
-			  RTL837X_PORT_POLLING_PORT_MASK(6) | RTL837X_PORT_POLLING_PORT_MASK(7),
-			 0xffffffff
-			);
-
-	/* Use the polled (PHY/Serdes) status of ports 3-8 only (port0-2 have no PHY). */
-	rtl837x_reg_bits_write(priv, RTL837X_SMI_GLB_CTRL_REG,
-		 RTL837X_SMI_GLB_CTRL_SMI_POLLING_MASK_MASK, 0x1f8
-		);
-
-	// enable SMI0/1/2 MDC clock output
-	rtl837x_reg_bits_write(priv, RTL837X_SMI_CTRL_ADDR,
-			 RTL837X_SMI_CTRL_SMI0_MDC_EN_MASK |
-			  RTL837X_SMI_CTRL_SMI1_MDC_EN_MASK |
-			  RTL837X_SMI_CTRL_SMI2_MDC_EN_MASK,
-			 0xffffffff
-			);
-
 	// puts "Power down internal PHY 4~7"
 	rtl837x_phys_write_c45(priv, 0xF0, 31, 0xa610, 0x2858);
 
@@ -2734,6 +2816,20 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 
 	of_extra_init(ds);
 
+	// enable SMI0/1/2 MDC clock output
+	rtl837x_reg_bits_write(priv, RTL837X_SMI_CTRL_ADDR,
+			 RTL837X_SMI_CTRL_SMI0_MDC_EN_MASK |
+			  RTL837X_SMI_CTRL_SMI1_MDC_EN_MASK |
+			  RTL837X_SMI_CTRL_SMI2_MDC_EN_MASK,
+			 0xffffffff
+			);
+
+	dsa_switch_for_each_port(dp, ds) {
+		ret = rtl8372n_setup_port(priv, dp->index);
+		if (ret)
+			return ret;
+	}
+
 	ret = rtl8372n_setup_mdio(priv);
 	if (ret) {
 		dev_err(priv->dev, "rtl8372n_setup_mdio Fail, error:%d\n", ret);
@@ -2744,53 +2840,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	ret = rtl837x_reg_bits_write(priv, RTL837X_VLAN_CTRL_ADDR, RTL837X_VLAN_CTRL_TABLE_RST_MASK, 1);
 	if (ret)
 		return ret;
-
-	dsa_switch_for_each_port(dp, ds) {
-		int port = dp->index;
-
-		ret = rtl837x_reg_write(priv, RTL837X_FC_PORT_ACT_CTRL_ADDR(port), 0x1050);
-		if (ret)
-			return ret;
-
-		ret = rtl837x_reg_bits_write(priv, RTL837X_MAC_L2_PORT_CTRL_ADDR(port),
-			  RTL837X_MAC_L2_PORT_CTRL_RX_CHK_CRC_EN_MASK, 1
-			);
-		if (ret)
-			return ret;
-
-		ret = rtl837x_reg_bits_write(priv, RTL837X_MAC_L2_PORT_CTRL_ADDR(port),
-			  RTL837X_MAC_L2_PORT_CTRL_CLOCK_SWITCH_MASK, 1
-			);
-		if (ret)
-			return ret;
-
-		/* Disable learning */
-		ret = rtl837x_lut_port_set_learning(priv, port, false);
-		if (ret)
-			return ret;
-
-		rtl8372n_port_stp_state_set(ds, port, BR_STATE_DISABLED);
-
-		/* Start with all port completely isolated */
-		ret = rtl8372n_port_set_isolation(priv, port, 0);
-		if (ret)
-			return ret;
-
-		// Disable port EEE feature by default
-		ret = rtl837x_reg_bits_write(priv, RTL837X_EEE_CTRL_ADDR(port),
-				  RTL837X_EEE_CTRL_EEE_PORT_TX_EN_MASK | RTL837X_EEE_CTRL_EEE_PORT_RX_EN_MASK,
-				  0
-				);
-		if (ret)
-			return ret;
-
-		// Enable backpressure
-		ret = rtl837x_reg_bits_write(priv, RTL837X_MAC_PORT_CTRL_ADDR(port),
-				  RTL837X_MAC_PORT_CTRL_BKPRES_EN_MASK, 1
-				);
-		if (ret)
-			return ret;
-	}
 
 	dsa_switch_for_each_user_port(dp, ds) {
 		/* Forward only to the CPU */
