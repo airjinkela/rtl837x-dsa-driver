@@ -34,7 +34,7 @@
 #define   RTL837X_INI_MODE_INI_MODE_MASK        GENMASK(1, 0)
 
 struct rtl837x_gpio {
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct gpio_chip gp;
 };
 
@@ -42,7 +42,7 @@ struct rtl837x_gpio {
 // But there is no more info about the gpio mux or gpio func in the chip datasheet
 // So just use gpio mode to simulate i2c or mdio
 
-int rtl837x_gpio_led_mode_set(struct rtl837x_priv *priv, unsigned int offset, bool gpio_mode)
+int rtl837x_gpio_led_mode_set(struct realtek_priv *priv, unsigned int offset, bool gpio_mode)
 {
 	if (offset > 29)
 		return -EINVAL;
@@ -50,7 +50,7 @@ int rtl837x_gpio_led_mode_set(struct rtl837x_priv *priv, unsigned int offset, bo
 				BIT(offset), !!gpio_mode);
 }
 
-int rtl837x_gpio_value_set(struct rtl837x_priv *priv, unsigned int offset, int val)
+int rtl837x_gpio_value_set(struct realtek_priv *priv, unsigned int offset, int val)
 {
 	int ret;
 
@@ -66,7 +66,7 @@ int rtl837x_gpio_value_set(struct rtl837x_priv *priv, unsigned int offset, int v
 	return ret;
 }
 
-int rtl837x_gpio_value_get(struct rtl837x_priv *priv, unsigned int offset, int *val)
+int rtl837x_gpio_value_get(struct realtek_priv *priv, unsigned int offset, int *val)
 {
 	int ret;
 	u32 tmp;
@@ -87,7 +87,7 @@ int rtl837x_gpio_value_get(struct rtl837x_priv *priv, unsigned int offset, int *
 	return 0;
 }
 
-int rtl837x_gpio_direction_set(struct rtl837x_priv *priv, unsigned int offset, bool input)
+int rtl837x_gpio_direction_set(struct realtek_priv *priv, unsigned int offset, bool input)
 {
 	u32 value = input ? 0 : 1;
 	int ret;
@@ -105,7 +105,7 @@ int rtl837x_gpio_direction_set(struct rtl837x_priv *priv, unsigned int offset, b
 	return ret;
 }
 
-int rtl837x_gpio_direction_get(struct rtl837x_priv *priv, unsigned int offset, bool *input)
+int rtl837x_gpio_direction_get(struct realtek_priv *priv, unsigned int offset, bool *input)
 {
 	int ret;
 	u32 tmp;
@@ -134,7 +134,7 @@ int rtl837x_gpio_direction_get(struct rtl837x_priv *priv, unsigned int offset, b
 static int rtl837x_gpiochip_request(struct gpio_chip *gc, unsigned int offset)
 {
 	struct rtl837x_gpio *gpio = gpiochip_get_data(gc);
-	struct rtl837x_priv *priv = gpio->priv;
+	struct realtek_priv *priv = gpio->priv;
 	int ret = 0;
 
 	switch (offset) {
@@ -222,7 +222,7 @@ static void rtl837x_gpiochip_set(struct gpio_chip *gc, unsigned int offset, int 
 #endif
 {
 	struct rtl837x_gpio *gpio = gpiochip_get_data(gc);
-	struct rtl837x_priv *priv = gpio->priv;
+	struct realtek_priv *priv = gpio->priv;
 	int ret;
 
 	ret = rtl837x_gpio_value_set(priv, offset, value);
@@ -240,7 +240,7 @@ static void rtl837x_gpiochip_set(struct gpio_chip *gc, unsigned int offset, int 
 static int rtl837x_gpiochip_get(struct gpio_chip *gc, unsigned int offset)
 {
 	struct rtl837x_gpio *gpio = gpiochip_get_data(gc);
-	struct rtl837x_priv *priv = gpio->priv;
+	struct realtek_priv *priv = gpio->priv;
 	u32 value;
 	int ret;
 
@@ -256,7 +256,7 @@ static int rtl837x_gpiochip_get(struct gpio_chip *gc, unsigned int offset)
 static int rtl837x_gpiochip_direction_input(struct gpio_chip *gc, unsigned int offset)
 {
 	struct rtl837x_gpio *gpio = gpiochip_get_data(gc);
-	struct rtl837x_priv *priv = gpio->priv;
+	struct realtek_priv *priv = gpio->priv;
 	int ret;
 
 	ret = rtl837x_gpio_direction_set(priv, offset, true);
@@ -271,7 +271,7 @@ static int rtl837x_gpiochip_direction_output(struct gpio_chip *gc,
 					unsigned int offset, int value)
 {
 	struct rtl837x_gpio *gpio = gpiochip_get_data(gc);
-	struct rtl837x_priv *priv = gpio->priv;
+	struct realtek_priv *priv = gpio->priv;
 	int ret;
 
 	ret = rtl837x_gpio_direction_set(priv, offset, false);
@@ -292,7 +292,7 @@ static int rtl837x_gpiochip_get_direction(struct gpio_chip *gc,
 						unsigned int offset)
 {
 	struct rtl837x_gpio *gpio = gpiochip_get_data(gc);
-	struct rtl837x_priv *priv = gpio->priv;
+	struct realtek_priv *priv = gpio->priv;
 	bool is_input;
 	int ret;
 
@@ -319,7 +319,7 @@ static const struct gpio_chip rtl837x_gp = {
 	.ngpio = RTL837X_MAX_GPIO,
 };
 
-int rtl837x_gpiochip_init(struct rtl837x_priv *priv)
+int rtl837x_gpiochip_init(struct realtek_priv *priv)
 {
 	struct rtl837x_gpio *gpio;
 	struct device_node *np;

@@ -23,7 +23,7 @@
 #define   RTL837X_ITA_L2_CTRL_STATUS_HIT_MASK    BIT(12)
 #define   RTL837X_ITA_L2_CTRL_ADDR_EXT_MASK      GENMASK(11, 0)
 
-int rtl837x_ita_execute(struct rtl837x_priv *priv, enum rtl837x_table table,
+int rtl837x_ita_execute(struct realtek_priv *priv, enum rtl837x_table table,
 		    enum rtl837x_table_opera opera, u16 *addr, int port,
 			enum rtl837x_lut_method method,
 		    u32 *data, size_t size)

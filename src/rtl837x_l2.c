@@ -240,7 +240,7 @@ static void rtl837x_l3_to_data(const struct rtl837x_l3 *l3, u32 *data)
 		FIELD_PREP(RTL837X_L3_D2_IGMPASIC_MSK, l3->igmp_asic);
 }
 
-int rtl837x_lut_query(struct rtl837x_priv *priv,
+int rtl837x_lut_query(struct realtek_priv *priv,
 			  enum rtl837x_lut_method method,
 			  struct rtl837x_lut_entry *entry)
 {
@@ -302,7 +302,7 @@ int rtl837x_lut_query(struct rtl837x_priv *priv,
  * the hardware won't record this entry in the lut table
  * it will throw an error (-ENOENT)
  */
-int rtl837x_lut_set(struct rtl837x_priv *priv,
+int rtl837x_lut_set(struct realtek_priv *priv,
 			  struct rtl837x_lut_entry *entry)
 {
 	u32 tb_data[RTL837X_LUT_TABLE_SIZE] = {0};
@@ -331,7 +331,7 @@ int rtl837x_lut_set(struct rtl837x_priv *priv,
 	return 0;
 }
 
-int rtl837x_lut_del(struct rtl837x_priv *priv,
+int rtl837x_lut_del(struct realtek_priv *priv,
 			  u16 addr)
 {
 	int ret;
@@ -341,7 +341,7 @@ int rtl837x_lut_del(struct rtl837x_priv *priv,
 	return ret;
 }
 
-int rtl837x_lut_port_set_learning(struct rtl837x_priv *priv, int port,
+int rtl837x_lut_port_set_learning(struct realtek_priv *priv, int port,
 				       bool enable)
 {
 	/* Enable/disable learning by limiting the number of L2 addresses the
@@ -354,7 +354,7 @@ int rtl837x_lut_port_set_learning(struct rtl837x_priv *priv, int port,
 			    enable ? RTL837X_LEARN_LIMIT_MAX : 0);
 }
 
-int rtl837x_lut_l2_flush(struct rtl837x_priv *priv, enum rtl837x_l2_flush_mode mode,
+int rtl837x_lut_l2_flush(struct realtek_priv *priv, enum rtl837x_l2_flush_mode mode,
 		    int port, u16 vid, u16 fid)
 {
 	int ret;
@@ -399,7 +399,7 @@ int rtl837x_lut_l2_flush(struct rtl837x_priv *priv, enum rtl837x_l2_flush_mode m
 	return 0;
 }
 
-int rtl837x_lut_l2_flush_all(struct rtl837x_priv *priv)
+int rtl837x_lut_l2_flush_all(struct realtek_priv *priv)
 {
 	int ret;
 	u32 tmp;

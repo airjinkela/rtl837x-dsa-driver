@@ -31,13 +31,13 @@
 #define RTL837X_VLAN_PVID_REG(_p)                       (0x4E1C + (((_p >> 1) << 2)))
 #define   RTL837X_VLAN_PVID_MASK(_p)                    (GENMASK(11, 0) << ((_p & 0x1) * 12))
 
-int rtl837x_vlan_set(struct rtl837x_priv *priv, u16 vid, struct rtl837x_vlan_data *vlan)
+int rtl837x_vlan_set(struct realtek_priv *priv, u16 vid, struct rtl837x_vlan_data *vlan)
 {
 	return rtl837x_ita_execute(priv, RTL837X_TABLE_CVLAN, RTL837X_TABLE_OPERA_WRITE,
 			    &vid, -0, -0, &vlan->val, 1);
 }
 
-int rtl837x_vlan_get(struct rtl837x_priv *priv, u16 vid, struct rtl837x_vlan_data *vlan)
+int rtl837x_vlan_get(struct realtek_priv *priv, u16 vid, struct rtl837x_vlan_data *vlan)
 {
 	int ret;
 	u32 tmp;
@@ -51,7 +51,7 @@ int rtl837x_vlan_get(struct rtl837x_priv *priv, u16 vid, struct rtl837x_vlan_dat
 	return 0;
 }
 
-int rtl837x_vlan_port_set_pvid(struct rtl837x_priv *priv, int port, u16 pvid)
+int rtl837x_vlan_port_set_pvid(struct realtek_priv *priv, int port, u16 pvid)
 {
 	return rtl837x_reg_bits_write(priv, RTL837X_VLAN_PVID_REG(port),
 			  RTL837X_VLAN_PVID_MASK(port),
@@ -59,7 +59,7 @@ int rtl837x_vlan_port_set_pvid(struct rtl837x_priv *priv, int port, u16 pvid)
 			);
 }
 
-int rtl837x_vlan_port_get_pvid(struct rtl837x_priv *priv, int port, u16 *pvid)
+int rtl837x_vlan_port_get_pvid(struct realtek_priv *priv, int port, u16 *pvid)
 {
 	int ret;
 	u32 tmp;
@@ -74,7 +74,7 @@ int rtl837x_vlan_port_get_pvid(struct rtl837x_priv *priv, int port, u16 *pvid)
 	return 0;
 }
 
-int rtl837x_vlan_port_set_framefilter(struct rtl837x_priv *priv, int port, enum rtl837x_frame_ingress frame_type)
+int rtl837x_vlan_port_set_framefilter(struct realtek_priv *priv, int port, enum rtl837x_frame_ingress frame_type)
 {
 	return rtl837x_reg_bits_write(priv, RTL837X_VLAN_ACCEPT_FRAME_TYPE_REG(port),
 			  RTL837X_VLAN_ACCEPT_FRAME_TYPE_MASK(port),
@@ -82,7 +82,7 @@ int rtl837x_vlan_port_set_framefilter(struct rtl837x_priv *priv, int port, enum 
 			);
 }
 
-int rtl837x_vlan_port_get_framefilter(struct rtl837x_priv *priv, int port, enum rtl837x_frame_ingress *frame_type)
+int rtl837x_vlan_port_get_framefilter(struct realtek_priv *priv, int port, enum rtl837x_frame_ingress *frame_type)
 {
 	return rtl837x_reg_bits_read(priv, RTL837X_VLAN_ACCEPT_FRAME_TYPE_REG(port),
 			  RTL837X_VLAN_ACCEPT_FRAME_TYPE_MASK(port),
@@ -90,7 +90,7 @@ int rtl837x_vlan_port_get_framefilter(struct rtl837x_priv *priv, int port, enum 
 			);
 }
 
-int rtl837x_vlan_port_set_vlan_egress_mode(struct rtl837x_priv *priv, int port,
+int rtl837x_vlan_port_set_vlan_egress_mode(struct realtek_priv *priv, int port,
 			 enum rtl837x_vlan_egress_mode mode)
 {
 	return rtl837x_reg_bits_write(priv, RTL837X_VLAN_EGRESS_TAG_MODE_REG(port),
@@ -98,7 +98,7 @@ int rtl837x_vlan_port_set_vlan_egress_mode(struct rtl837x_priv *priv, int port,
 		);
 }
 
-int rtl837x_vlan_port_get_vlan_egress_mode(struct rtl837x_priv *priv, int port,
+int rtl837x_vlan_port_get_vlan_egress_mode(struct realtek_priv *priv, int port,
 			 enum rtl837x_vlan_egress_mode *mode)
 {
 	int ret;
@@ -115,7 +115,7 @@ int rtl837x_vlan_port_get_vlan_egress_mode(struct rtl837x_priv *priv, int port,
 	return 0;
 }
 
-int rtl837x_vlan_port_set_transparent(struct rtl837x_priv *priv,
+int rtl837x_vlan_port_set_transparent(struct realtek_priv *priv,
 			int igr_port, int egr_port, bool enable)
 {
 	int ret;
@@ -142,7 +142,7 @@ int rtl837x_vlan_port_set_transparent(struct rtl837x_priv *priv,
 				  RTL837X_VLAN_EGRESS_TRANSPARENT_MASK(egr_port), tmp);
 }
 
-int rtl837x_vlan_port_get_transparent_mbr(struct rtl837x_priv *priv,
+int rtl837x_vlan_port_get_transparent_mbr(struct realtek_priv *priv,
 		    int egr_port, u32 *igr_mbr)
 {
 	int ret;
@@ -154,7 +154,7 @@ int rtl837x_vlan_port_get_transparent_mbr(struct rtl837x_priv *priv,
 	return ret;
 }
 
-int rtl837x_vlan_port_set_egress_vlan_keep(struct rtl837x_priv *priv,
+int rtl837x_vlan_port_set_egress_vlan_keep(struct realtek_priv *priv,
 			int igr_port, int egr_port, bool enable)
 {
 	int ret;
@@ -181,7 +181,7 @@ int rtl837x_vlan_port_set_egress_vlan_keep(struct rtl837x_priv *priv,
 				  RTL837X_VLAN_EGRESS_VLAN_KEEP_PMASK_MASK(egr_port), tmp);
 }
 
-int rtl837x_vlan_port_get_egress_vlan_keep_mbr(struct rtl837x_priv *priv,
+int rtl837x_vlan_port_get_egress_vlan_keep_mbr(struct realtek_priv *priv,
 			int egr_port, u32 *igr_mbr)
 {
 	int ret;
@@ -193,7 +193,7 @@ int rtl837x_vlan_port_get_egress_vlan_keep_mbr(struct rtl837x_priv *priv,
 	return ret;
 }
 
-int rtl837x_vlan_port_set_ingress_filtering(struct rtl837x_priv *priv, int port, bool enable)
+int rtl837x_vlan_port_set_ingress_filtering(struct realtek_priv *priv, int port, bool enable)
 {
 	return rtl837x_reg_bits_write(priv, RTL837X_VLAN_INGRESS_FILTER_REG(port),
 			RTL837X_VLAN_INGRESS_FILTER_MASK(port),
@@ -201,7 +201,7 @@ int rtl837x_vlan_port_set_ingress_filtering(struct rtl837x_priv *priv, int port,
 		);
 }
 
-int rtl837x_vlan_port_get_ingress_filtering(struct rtl837x_priv *priv, int port, bool *enable)
+int rtl837x_vlan_port_get_ingress_filtering(struct realtek_priv *priv, int port, bool *enable)
 {
 	int ret;
 	u32 tmp;

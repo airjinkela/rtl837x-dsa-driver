@@ -439,7 +439,7 @@ static const struct rtl837x_chip_info rtl837x_chip_infos[] = {
 };
 
 struct rtl8372n_pcs {
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct phylink_pcs pcs;
 	int index;
 };
@@ -461,7 +461,7 @@ static bool is_8021q_tag(enum dsa_tag_protocol tag_proto)
 	}
 }
 
-static int rtl837x_get_chip_info(struct rtl837x_priv *priv, const struct rtl837x_chip_info **chip_info)
+static int rtl837x_get_chip_info(struct realtek_priv *priv, const struct rtl837x_chip_info **chip_info)
 {
 	u32 model_id, model_char1, val;
 	int ret;
@@ -485,7 +485,7 @@ static int rtl837x_get_chip_info(struct rtl837x_priv *priv, const struct rtl837x
 	return -ENODEV;
 }
 
-static int rtl8372n_detect(struct rtl837x_priv *priv)
+static int rtl8372n_detect(struct realtek_priv *priv)
 {
 	const struct rtl837x_chip_info *chip_info;
 	struct device *dev = priv->dev;
@@ -508,7 +508,7 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
 	return 0;
 }
 
-static int rtl8372n_get_vlan_4k(struct rtl837x_priv *priv, u32 vid,
+static int rtl8372n_get_vlan_4k(struct realtek_priv *priv, u32 vid,
 				 struct rtl837x_vlan_4k *vlan4k)
 {
 	struct rtl837x_vlan_data vlan;
@@ -527,7 +527,7 @@ static int rtl8372n_get_vlan_4k(struct rtl837x_priv *priv, u32 vid,
 
 	return 0;
 }
-static int rtl8372n_set_vlan_4k(struct rtl837x_priv *priv,
+static int rtl8372n_set_vlan_4k(struct realtek_priv *priv,
 			       const struct rtl837x_vlan_4k *vlan4k)
 {
 	struct rtl837x_vlan_data vlan = {0};
@@ -546,7 +546,7 @@ static int rtl8372n_set_vlan_4k(struct rtl837x_priv *priv,
 	return 0;
 }
 
-static int rtl8372n_vlan_update(struct rtl837x_priv *priv, int vid, u32 member,
+static int rtl8372n_vlan_update(struct realtek_priv *priv, int vid, u32 member,
 		     u32 untag, u32 fid)
 {
 	struct rtl837x_vlan_data vlan_data;
@@ -566,7 +566,7 @@ static int rtl8372n_vlan_update(struct rtl837x_priv *priv, int vid, u32 member,
 	return rtl837x_vlan_set(priv, vid, &vlan_data);
 }
 
-static int rtl8372n_set_pvid(struct rtl837x_priv *priv, int port,
+static int rtl8372n_set_pvid(struct realtek_priv *priv, int port,
 		     u16 vid)
 {
 	enum rtl837x_frame_ingress prev_accepted_frame;
@@ -628,7 +628,7 @@ undo_pvid:
 	return ret;
 }
 
-static int rtl8372n_clean_pvid(struct rtl837x_priv *priv, int port, u16 vid)
+static int rtl8372n_clean_pvid(struct realtek_priv *priv, int port, u16 vid)
 {
 	enum rtl837x_frame_ingress accepted_frame, prev_accepted_frame;
 	struct rtl8372n *chip_data = priv->chip_data;
@@ -707,7 +707,7 @@ undo_set_framefilter:
 	return ret;
 }
 
-static int rtl8372n_get_mib_counter(struct rtl837x_priv *priv,
+static int rtl8372n_get_mib_counter(struct realtek_priv *priv,
 		int port,
 		const struct rtl837x_mib_counter *mib,
 		u64 *mibvalue)
@@ -754,7 +754,7 @@ static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
 							int port,
 							enum dsa_tag_protocol mp)
 {
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	struct device *dev = priv->dev;
 
 	dev_dbg(dev, "get_DSA_PROTO port:%d\n", port);
@@ -764,7 +764,7 @@ static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
 
 static int rtl8372n_mdio_phy_read_c22(struct mii_bus *bus, int addr, int regnum)
 {
-	struct rtl837x_priv *priv = bus->priv;
+	struct realtek_priv *priv = bus->priv;
 	u16 val;
 	int ret;
 
@@ -778,14 +778,14 @@ static int rtl8372n_mdio_phy_read_c22(struct mii_bus *bus, int addr, int regnum)
 
 static int rtl8372n_mdio_phy_write_c22(struct mii_bus *bus, int addr, int regnum, u16 val)
 {
-	struct rtl837x_priv *priv = bus->priv;
+	struct realtek_priv *priv = bus->priv;
 
 	return priv->ops->phy_write_c22(priv, addr, regnum, val);
 }
 
 static int rtl8372n_mdio_phy_read_c45(struct mii_bus *bus, int port, int devad, int regnum)
 {
-	struct rtl837x_priv *priv = bus->priv;
+	struct realtek_priv *priv = bus->priv;
 	u16 val;
 	int ret;
 
@@ -798,12 +798,12 @@ static int rtl8372n_mdio_phy_read_c45(struct mii_bus *bus, int port, int devad, 
 
 static int rtl8372n_mdio_phy_write_c45(struct mii_bus *bus, int port, int devad, int regnum, u16 val)
 {
-	struct rtl837x_priv *priv = bus->priv;
+	struct realtek_priv *priv = bus->priv;
 
 	return priv->ops->phy_write_c45(priv, port, devad, regnum, val);
 }
 
-static int rtl8372n_setup_mdio(struct rtl837x_priv *priv)
+static int rtl8372n_setup_mdio(struct realtek_priv *priv)
 {
 	struct device_node *mnp;
 	struct device_node *np = priv->dev->of_node;
@@ -883,7 +883,7 @@ static void rtl8372n_sds_pcs_get_state(struct phylink_pcs *pcs,
 #endif
 {
 	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
-	struct rtl837x_priv *priv = _pcs->priv;
+	struct realtek_priv *priv = _pcs->priv;
 	int port = _pcs->index;
 	u32 tmp;
 	int ret;
@@ -958,7 +958,7 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 			     bool permit_pause_to_mac)
 {
 	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
-	struct rtl837x_priv *priv = _pcs->priv;
+	struct realtek_priv *priv = _pcs->priv;
 	u8 sds_idx;
 	int port = _pcs->index;
 	int ret;
@@ -1076,7 +1076,7 @@ static void rtl8372n_sds_pcs_link_up(struct phylink_pcs *pcs, unsigned int neg_m
 			    phy_interface_t interface, int speed, int duplex)
 {
 	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
-	struct rtl837x_priv *priv = _pcs->priv;
+	struct realtek_priv *priv = _pcs->priv;
 	int port = _pcs->index;
 
 	dev_dbg(priv->dev, "[%s]PCS link up serdes (%d) mode (%s)\n", __func__,
@@ -1120,7 +1120,7 @@ static struct phylink_pcs *rtl8372n_phylink_mac_select_pcs(struct phylink_config
 						phy_interface_t interface)
 {
 	struct rtl8372n *chip_data;
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct dsa_port *dp = dsa_phylink_to_port(config);
 
 	priv = dp->ds->priv;
@@ -1135,7 +1135,7 @@ static struct phylink_pcs *rtl8372n_phylink_mac_select_pcs(struct phylink_config
 static void rtl8372n_phylink_mac_config(struct phylink_config *config, unsigned int mode,
 			const struct phylink_link_state *state)
 {
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct dsa_port *dp = dsa_phylink_to_port(config);
 
 	priv = dp->ds->priv;
@@ -1150,7 +1150,7 @@ static void rtl8372n_phylink_mac_config(struct phylink_config *config, unsigned 
 static void rtl8372n_phylink_mac_link_down(struct phylink_config *config, unsigned int mode,
 				phy_interface_t interface)
 {
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct dsa_port *dp = dsa_phylink_to_port(config);
 
 	priv = dp->ds->priv;
@@ -1167,7 +1167,7 @@ static void rtl8372n_phylink_mac_link_up(struct phylink_config *config,
 			phy_interface_t interface, int speed, int duplex,
 			bool tx_pause, bool rx_pause)
 {
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct dsa_port *dp = dsa_phylink_to_port(config);
 
 	priv = dp->ds->priv;
@@ -1196,7 +1196,7 @@ static const struct phylink_mac_ops rtl8372n_phylink_mac_ops = {
  */
 static int of_extra_init(struct dsa_switch *ds)
 {
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	struct device_node *np = ds->dev->of_node;
 	const __be32 *list;
 	int size, data_len;
@@ -1226,7 +1226,7 @@ static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 	struct net_device *master_dev = NULL;
 	struct dsa_port *dp, *cpu_dp = NULL;
 	struct rtl8372n *chip_data;
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	int ret;
 
 	chip_data = priv->chip_data;
@@ -1298,7 +1298,7 @@ static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 	struct net_device *master_dev = NULL;
 	struct dsa_port *dp, *cpu_dp = NULL;
 	struct rtl8372n *chip_data;
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 
 	chip_data = priv->chip_data;
 
@@ -1352,7 +1352,7 @@ static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 
 static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 {
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	int ret;
 
 	//  bit0: internal cpu; bit1: external cpu
@@ -1432,7 +1432,7 @@ static int rtl8372n_teardown_tag_8021q(struct dsa_switch *ds)
 {
 	struct rtl837x_vlan_data vlan_data;
 	struct rtl8372n *chip_data;
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	struct dsa_port *dp = NULL;
 
 	chip_data = priv->chip_data;
@@ -1471,7 +1471,7 @@ static int rtl8372n_tag_8021q_vlan_add(struct dsa_switch *ds, int port,
 				       u16 vid, u16 flags)
 {
 	struct rtl8372n *chip_data;
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	u32 member = 0, untag = 0;
 	int ret = 0;
 
@@ -1514,7 +1514,7 @@ static int rtl8372n_tag_8021q_vlan_del(struct dsa_switch *ds, int port,
 {
 	struct rtl837x_vlan_data vlan_data;
 	struct rtl8372n *chip_data;
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	int ret;
 
 	chip_data = priv->chip_data;
@@ -1562,7 +1562,7 @@ static int rtl8372n_tag_8021q_vlan_del(struct dsa_switch *ds, int port,
 static int rtl8372n_change_tag_protocol(struct dsa_switch *ds,
 					enum dsa_tag_protocol proto)
 {
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	int ret;
 
 	dev_dbg(priv->dev, "[%s]: proto: %d\n", __func__, proto);
@@ -1593,20 +1593,20 @@ static int rtl8372n_change_tag_protocol(struct dsa_switch *ds,
 	return 0;
 }
 
-static int rtl8372n_port_set_isolation(struct rtl837x_priv *priv, int port,
+static int rtl8372n_port_set_isolation(struct realtek_priv *priv, int port,
 					u32 mask)
 {
 	return rtl837x_reg_write(priv, RTL837X_PORT_ISO_PORT_PMSK_ADDR(port), mask);
 }
 
-static int rtl8372n_port_add_isolation(struct rtl837x_priv *priv, int port,
+static int rtl8372n_port_add_isolation(struct realtek_priv *priv, int port,
 					u32 mask)
 {
 	return rtl837x_reg_bits_write(priv, RTL837X_PORT_ISO_PORT_PMSK_ADDR(port),
 				  mask, 0xffffffff);
 }
 
-static int rtl8372n_port_remove_isolation(struct rtl837x_priv *priv, int port,
+static int rtl8372n_port_remove_isolation(struct realtek_priv *priv, int port,
 					   u32 mask)
 {
 	return rtl837x_reg_bits_write(priv, RTL837X_PORT_ISO_PORT_PMSK_ADDR(port),
@@ -1617,7 +1617,7 @@ static void rtl8372n_get_strings(struct dsa_switch *ds, int port, u32 stringset,
 			 uint8_t *data)
 {
 	const struct rtl837x_mib_counter *mib;
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	int i;
 
 	if (port >= priv->num_ports)
@@ -1633,7 +1633,7 @@ static void rtl8372n_get_strings(struct dsa_switch *ds, int port, u32 stringset,
 static void rtl8372n_get_ethtool_stats(struct dsa_switch *ds, int port, uint64_t *data)
 {
 	const struct rtl837x_mib_counter *mib;
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	int ret;
 
 	if (port >= priv->num_ports)
@@ -1656,7 +1656,7 @@ static void rtl8372n_get_ethtool_stats(struct dsa_switch *ds, int port, uint64_t
 
 static int rtl8372n_get_sset_count(struct dsa_switch *ds, int port, int sset)
 {
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 
 	/* We only support SS_STATS */
 	if (sset != ETH_SS_STATS)
@@ -1671,7 +1671,7 @@ static void rtl8372n_get_phy_stats(struct dsa_switch *ds, int port,
 				    struct ethtool_eth_phy_stats *phy_stats)
 {
 	const struct rtl837x_mib_counter *mib;
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 
 	mib = &priv->mib_counters[RTL837X_MIB_dot3StatsSymbolErrors];
 
@@ -1702,7 +1702,7 @@ static void rtl8372n_get_mac_stats(struct dsa_switch *ds, int port,
 		[RTL837X_MIB_RxGoodCnt] = 1,
 	};
 
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	int ret;
 	int i;
 
@@ -1752,7 +1752,7 @@ static void rtl8372n_get_ctrl_stats(struct dsa_switch *ds, int port,
 				     struct ethtool_eth_ctrl_stats *ctrl_stats)
 {
 	const struct rtl837x_mib_counter *mib;
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 
 	mib = &priv->mib_counters[RTL837X_MIB_dot3ControlInUnknownOpcodes];
 
@@ -1768,7 +1768,7 @@ static int rtl8372n_port_vlan_filtering(struct dsa_switch *ds, int port,
 	enum rtl837x_frame_ingress prev_accepted_frame, accepted_frame;
 	enum rtl837x_vlan_egress_mode mode;
 	struct rtl8372n *chip_data;
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	u32 configured_ports = 0;
 	struct dsa_port *dp;
 	int ret;
@@ -1879,7 +1879,7 @@ undo_transparent:
  * to the CPU and to no other port", whereas the member port mask of an L2
  * multicast entry can.
  */
-static int rtl8372n_set_bpdu_l2mc_cpu_trap(struct rtl837x_priv *priv, u32 vid,
+static int rtl8372n_set_bpdu_l2mc_cpu_trap(struct realtek_priv *priv, u32 vid,
 					   u32 cpu_port_mask, bool add)
 {
 	struct rtl837x_lut_entry entry = {0};
@@ -1910,7 +1910,7 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 			    struct netlink_ext_ack *extack)
 {
 	struct rtl837x_vlan_data vlan_data_bak;
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	bool untagged = !!(vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED);
 	u32 member = 0, untag = 0;
 	bool pvid = !!(vlan->flags & BRIDGE_VLAN_INFO_PVID);
@@ -1989,7 +1989,7 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 				 const struct switchdev_obj_port_vlan *vlan)
 {
 	struct rtl837x_vlan_data vlan_data;
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	int ret;
 
 	dev_dbg(priv->dev, "[%s]: port (%d) vid (%d)\n", __func__,
@@ -2039,7 +2039,7 @@ static int rtl8372n_port_pre_bridge_flags(struct dsa_switch *ds, int port,
 					   struct switchdev_brport_flags flags,
 					   struct netlink_ext_ack *extack)
 {
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 
 	dev_dbg(priv->dev, "[%s] port:%d flags:%lx supported:%lx\n", __func__,
 		port, flags.mask, RTL8372N_SUPPORTED_BRIDGE_FLAGS);
@@ -2054,7 +2054,7 @@ static int rtl8372n_port_bridge_flags(struct dsa_switch *ds, int port,
 			      struct switchdev_brport_flags flags,
 			      struct netlink_ext_ack *extack)
 {
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	bool enable;
 	int ret;
 
@@ -2076,7 +2076,7 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 			   bool *tx_fwd_offload,
 			   struct netlink_ext_ack *extack)
 {
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	struct dsa_port *dp;
 	u32 port_bitmap = 0;
 	int ret;
@@ -2147,7 +2147,7 @@ static void
 rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 			    struct dsa_bridge bridge)
 {
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	struct dsa_port *dp;
 	u32 port_bitmap = 0;
 	int ret;
@@ -2191,7 +2191,7 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 static int rtl8372n_port_enable(struct dsa_switch *ds, int port,
 			       struct phy_device *phy)
 {
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	int ret;
 
 	if (IS_SERDES_PORT(port))
@@ -2206,7 +2206,7 @@ static int rtl8372n_port_enable(struct dsa_switch *ds, int port,
 
 static void rtl8372n_port_disable(struct dsa_switch *ds, int port)
 {
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 
 	if (IS_SERDES_PORT(port))
 		return;
@@ -2216,7 +2216,7 @@ static void rtl8372n_port_disable(struct dsa_switch *ds, int port)
 
 static int rtl8372n_set_mac_eee(struct dsa_switch *ds, int port, struct ethtool_keee *eee)
 {
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 
 	dev_dbg(priv->dev, "[%s]: port(%d) eee_enable:(%s)\n", __func__,
 						  port, eee->eee_enabled ? "true" : "false");
@@ -2235,7 +2235,7 @@ static int rtl8372n_set_mac_eee(struct dsa_switch *ds, int port, struct ethtool_
 }
 
 static int
-rtl8372n_port_fdb_static_add(struct rtl837x_priv *priv, int port,
+rtl8372n_port_fdb_static_add(struct realtek_priv *priv, int port,
 		    const unsigned char *addr, u16 vid)
 {
 	struct rtl837x_lut_entry entry = {0};
@@ -2265,7 +2265,7 @@ rtl8372n_port_fdb_static_add(struct rtl837x_priv *priv, int port,
 }
 
 static int
-rtl8372n_port_fdb_static_del(struct rtl837x_priv *priv,
+rtl8372n_port_fdb_static_del(struct realtek_priv *priv,
 		    const unsigned char *addr, u16 vid)
 {
 	struct rtl837x_lut_entry entry = {0};
@@ -2297,7 +2297,7 @@ rtl8372n_port_fdb_add(struct dsa_switch *ds, int port,
 		    const unsigned char *addr, u16 vid,
 		    struct dsa_db db)
 {
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	int ret;
 
 	if (db.type != DSA_DB_PORT && db.type != DSA_DB_BRIDGE)
@@ -2339,7 +2339,7 @@ rtl8372n_port_fdb_del(struct dsa_switch *ds, int port,
 		    const unsigned char *addr, u16 vid,
 		    struct dsa_db db)
 {
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	int ret;
 
 	if (db.type != DSA_DB_PORT && db.type != DSA_DB_BRIDGE)
@@ -2372,7 +2372,7 @@ rtl8372n_port_fdb_dump(struct dsa_switch *ds, int port,
 		     dsa_fdb_dump_cb_t *cb, void *data)
 {
 	struct rtl837x_lut_entry entry = {0};
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	int ret;
 
 	for (int i = 0; i < RTL837X_LUT_MAX; i++) {
@@ -2401,7 +2401,7 @@ rtl8372n_port_mdb_add(struct dsa_switch *ds, int port,
 		    struct dsa_db db)
 {
 	struct rtl837x_lut_entry entry = {0};
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	const u8 *addr = mdb->addr;
 	u16 vid = mdb->vid;
 	int ret;
@@ -2444,7 +2444,7 @@ rtl8372n_port_mdb_del(struct dsa_switch *ds, int port,
 		    struct dsa_db db)
 {
 	struct rtl837x_lut_entry entry = {0};
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	const u8 *addr = mdb->addr;
 	u16 vid = mdb->vid;
 	int ret;
@@ -2491,7 +2491,7 @@ rtl8372n_port_mdb_del(struct dsa_switch *ds, int port,
 
 static void rtl8372n_port_fast_age(struct dsa_switch *ds, int port)
 {
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 
 	(void)rtl837x_lut_l2_flush(priv, RTL837X_l2_FLUSH_MODE_PORT,
 			    port, 0, 0);
@@ -2507,7 +2507,7 @@ enum RTL837X_MSTP_STATE {
 
 static void rtl8372n_port_stp_state_set(struct dsa_switch *ds, int port, u8 state)
 {
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	u32 val;
 
 	dev_dbg(priv->dev, "[%s]: port(%d) stp_status(%d)\n", __func__,
@@ -2540,7 +2540,7 @@ static void rtl8372n_port_stp_state_set(struct dsa_switch *ds, int port, u8 stat
 	}
 }
 
-static int rtl8372n_of_setup_phy_and_serdes(struct rtl837x_priv *priv)
+static int rtl8372n_of_setup_phy_and_serdes(struct realtek_priv *priv)
 {
 	struct device_node *np = priv->dev->of_node;
 	int ret;
@@ -2626,7 +2626,7 @@ static int rtl8372n_of_setup_phy_and_serdes(struct rtl837x_priv *priv)
 static int rtl8372n_setup(struct dsa_switch *ds)
 {
 	struct rtl8372n *chip_data;
-	struct rtl837x_priv *priv = ds->priv;
+	struct realtek_priv *priv = ds->priv;
 	struct dsa_port *dp;
 	int cpu_dp_cnt = 0;
 	int ret;

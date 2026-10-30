@@ -24,14 +24,14 @@ struct rtl837x_mib_counter {
 };
 
 struct rtl837x_led_set {
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	u32 led_cfg_mask[RTL837X_PORT_LED_COUNT];
 	atomic_t refcnt;
 	u8 idx;
 };
 
 struct rtl837x_led {
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct rtl837x_led_set *led_set;
 	struct led_classdev cdev;
 	bool is_hw_offload;
@@ -41,7 +41,7 @@ struct rtl837x_led {
 	u8 led_id;
 };
 
-struct rtl837x_priv {
+struct realtek_priv {
 	struct device *dev;
 	struct regmap		*map;
 	struct mutex		map_lock;
@@ -88,54 +88,54 @@ struct rtl837x_variant {
 };
 
 struct rtl837x_ops {
-	int	(*reset_chip)(struct rtl837x_priv *priv);
-	int	(*detect)(struct rtl837x_priv *priv);
+	int	(*reset_chip)(struct realtek_priv *priv);
+	int	(*detect)(struct realtek_priv *priv);
 
-	int	(*get_mib_counter)(struct rtl837x_priv *priv,
+	int	(*get_mib_counter)(struct realtek_priv *priv,
 					int port,
 					const struct rtl837x_mib_counter *mib,
 					u64 *mibvalue);
 
-	int	(*get_vlan_4k)(struct rtl837x_priv *priv, u32 vid,
+	int	(*get_vlan_4k)(struct realtek_priv *priv, u32 vid,
 			       struct rtl837x_vlan_4k *vlan4k);
-	int	(*set_vlan_4k)(struct rtl837x_priv *priv,
+	int	(*set_vlan_4k)(struct realtek_priv *priv,
 			       const struct rtl837x_vlan_4k *vlan4k);
-	int	(*phy_read_c22)(struct rtl837x_priv *priv, u16 phy, int regnum,
+	int	(*phy_read_c22)(struct realtek_priv *priv, u16 phy, int regnum,
 				u16 *pval);
-	int	(*phy_write_c22)(struct rtl837x_priv *priv, u16 phy, int regnum,
+	int	(*phy_write_c22)(struct realtek_priv *priv, u16 phy, int regnum,
 				u16 val);
 
-	int	(*phy_read_c45)(struct rtl837x_priv *priv, int phy, int devad, int regnum,
+	int	(*phy_read_c45)(struct realtek_priv *priv, int phy, int devad, int regnum,
 				u16 *pval);
-	int	(*phy_write_c45)(struct rtl837x_priv *priv, int phy, int devad, int regnum,
+	int	(*phy_write_c45)(struct realtek_priv *priv, int phy, int devad, int regnum,
 				u16 val);
 };
 
 #define rtl837x_reg_read(priv, reg, pval) regmap_read(priv->map, reg, pval)
 #define rtl837x_reg_write(priv, reg, val) regmap_write(priv->map, reg, val)
 
-extern int rtl837x_reg_bits_read(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 *pval);
-extern int rtl837x_reg_bits_write(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 val);
+extern int rtl837x_reg_bits_read(struct realtek_priv *priv, u32 reg, u32 mask, u32 *pval);
+extern int rtl837x_reg_bits_write(struct realtek_priv *priv, u32 reg, u32 mask, u32 val);
 
-extern int rtl837x_set_led(struct rtl837x_priv *priv);
+extern int rtl837x_set_led(struct realtek_priv *priv);
 
-extern int rtl837x_debug_proc_init(struct rtl837x_priv *priv);
-extern int rtl837x_debug_proc_deinit(struct rtl837x_priv *priv);
+extern int rtl837x_debug_proc_init(struct realtek_priv *priv);
+extern int rtl837x_debug_proc_deinit(struct realtek_priv *priv);
 
-extern int rtl837x_phy_read_ocp(struct rtl837x_priv *priv, u16 phy, int regnum, u16 *pval);
-extern int rtl837x_phy_write_ocp(struct rtl837x_priv *priv, u16 phy, int regnum, u16 val);
-extern int rtl837x_phy_read_c22(struct rtl837x_priv *priv, u16 phy, int regnum, u16 *pval);
-extern int rtl837x_phy_write_c22(struct rtl837x_priv *priv, u16 phy, int regnum, u16 val);
-extern int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 *pval);
-extern int rtl837x_phys_write_c45(struct rtl837x_priv *priv, u16 phy_mask, int devad, int regnum, u16 val);
-extern int rtl837x_phy_write_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 val);
-extern int rtl837x_phy_bits_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 mask, u16 *pdata);
-extern int rtl837x_phy_bits_write_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 mask, u16 data);
+extern int rtl837x_phy_read_ocp(struct realtek_priv *priv, u16 phy, int regnum, u16 *pval);
+extern int rtl837x_phy_write_ocp(struct realtek_priv *priv, u16 phy, int regnum, u16 val);
+extern int rtl837x_phy_read_c22(struct realtek_priv *priv, u16 phy, int regnum, u16 *pval);
+extern int rtl837x_phy_write_c22(struct realtek_priv *priv, u16 phy, int regnum, u16 val);
+extern int rtl837x_phy_read_c45(struct realtek_priv *priv, int phy, int devad, int regnum, u16 *pval);
+extern int rtl837x_phys_write_c45(struct realtek_priv *priv, u16 phy_mask, int devad, int regnum, u16 val);
+extern int rtl837x_phy_write_c45(struct realtek_priv *priv, int phy, int devad, int regnum, u16 val);
+extern int rtl837x_phy_bits_read_c45(struct realtek_priv *priv, int phy, int devad, int regnum, u16 mask, u16 *pdata);
+extern int rtl837x_phy_bits_write_c45(struct realtek_priv *priv, int phy, int devad, int regnum, u16 mask, u16 data);
 
-extern int rtl837x_sds_reg_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 *pdata);
-extern int rtl837x_sds_reg_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 data);
-extern int rtl837x_sds_reg_bits_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 mask, u16 data);
-extern int rtl837x_sds_reg_bits_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 mask, u16 *pdata);
+extern int rtl837x_sds_reg_read(struct realtek_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 *pdata);
+extern int rtl837x_sds_reg_write(struct realtek_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 data);
+extern int rtl837x_sds_reg_bits_write(struct realtek_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 mask, u16 data);
+extern int rtl837x_sds_reg_bits_read(struct realtek_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 mask, u16 *pdata);
 
 extern const struct rtl837x_variant rtl8372n_variant;
 

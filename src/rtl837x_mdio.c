@@ -21,7 +21,7 @@
 
 static int rtl837x_mdio_write(void *ctx, u32 reg, u32 val)
 {
-	struct rtl837x_priv *priv = ctx;
+	struct realtek_priv *priv = ctx;
 	struct mii_bus *bus = priv->bus;
 	int ret;
 
@@ -51,7 +51,7 @@ out_unlock:
 
 static int rtl837x_mdio_read(void *ctx, u32 reg, u32 *val)
 {
-	struct rtl837x_priv *priv = ctx;
+	struct realtek_priv *priv = ctx;
 	int ret, val_l, val_h;
 	struct mii_bus *bus;
 
@@ -90,14 +90,14 @@ out_unlock:
 
 static void rtl837x_mdio_lock(void *ctx)
 {
-	struct rtl837x_priv *priv = ctx;
+	struct realtek_priv *priv = ctx;
 
 	mutex_lock(&priv->map_lock);
 }
 
 static void rtl837x_mdio_unlock(void *ctx)
 {
-	struct rtl837x_priv *priv = ctx;
+	struct realtek_priv *priv = ctx;
 
 	mutex_unlock(&priv->map_lock);
 }
@@ -105,7 +105,7 @@ static void rtl837x_mdio_unlock(void *ctx)
 static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 {
 	const struct rtl837x_variant *var;
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct device_node *np;
 	struct device *dev = &mdiodev->dev;
 	int ret;
@@ -246,7 +246,7 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 
 static void rtl837x_mdio_remove(struct mdio_device *mdiodev)
 {
-	struct rtl837x_priv *priv = dev_get_drvdata(&mdiodev->dev);
+	struct realtek_priv *priv = dev_get_drvdata(&mdiodev->dev);
 
 	if (!priv)
 		return;
@@ -268,7 +268,7 @@ static void rtl837x_mdio_remove(struct mdio_device *mdiodev)
 
 static void rtl837x_mdio_shutdown(struct mdio_device *mdiodev)
 {
-	struct rtl837x_priv *priv = dev_get_drvdata(&mdiodev->dev);
+	struct realtek_priv *priv = dev_get_drvdata(&mdiodev->dev);
 
 	if (!priv)
 		return;

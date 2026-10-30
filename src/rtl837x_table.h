@@ -84,7 +84,7 @@ enum rtl837x_table {
  * for an unsupported L2 read method, or another negative error code on
  * failure.
  */
-int rtl837x_ita_execute(struct rtl837x_priv *priv, enum rtl837x_table table,
+int rtl837x_ita_execute(struct realtek_priv *priv, enum rtl837x_table table,
 		    enum rtl837x_table_opera opera, u16 *addr, int port,
 			enum rtl837x_lut_method method,
 		    u32 *data, size_t size);

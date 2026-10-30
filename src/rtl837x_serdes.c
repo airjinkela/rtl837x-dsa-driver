@@ -179,7 +179,7 @@ static const u16 patch_data_phy[][3] = {
 };
 
 /* TODO: save in chip private data struct on detect */
-static int rtl837x_get_chip_ver(struct rtl837x_priv *priv, u16 *chip_ver)
+static int rtl837x_get_chip_ver(struct realtek_priv *priv, u16 *chip_ver)
 {
 	int ret;
 	u32 tmp;
@@ -199,7 +199,7 @@ static int rtl837x_get_chip_ver(struct rtl837x_priv *priv, u16 *chip_ver)
 	return 0;
 }
 
-int rtl837x_serdes_pnswap_rx(struct rtl837x_priv *priv, u8 sds_idx, bool enable)
+int rtl837x_serdes_pnswap_rx(struct realtek_priv *priv, u8 sds_idx, bool enable)
 {
 	int ret;
 
@@ -216,7 +216,7 @@ int rtl837x_serdes_pnswap_rx(struct rtl837x_priv *priv, u8 sds_idx, bool enable)
 	return 0;
 }
 
-int rtl837x_serdes_pnswap_tx(struct rtl837x_priv *priv, u8 sds_idx, bool enable)
+int rtl837x_serdes_pnswap_tx(struct realtek_priv *priv, u8 sds_idx, bool enable)
 {
 	int ret;
 
@@ -233,7 +233,7 @@ int rtl837x_serdes_pnswap_tx(struct rtl837x_priv *priv, u8 sds_idx, bool enable)
 	return 0;
 }
 
-int rtl837x_serdes_reset_10G(struct rtl837x_priv *priv, u8 sds_idx)
+int rtl837x_serdes_reset_10G(struct realtek_priv *priv, u8 sds_idx)
 {
 	bool rx_idle, nsq, sync_ok, link_ok, hi_ber; // nsq:(Noise Squelch) hi_ber:(High bit error rate)
 	u16 rx_sts, tmp;
@@ -323,7 +323,7 @@ do_reset:
 }
 
 // 100M/1G/2.5G reset
-int rtl837x_serdes_reset_XSG(struct rtl837x_priv *priv, u8 sds_idx)
+int rtl837x_serdes_reset_XSG(struct realtek_priv *priv, u8 sds_idx)
 {
 	bool sig_ok, sync_ok, link_ok;
 	u16 rx_sts, tmp;
@@ -376,7 +376,7 @@ do_reset:
 	return 0;
 }
 
-int rtl837x_serdes_an_patch(struct rtl837x_priv *priv, u8 sds_idx, phy_interface_t interface)
+int rtl837x_serdes_an_patch(struct realtek_priv *priv, u8 sds_idx, phy_interface_t interface)
 {
 	const u16 (*an_patch)[3];
 	int an_patch_len;
@@ -444,7 +444,7 @@ int rtl837x_serdes_an_patch(struct rtl837x_priv *priv, u8 sds_idx, phy_interface
 	return 0;
 }
 
-int rtl837x_serdes_mac_patch(struct rtl837x_priv *priv, u8 sds_idx)
+int rtl837x_serdes_mac_patch(struct realtek_priv *priv, u8 sds_idx)
 {
 	int ret;
 
@@ -456,7 +456,7 @@ int rtl837x_serdes_mac_patch(struct rtl837x_priv *priv, u8 sds_idx)
 	return 0;
 }
 
-int rtl837x_serdes_off(struct rtl837x_priv *priv, u8 sds_idx)
+int rtl837x_serdes_off(struct realtek_priv *priv, u8 sds_idx)
 {
 	int ret;
 	// Force enable Rx
@@ -509,7 +509,7 @@ int rtl837x_serdes_off(struct rtl837x_priv *priv, u8 sds_idx)
 	return 0;
 }
 
-int rtl837x_serdes_on(struct rtl837x_priv *priv, u8 sds_idx)
+int rtl837x_serdes_on(struct realtek_priv *priv, u8 sds_idx)
 {
 	int ret;
 	// Force disable CMU(Clock Multiplier Unit(PLL))
@@ -584,7 +584,7 @@ int rtl837x_serdes_on(struct rtl837x_priv *priv, u8 sds_idx)
 	return 0;
 }
 
-int rtl837x_serdes_pause_frame_config(struct rtl837x_priv *priv, u8 sds_idx,
+int rtl837x_serdes_pause_frame_config(struct realtek_priv *priv, u8 sds_idx,
 			     phy_interface_t interface,
 				 bool pause, bool asympause)
 {
@@ -641,7 +641,7 @@ int rtl837x_serdes_pause_frame_config(struct rtl837x_priv *priv, u8 sds_idx,
 	return 0;
 }
 
-int rtl837x_serdes_an_config(struct rtl837x_priv *priv, u8 sds_idx,
+int rtl837x_serdes_an_config(struct realtek_priv *priv, u8 sds_idx,
 			     phy_interface_t interface,
 				 unsigned int neg_mode)
 {

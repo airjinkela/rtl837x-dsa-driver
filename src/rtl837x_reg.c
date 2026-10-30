@@ -53,7 +53,7 @@
 /** -------------------Register Funcs-----------------**/
 /** ================================================= **/
 
-int rtl837x_reg_bits_read(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 *pval)
+int rtl837x_reg_bits_read(struct realtek_priv *priv, u32 reg, u32 mask, u32 *pval)
 {
 	int ret;
 	u32 tmp;
@@ -66,12 +66,12 @@ int rtl837x_reg_bits_read(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 *pva
 	return 0;
 }
 
-int rtl837x_reg_bits_write(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 val)
+int rtl837x_reg_bits_write(struct realtek_priv *priv, u32 reg, u32 mask, u32 val)
 {
 	return regmap_update_bits(priv->map, reg, mask, (val << __ffs(mask)) & mask);
 }
 
-int rtl837x_phy_read_ocp(struct rtl837x_priv *priv, u16 phy, int regnum, u16 *pval)
+int rtl837x_phy_read_ocp(struct realtek_priv *priv, u16 phy, int regnum, u16 *pval)
 {
 	int ret;
 	u32 tmp;
@@ -106,7 +106,7 @@ out:
 	return ret;
 }
 
-int rtl837x_phy_write_ocp(struct rtl837x_priv *priv, u16 phy, int regnum, u16 val)
+int rtl837x_phy_write_ocp(struct realtek_priv *priv, u16 phy, int regnum, u16 val)
 {
 	int ret;
 	u32 tmp;
@@ -141,17 +141,17 @@ out:
 }
 
 // It seems that the C22 function is incomplete on phy rtl8224?
-int rtl837x_phy_read_c22(struct rtl837x_priv *priv, u16 phy, int regnum, u16 *pval)
+int rtl837x_phy_read_c22(struct realtek_priv *priv, u16 phy, int regnum, u16 *pval)
 {
 	return rtl837x_phy_read_ocp(priv, phy, 0xA400 + (regnum * 2), pval);
 }
 
-int rtl837x_phy_write_c22(struct rtl837x_priv *priv, u16 phy, int regnum, u16 val)
+int rtl837x_phy_write_c22(struct realtek_priv *priv, u16 phy, int regnum, u16 val)
 {
 	return rtl837x_phy_write_ocp(priv, phy, 0xA400 + (regnum * 2), val);
 }
 
-int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 *pval)
+int rtl837x_phy_read_c45(struct realtek_priv *priv, int phy, int devad, int regnum, u16 *pval)
 {
 	int ret;
 	u32 tmp;
@@ -196,7 +196,7 @@ out:
 	return ret;
 }
 
-int rtl837x_phys_write_c45(struct rtl837x_priv *priv, u16 phy_mask, int devad, int regnum, u16 val)
+int rtl837x_phys_write_c45(struct realtek_priv *priv, u16 phy_mask, int devad, int regnum, u16 val)
 {
 	int ret;
 	u32 tmp;
@@ -240,12 +240,12 @@ out:
 	return ret;
 }
 
-int rtl837x_phy_write_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 val)
+int rtl837x_phy_write_c45(struct realtek_priv *priv, int phy, int devad, int regnum, u16 val)
 {
 	return rtl837x_phys_write_c45(priv, BIT(phy), devad, regnum, val);
 }
 
-int rtl837x_phy_bits_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 mask, u16 *pdata)
+int rtl837x_phy_bits_read_c45(struct realtek_priv *priv, int phy, int devad, int regnum, u16 mask, u16 *pdata)
 {
 	int ret;
 	u16 val;
@@ -258,7 +258,7 @@ int rtl837x_phy_bits_read_c45(struct rtl837x_priv *priv, int phy, int devad, int
 	return 0;
 }
 
-int rtl837x_phy_bits_write_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 mask, u16 data)
+int rtl837x_phy_bits_write_c45(struct realtek_priv *priv, int phy, int devad, int regnum, u16 mask, u16 data)
 {
 	int ret;
 	u16 val;
@@ -273,7 +273,7 @@ int rtl837x_phy_bits_write_c45(struct rtl837x_priv *priv, int phy, int devad, in
 	return rtl837x_phy_write_c45(priv, phy, devad, regnum, val);
 }
 
-int rtl837x_sds_reg_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 *pdata)
+int rtl837x_sds_reg_read(struct realtek_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 *pdata)
 {
 	u32 val, tmp;
 	int ret;
@@ -312,7 +312,7 @@ out:
 	return ret;
 }
 
-int rtl837x_sds_reg_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 data)
+int rtl837x_sds_reg_write(struct realtek_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 data)
 {
 	int ret;
 	u32 tmp;
@@ -350,7 +350,7 @@ out:
 	return ret;
 }
 
-int rtl837x_sds_reg_bits_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 mask, u16 *pdata)
+int rtl837x_sds_reg_bits_read(struct realtek_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 mask, u16 *pdata)
 {
 	int ret;
 	u16 val;
@@ -363,7 +363,7 @@ int rtl837x_sds_reg_bits_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_pag
 	return 0;
 }
 
-int rtl837x_sds_reg_bits_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 mask, u16 data)
+int rtl837x_sds_reg_bits_write(struct realtek_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 mask, u16 data)
 {
 	int ret;
 	u16 val;

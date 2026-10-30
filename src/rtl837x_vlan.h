@@ -56,32 +56,32 @@ enum rtl837x_vlan_egress_mode {
 	RTL837X_VLAN_EGRESS_MODE_REAL_KEEP = 3,
 };
 
-int rtl837x_vlan_set(struct rtl837x_priv *priv, u16 vid, struct rtl837x_vlan_data *vlan);
-int rtl837x_vlan_get(struct rtl837x_priv *priv, u16 vid, struct rtl837x_vlan_data *vlan);
-int rtl837x_vlan_port_set_pvid(struct rtl837x_priv *priv, int port, u16 pvid);
-int rtl837x_vlan_port_get_pvid(struct rtl837x_priv *priv, int port, u16 *pvid);
+int rtl837x_vlan_set(struct realtek_priv *priv, u16 vid, struct rtl837x_vlan_data *vlan);
+int rtl837x_vlan_get(struct realtek_priv *priv, u16 vid, struct rtl837x_vlan_data *vlan);
+int rtl837x_vlan_port_set_pvid(struct realtek_priv *priv, int port, u16 pvid);
+int rtl837x_vlan_port_get_pvid(struct realtek_priv *priv, int port, u16 *pvid);
 
-int rtl837x_vlan_port_set_framefilter(struct rtl837x_priv *priv, int port,
+int rtl837x_vlan_port_set_framefilter(struct realtek_priv *priv, int port,
 		    enum rtl837x_frame_ingress frame_type);
-int rtl837x_vlan_port_get_framefilter(struct rtl837x_priv *priv, int port,
+int rtl837x_vlan_port_get_framefilter(struct realtek_priv *priv, int port,
 		    enum rtl837x_frame_ingress *frame_type);
 
-int rtl837x_vlan_port_set_vlan_egress_mode(struct rtl837x_priv *priv, int port,
+int rtl837x_vlan_port_set_vlan_egress_mode(struct realtek_priv *priv, int port,
 		    enum rtl837x_vlan_egress_mode mode);
-int rtl837x_vlan_port_get_vlan_egress_mode(struct rtl837x_priv *priv, int port,
+int rtl837x_vlan_port_get_vlan_egress_mode(struct realtek_priv *priv, int port,
 		    enum rtl837x_vlan_egress_mode *mode);
 
-int rtl837x_vlan_port_set_transparent(struct rtl837x_priv *priv,
+int rtl837x_vlan_port_set_transparent(struct realtek_priv *priv,
 		    int igr_port, int egr_port, bool enable);
-int rtl837x_vlan_port_get_transparent_mbr(struct rtl837x_priv *priv,
+int rtl837x_vlan_port_get_transparent_mbr(struct realtek_priv *priv,
 		    int egr_port, u32 *igr_mbr);
-int rtl837x_vlan_port_set_egress_vlan_keep(struct rtl837x_priv *priv,
+int rtl837x_vlan_port_set_egress_vlan_keep(struct realtek_priv *priv,
 			int igr_port, int egr_port, bool enable);
-int rtl837x_vlan_port_get_egress_vlan_keep_mbr(struct rtl837x_priv *priv,
+int rtl837x_vlan_port_get_egress_vlan_keep_mbr(struct realtek_priv *priv,
 			int egr_port, u32 *igr_mbr);
 
-int rtl837x_vlan_port_set_ingress_filtering(struct rtl837x_priv *priv, int port, bool enable);
-int rtl837x_vlan_port_get_ingress_filtering(struct rtl837x_priv *priv, int port, bool *enable);
+int rtl837x_vlan_port_set_ingress_filtering(struct realtek_priv *priv, int port, bool enable);
+int rtl837x_vlan_port_get_ingress_filtering(struct realtek_priv *priv, int port, bool *enable);
 
 
 #endif /* _RTL837X_VLAN_H */

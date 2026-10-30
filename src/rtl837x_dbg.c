@@ -80,7 +80,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
 	u32 vlan_id, member, untag, fid;
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct seq_file *sfile;
 	char *buf;
 
@@ -144,7 +144,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 ssize_t MAKE_WRITE_FUNCNAME(pvid)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct seq_file *sfile;
 	u32 port, pvid;
 	char *buf;
@@ -195,7 +195,7 @@ ssize_t MAKE_WRITE_FUNCNAME(sdsreg)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
 	u32 sds_id, page, reg, val;
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct seq_file *sfile;
 	u16 tmp16;
 	char *buf;
@@ -239,7 +239,7 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mmd)(struct file *filep, const char __user *u
 				   size_t count, loff_t *offp)
 {
 	u32 port, devad, reg, val;
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct seq_file *sfile;
 	u16 tmp16;
 	char *buf;
@@ -286,7 +286,7 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mmd)(struct file *filep, const char __user *u
 ssize_t MAKE_WRITE_FUNCNAME(phyreg_mii)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct seq_file *sfile;
 	u32 port, reg, val;
 	u16 tmp16;
@@ -333,7 +333,7 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mii)(struct file *filep, const char __user *u
 ssize_t MAKE_WRITE_FUNCNAME(phyreg_ocp)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct seq_file *sfile;
 	u32 port, reg, val;
 	u16 tmp16;
@@ -380,7 +380,7 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_ocp)(struct file *filep, const char __user *u
 ssize_t MAKE_WRITE_FUNCNAME(reg)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct seq_file *sfile;
 	u32 reg, val;
 	char *buf;
@@ -421,7 +421,7 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
 	struct rtl837x_lut_entry entry = {0};
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct seq_file *sfile;
 	u32 index;
 	char *buf;
@@ -512,7 +512,7 @@ out:
 ssize_t MAKE_WRITE_FUNCNAME(vlan_trans)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct seq_file *sfile;
 	int port, igr_port;
 	bool is_en = false;
@@ -554,7 +554,7 @@ read_back:
 ssize_t MAKE_WRITE_FUNCNAME(vlan_keep)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct seq_file *sfile;
 	int port, igr_port;
 	bool is_en = false;
@@ -599,7 +599,7 @@ read_back:
 ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct seq_file *sfile;
 	char *buf;
 	int port;
@@ -659,7 +659,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __u
 ssize_t MAKE_WRITE_FUNCNAME(vlan_ingress_filter)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct seq_file *sfile;
 	bool igr_flt_en;
 	char *buf;
@@ -699,7 +699,7 @@ readback:
 static ssize_t _sds_page_dump_read(struct file *filep, char __user *ubuf,
 				size_t count, loff_t *offp)
 {
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct seq_file *sfile;
 	int ret, len = 0;
 	char *buf;
@@ -784,7 +784,7 @@ static ssize_t _vlan_dump_read(struct file *filep, char __user *ubuf,
 			       size_t count, loff_t *offp)
 {
 	struct rtl837x_vlan_4k vlan4k;
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct seq_file *sfile;
 	int ret, len = 0;
 	char *buf;
@@ -830,7 +830,7 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 			       size_t count, loff_t *offp)
 {
 	struct rtl837x_lut_entry entry = {0};
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct seq_file *sfile;
 	int ret;
 
@@ -918,7 +918,7 @@ static const struct file_operations _l2uc_dump_fops = {
 static ssize_t _port_eee_status_dump_read(struct file *filep, char __user *ubuf,
 					  size_t count, loff_t *offp)
 {
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct seq_file *sfile;
 	unsigned int port;
 	int ret, len = 0;
@@ -976,7 +976,7 @@ static ssize_t _led_dump_read(struct file *filep, char __user *ubuf,
 {
 	struct rtl837x_led_set *led_set;
 	struct rtl837x_led *port_led;
-	struct rtl837x_priv *priv;
+	struct realtek_priv *priv;
 	struct seq_file *sfile;
 	int ret, len = 0;
 	char *buf;
@@ -1030,7 +1030,7 @@ static const struct file_operations _led_dump_fops = {
 	.read = _led_dump_read
 };
 
-int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
+int rtl837x_debug_proc_init(struct realtek_priv *priv)
 {
 	char name[64];
 
@@ -1107,7 +1107,7 @@ int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 	return 0;
 }
 
-int rtl837x_debug_proc_deinit(struct rtl837x_priv *priv)
+int rtl837x_debug_proc_deinit(struct realtek_priv *priv)
 {
 	debugfs_remove_recursive(priv->debugfs_parent);
 	return 0;

@@ -75,19 +75,19 @@ enum rtl837x_l2_flush_mode {
 	RTL837X_l2_FLUSH_MODE_FID,
 };
 
-int rtl837x_lut_query(struct rtl837x_priv *priv,
+int rtl837x_lut_query(struct realtek_priv *priv,
 			  enum rtl837x_lut_method method,
 			  struct rtl837x_lut_entry *entry);
-int rtl837x_lut_set(struct rtl837x_priv *priv,
+int rtl837x_lut_set(struct realtek_priv *priv,
 			  struct rtl837x_lut_entry *entry);
-int rtl837x_lut_del(struct rtl837x_priv *priv,
+int rtl837x_lut_del(struct realtek_priv *priv,
 				  u16 addr);
 
-int rtl837x_lut_port_set_learning(struct rtl837x_priv *priv, int port,
+int rtl837x_lut_port_set_learning(struct realtek_priv *priv, int port,
 				       bool enable);
 
-int rtl837x_lut_l2_flush(struct rtl837x_priv *priv, enum rtl837x_l2_flush_mode mode,
+int rtl837x_lut_l2_flush(struct realtek_priv *priv, enum rtl837x_l2_flush_mode mode,
 		    int port, u16 vid, u16 fid);
-int rtl837x_lut_l2_flush_all(struct rtl837x_priv *priv);
+int rtl837x_lut_l2_flush_all(struct realtek_priv *priv);
 
 #endif /* _RTL837X_L2_H */
