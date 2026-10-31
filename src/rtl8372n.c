@@ -1045,7 +1045,6 @@ static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 
 	chip_data = priv->chip_data;
 
-
 	// Only support one CPU port
 	dsa_switch_for_each_cpu_port(dp, ds) {
 		cpu_dp = dp;
@@ -1289,6 +1288,8 @@ static int rtl8372n_tag_8021q_vlan_add(struct dsa_switch *ds, int port,
 	struct rtl837x_priv *priv = ds->priv;
 	u32 member = 0, untag = 0;
 	int ret = 0;
+
+	chip_data = priv->chip_data;
 
 	dev_dbg(priv->dev, "[%s]: port: %d, vid:%u, flags: %u\n", __func__, port, vid, flags);
 
@@ -2444,7 +2445,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	int ret;
 
 	chip_data = priv->chip_data;
-
 
 	dsa_switch_for_each_port(dp, ds) {
 		if (dsa_port_is_dsa(dp)) {
