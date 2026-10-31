@@ -61,6 +61,10 @@
 #define   RTL837X_CFG_PHY_TX_POLARITY_SWAP_P1_TX_POLARITY_SWAP_MASK   GENMASK(7, 4)
 #define   RTL837X_CFG_PHY_TX_POLARITY_SWAP_P0_TX_POLARITY_SWAP_MASK   GENMASK(3, 0)
 
+/* Port PHY mdio address */
+#define RTL837X_SMI_PORT_MDIO_ADDR_CFG_REG(_p)        (0x644C + ((_p/6)<<2))
+#define RTL837X_SMI_PORT_MDIO_ADDR_CFG_PORT_MASK(_p)  (GENMASK(4, 0) << ((_p%6)*5))
+
 /* MIB Control */
 #define RTL837X_INDIRECT_ACCESS_CTRL_ADDR                     0xF60
 #define   RTL837X_INDIRECT_ACCESS_CTRL_MIB_ID_MASK            GENMASK(10, 5)
@@ -814,20 +818,39 @@ static int rtl8372n_mdio_phy_write_c45(struct mii_bus *bus, int port, int devad,
 	return priv->ops->phy_write_c45(priv, port, devad, regnum, val);
 }
 
+static struct device_node *of_get_phy_node(struct device_node *dn)
+{
+	struct device_node *phy_dn;
+
+	phy_dn = of_parse_phandle(dn, "phy-handle", 0);
+	if (!phy_dn)
+		phy_dn = of_parse_phandle(dn, "phy", 0);
+
+	return phy_dn;
+}
+
 static int rtl8372n_setup_mdio(struct realtek_priv *priv)
 {
-	struct device_node *mnp;
+	struct device_node *phy_dn, *mnp, *phy_parent_mnp;
+	struct rtl837x_chip_info *chip_info;
+	struct rtl8372n *chip_data = priv->chip_data;
 	struct device_node *np = priv->dev->of_node;
 	struct dsa_switch *ds = priv->ds;
 	struct mii_bus *bus;
+	struct dsa_port *dp;
 	struct device *dev = priv->dev;
 	static int idx;
+	u32 phy_addr;
 	int ret = 0;
+
+	chip_info = chip_data->chip_info;
 
 	mnp = of_get_child_by_name(np, "mdio");
 
-	if (mnp && !of_device_is_available(mnp))
+	if (!mnp || !of_device_is_available(mnp)) {
+		ret = -ENODEV;
 		goto out;
+	}
 
 	bus = devm_mdiobus_alloc(dev);
 	if (!bus) {
@@ -841,7 +864,7 @@ static int rtl8372n_setup_mdio(struct realtek_priv *priv)
 #endif
 
 	bus->priv = priv;
-	bus->name = KBUILD_MODNAME "-mii";
+	bus->name = KBUILD_MODNAME "-mdio";
 	snprintf(bus->id, MII_BUS_ID_SIZE, KBUILD_MODNAME "-%d", idx++);
 	bus->read = rtl8372n_mdio_phy_read_c22;
 	bus->write = rtl8372n_mdio_phy_write_c22;
@@ -851,11 +874,57 @@ static int rtl8372n_setup_mdio(struct realtek_priv *priv)
 	bus->phy_mask = ~ds->phys_mii_mask;
 
 	ret = devm_of_mdiobus_register(dev, bus, mnp);
-	if (ret)
+	if (ret) {
 		dev_err(dev, "failed to register MDIO bus: %d\n", ret);
+		goto out;
+	}
+
+	dsa_switch_for_each_available_port(dp, ds) {
+		phy_dn = of_get_phy_node(dp->dn);
+		if (phy_dn)
+			phy_parent_mnp = of_get_parent(phy_dn);
+		else
+			phy_parent_mnp = NULL;
+		if (phy_dn)
+			ret = of_property_read_u32(phy_dn, "reg", &phy_addr);
+		if (ret ||
+			  !phy_dn || !phy_parent_mnp ||
+			  phy_parent_mnp != mnp ||
+			  chip_info->port_feature[dp->index] & RTL837X_PORT_FEATURE_INTERNAL) {
+
+			if (!ret && phy_dn && phy_parent_mnp &&
+			      chip_info->port_feature[dp->index] & RTL837X_PORT_FEATURE_INTERNAL &&
+				  (phy_addr != dp->index || phy_parent_mnp != mnp)) {
+				if (phy_parent_mnp)
+					of_node_put(phy_parent_mnp);
+				if (phy_dn)
+					of_node_put(phy_dn);
+				dev_err(priv->dev, "Internal port(%d) connect to a invalid phy(%d)\n", dp->index, phy_addr);
+				ret = -ENODEV;
+				goto out;
+			}
+
+			dev_dbg(priv->dev, "[%s] use port index(%d) as phy addr\n", __func__, dp->index);
+			phy_addr = dp->index;
+		}
+		if (phy_parent_mnp)
+			of_node_put(phy_parent_mnp);
+		if (phy_dn)
+			of_node_put(phy_dn);
+		dev_dbg(priv->dev, "[%s] set port(%d) phy addr 0x%x\n", __func__,
+				    dp->index, phy_addr);
+		ret = regmap_update_bits(priv->map,
+			    RTL837X_SMI_PORT_MDIO_ADDR_CFG_REG(dp->index),
+			    RTL837X_SMI_PORT_MDIO_ADDR_CFG_PORT_MASK(dp->index),
+			    phy_addr << __ffs(RTL837X_SMI_PORT_MDIO_ADDR_CFG_PORT_MASK(dp->index))
+			);
+		if (ret)
+			goto out;
+	}
 
 out:
-	of_node_put(mnp);
+	if (mnp)
+		of_node_put(mnp);
 	return ret;
 }
 
@@ -1497,7 +1566,6 @@ static int rtl8372n_tag_8021q_vlan_add(struct dsa_switch *ds, int port,
 				);
 	if (ret)
 		return ret;
-
 
 	member |= BIT(port);
 	if (dsa_is_user_port(ds, port))
@@ -2199,32 +2267,6 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 			port, ERR_PTR(ret));
 }
 
-static int rtl8372n_port_enable(struct dsa_switch *ds, int port,
-			       struct phy_device *phy)
-{
-	struct realtek_priv *priv = ds->priv;
-	int ret;
-
-	if (IS_SERDES_PORT(port))
-		return 0;
-
-	ret = priv->ops->phy_write_c45(priv, port, 31, 0xa610, 0x2058);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-static void rtl8372n_port_disable(struct dsa_switch *ds, int port)
-{
-	struct realtek_priv *priv = ds->priv;
-
-	if (IS_SERDES_PORT(port))
-		return;
-
-	priv->ops->phy_write_c45(priv, port, 31, 0xa610, 0x2858);
-}
-
 static int rtl8372n_set_mac_eee(struct dsa_switch *ds, int port, struct ethtool_keee *eee)
 {
 	struct realtek_priv *priv = ds->priv;
@@ -2654,6 +2696,13 @@ static int rtl8372n_setup_port(struct realtek_priv *priv, int port)
 	port_priv->priv = priv;
 	port_priv->have_pcs = false;
 
+	if (chip_info->port_feature[port] == RTL837X_PORT_FEATURE_NONEXIST &&
+		!dsa_port_is_unused(dp)) {
+		dev_err(priv->dev, "port(%d) is not avalable on chip %s\n",
+				    port, chip_info->name);
+		return -ENODEV;
+	}
+
 	if (chip_info->port_feature[port] == RTL837X_PORT_FEATURE_NONEXIST)
 		return 0;
 
@@ -2791,9 +2840,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 				return ret;
 		}
 	}
-
-	// puts "Power down internal PHY 4~7"
-	rtl837x_phys_write_c45(priv, 0xF0, 31, 0xa610, 0x2858);
 
 	//#cfg_FWD_INVLD_MAC_CTRL_EN,cfg_FWD_UNKN_OPCODE_EN
 	rtl837x_reg_bits_write(priv, RTL837X_MAC_L2_GLOBAL_CTRL0_ADDR,
@@ -2939,9 +2985,6 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 
 	.tag_8021q_vlan_add = rtl8372n_tag_8021q_vlan_add,
 	.tag_8021q_vlan_del = rtl8372n_tag_8021q_vlan_del,
-
-	.port_enable = rtl8372n_port_enable,
-	.port_disable = rtl8372n_port_disable,
 
 #if  KERNEL_VERSION(6, 12, 44) <= LINUX_VERSION_CODE
 	.support_eee		= dsa_supports_eee,
