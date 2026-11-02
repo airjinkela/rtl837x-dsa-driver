@@ -848,6 +848,7 @@ static int rtl8372n_setup_mdio(struct realtek_priv *priv)
 	mnp = of_get_child_by_name(np, "mdio");
 
 	if (!mnp || !of_device_is_available(mnp)) {
+		dev_err(priv->dev, "not found mdio node in device node");
 		ret = -ENODEV;
 		goto out;
 	}
@@ -892,6 +893,7 @@ static int rtl8372n_setup_mdio(struct realtek_priv *priv)
 			  phy_parent_mnp != mnp ||
 			  chip_info->port_feature[dp->index] & RTL837X_PORT_FEATURE_INTERNAL) {
 
+			/* Check the Internal port is connected to the correct phy handle */
 			if (!ret && phy_dn && phy_parent_mnp &&
 			      chip_info->port_feature[dp->index] & RTL837X_PORT_FEATURE_INTERNAL &&
 				  (phy_addr != dp->index || phy_parent_mnp != mnp)) {
@@ -911,8 +913,11 @@ static int rtl8372n_setup_mdio(struct realtek_priv *priv)
 			of_node_put(phy_parent_mnp);
 		if (phy_dn)
 			of_node_put(phy_dn);
+
 		dev_dbg(priv->dev, "[%s] set port(%d) phy addr 0x%x\n", __func__,
 				    dp->index, phy_addr);
+
+		/* set port mdio address */
 		ret = regmap_update_bits(priv->map,
 			    RTL837X_SMI_PORT_MDIO_ADDR_CFG_REG(dp->index),
 			    RTL837X_SMI_PORT_MDIO_ADDR_CFG_PORT_MASK(dp->index),
@@ -2763,8 +2768,6 @@ static int rtl8372n_setup_port(struct realtek_priv *priv, int port)
 			return ret;
 	}
 
-	// TODO: set ext phy id
-
 	ret = regmap_write(priv->map, RTL837X_FC_PORT_ACT_CTRL_ADDR(port), 0x1050);
 	if (ret)
 		return ret;
@@ -2775,6 +2778,7 @@ static int rtl8372n_setup_port(struct realtek_priv *priv, int port)
 		);
 	if (ret)
 		return ret;
+
 	/* Disable learning */
 	ret = rtl837x_lut_port_set_learning(priv, port, false);
 	if (ret)
@@ -2786,13 +2790,13 @@ static int rtl8372n_setup_port(struct realtek_priv *priv, int port)
 	if (ret)
 		return ret;
 
-	// Disable port EEE feature by default
+	/* Disable port EEE feature by default */
 	eee.eee_enabled = false;
 	ret = rtl8372n_set_mac_eee(priv->ds, port, &eee);
 	if (ret)
 		return ret;
 
-	// Enable backpressure
+	/* Enable backpressure */
 	ret = regmap_set_bits(priv->map, RTL837X_MAC_PORT_CTRL_ADDR(port),
 			  RTL837X_MAC_PORT_CTRL_BKPRES_EN_MASK
 			);
@@ -2958,6 +2962,7 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 
 	.phylink_get_caps = rtl8372n_phylink_get_caps,
 
+	//: TODO: get_stats64
 	.get_strings = rtl8372n_get_strings,
 	.get_ethtool_stats = rtl8372n_get_ethtool_stats,
 	.get_sset_count = rtl8372n_get_sset_count,
