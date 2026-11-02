@@ -2494,8 +2494,11 @@ rtl8372n_port_fdb_dump(struct dsa_switch *ds, int port,
 		entry.addr = i;
 		entry.uc.port = port;
 		ret = rtl837x_lut_query(priv, RTL837X_LUT_METHOD_NEXT_L2UCSPA, &entry);
+		/* No (further) entry: the dump is complete */
+		if (ret == -ENOENT)
+			return 0;
 		if (ret)
-			break;
+			return ret;
 		if (entry.addr < i)
 			break;
 		/* We need to hide the dsa_8021q VLANs from the user. */
@@ -2503,8 +2506,9 @@ rtl8372n_port_fdb_dump(struct dsa_switch *ds, int port,
 			entry.uc.key.vid_fid = 0;
 		ret = cb(entry.uc.key.mac_addr, entry.uc.key.vid_fid, entry.uc.is_static,
 			 data);
-		if (ret < 0)
-			break;
+		/* Pass errors on: -EMSGSIZE makes DSA continue in a new message */
+		if (ret)
+			return ret;
 		i = entry.addr;
 	}
 	return 0;
