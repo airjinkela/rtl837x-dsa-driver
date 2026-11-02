@@ -8,7 +8,7 @@
 #include "rtl837x.h"
 #include "rtl837x_l2.h"
 
-#define RTL837X_ITA_TABLE_SIZE 5 // 5*u32
+#define RTL837X_TABLE_ENTRY_SIZE 5 // 5*u32
 
 /*
  * enum rtl837x_table_op - table query operation
@@ -33,7 +33,7 @@ enum rtl837x_table_opera {
  * @RTL837X_TABLE_L2: filtering database (2K hash table)
  * @RTL837X_TABLE_IGMP_GROUP: IGMP group database (readonly)
  *
- * described by @RTL837X_ITA_CTRL_TABLE_TYPE_MASK.
+ * described by @RTL837X_TABLE_CTRL_TABLE_MASK.
  */
 enum rtl837x_table {
 	RTL837X_TABLE_ACL_RULE = 1,
@@ -62,7 +62,7 @@ enum rtl837x_table {
  * @data: entry buffer. Input when writing, and also the lookup key for
  *	  %RTL837X_LUT_METHOD_MAC; output for every successful read. Must
  *	  hold at least @size words.
- * @size: number of 32-bit words in @data, at most %RTL837X_ITA_TABLE_SIZE.
+ * @size: number of 32-bit words in @data, at most %RTL837X_TABLE_ENTRY_SIZE.
  *	  Unused by %RTL837X_TABLE_OPERA_DELETE.
  *
  * Single access path to the switch tables behind the ITA (indirect table

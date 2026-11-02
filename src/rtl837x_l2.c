@@ -12,13 +12,19 @@
 #define RTL837X_LUT_TABLE_SIZE     3
 #define RTL837X_LEARN_LIMIT_MAX    2112
 
+/* Maximum number of MAC entries a port may learn */
 #define RTL837X_LUT_PORT_LEARN_LIMIT_REG(port)   (0x5384 + (((port) << 2))) /* port: 0-9 */
 #define   RTL837X_LUT_PORT_LEARN_LIMIT_MASK      0x1FFF
 
+/*
+ * L2 flush: program the target port mask, start the operation and poll BUSY.
+ * A flush either ages out dynamic entries only or drops dynamic and static
+ * ones alike.
+ */
 #define RTL837X_L2_FLUSH_CMD_REG            0x53D4
 #define   RTL837X_L2_FLUSH_CMD_BUSY_MASK    BIT(17)
 #define   RTL837X_L2_FLUSH_CMD_ACT_MASK     BIT(16)
-#define   RTL837X_L2_FLUSH_CMD_PMSK_MASK    GENMASK(9, 0)
+#define   RTL837X_L2_FLUSH_CMD_PORT_MASK    GENMASK(9, 0)
 
 #define RTL837X_L2_FLUSH_CTRL_REG               0x53DC
 #define   RTL837X_L2_FLUSH_CTRL_MODE_MASK       GENMASK(1, 0)
@@ -26,218 +32,220 @@
 #define     RTL837X_L2_FLUSH_CTRL_TYPE_DYNAMIC	0
 #define     RTL837X_L2_FLUSH_CTRL_TYPE_BOTH     1
 
+/* Flush the entries matching a single FID/VID pair */
 #define RTL837X_L2_FLUSH_XID_REG         0x53E0
 #define   RTL837X_L2_FLUSH_XID_FID_MASK  GENMASK(19, 16)
 #define   RTL837X_L2_FLUSH_XID_VID_MASK  GENMASK(11, 0)
 
+/* Flush the whole L2 table, ignoring the port mask */
 #define RTL837X_L2_FLUSH_ALL_REG   0x53D8
 #define   RTL837X_L2_FLUSH_ALL_MASK   BIT(0)
 
 /* unicast field define */
-#define RTL837X_L2_UC_D0_MAC5_MSK		GENMASK(7, 0)
-#define RTL837X_L2_UC_D0_MAC4_MSK		GENMASK(15, 8)
-#define RTL837X_L2_UC_D0_MAC3_MSK		GENMASK(23, 16)
-#define RTL837X_L2_UC_D0_MAC2_MSK		GENMASK(31, 24)
-#define RTL837X_L2_UC_D1_MAC1_MSK		GENMASK(7, 0)
-#define RTL837X_L2_UC_D1_MAC0_MSK		GENMASK(15, 8)
+#define RTL837X_L2_UC_D0_MAC5_MASK		GENMASK(7, 0)
+#define RTL837X_L2_UC_D0_MAC4_MASK		GENMASK(15, 8)
+#define RTL837X_L2_UC_D0_MAC3_MASK		GENMASK(23, 16)
+#define RTL837X_L2_UC_D0_MAC2_MASK		GENMASK(31, 24)
+#define RTL837X_L2_UC_D1_MAC1_MASK		GENMASK(7, 0)
+#define RTL837X_L2_UC_D1_MAC0_MASK		GENMASK(15, 8)
 
-#define RTL837X_L2_UC_D1_CVIDFID_MSK	GENMASK(27, 16)
-#define RTL837X_L2_UC_D1_L3LOOKUP_MSK	GENMASK(28, 28)
-#define RTL837X_L2_UC_D1_IVL_MSK		GENMASK(29, 29)
+#define RTL837X_L2_UC_D1_CVIDFID_MASK	GENMASK(27, 16)
+#define RTL837X_L2_UC_D1_L3LOOKUP_MASK	GENMASK(28, 28)
+#define RTL837X_L2_UC_D1_IVL_MASK		GENMASK(29, 29)
 
-#define RTL837X_L2_UC_D1_SPORT_LO_MSK	GENMASK(31, 30)
-#define  RTL837X_L2_UC_D2_SPORT_HI_MSK	GENMASK(1, 0)
+#define RTL837X_L2_UC_D1_SPORT_LO_MASK	GENMASK(31, 30)
+#define  RTL837X_L2_UC_D2_SPORT_HI_MASK	GENMASK(1, 0)
 #define  RTL837X_L2_UC_SPORT_GET(_D1, _D2) \
-			((FIELD_GET(RTL837X_L2_UC_D1_SPORT_LO_MSK, _D1))| \
-			 (FIELD_GET(RTL837X_L2_UC_D2_SPORT_HI_MSK, _D2) << 2))
+			((FIELD_GET(RTL837X_L2_UC_D1_SPORT_LO_MASK, _D1))| \
+			 (FIELD_GET(RTL837X_L2_UC_D2_SPORT_HI_MASK, _D2) << 2))
 
-#define RTL837X_L2_UC_D2_AGE_MSK		GENMASK(4, 2)
-#define RTL837X_L2_UC_D2_AUTH_MSK		GENMASK(5, 5)
-#define RTL837X_L2_UC_D2_STATIC_MSK		GENMASK(16, 16)
+#define RTL837X_L2_UC_D2_AGE_MASK		GENMASK(4, 2)
+#define RTL837X_L2_UC_D2_AUTH_MASK		GENMASK(5, 5)
+#define RTL837X_L2_UC_D2_STATIC_MASK		GENMASK(16, 16)
 
 /* multicast field define */
-#define RTL837X_L2_MC_D0_MAC5_MSK		GENMASK(7, 0)
-#define RTL837X_L2_MC_D0_MAC4_MSK		GENMASK(15, 8)
-#define RTL837X_L2_MC_D0_MAC3_MSK		GENMASK(23, 16)
-#define RTL837X_L2_MC_D0_MAC2_MSK		GENMASK(31, 24)
-#define RTL837X_L2_MC_D1_MAC1_MSK		GENMASK(7, 0)
-#define RTL837X_L2_MC_D1_MAC0_MSK		GENMASK(15, 8)
+#define RTL837X_L2_MC_D0_MAC5_MASK		GENMASK(7, 0)
+#define RTL837X_L2_MC_D0_MAC4_MASK		GENMASK(15, 8)
+#define RTL837X_L2_MC_D0_MAC3_MASK		GENMASK(23, 16)
+#define RTL837X_L2_MC_D0_MAC2_MASK		GENMASK(31, 24)
+#define RTL837X_L2_MC_D1_MAC1_MASK		GENMASK(7, 0)
+#define RTL837X_L2_MC_D1_MAC0_MASK		GENMASK(15, 8)
 
-#define RTL837X_L2_MC_D1_CVIDFID_MSK	GENMASK(27, 16)
-#define RTL837X_L2_MC_D1_L3LOOKUP_MSK	GENMASK(28, 28)
-#define RTL837X_L2_MC_D1_IVL_MSK		GENMASK(29, 29)
+#define RTL837X_L2_MC_D1_CVIDFID_MASK	GENMASK(27, 16)
+#define RTL837X_L2_MC_D1_L3LOOKUP_MASK	GENMASK(28, 28)
+#define RTL837X_L2_MC_D1_IVL_MASK		GENMASK(29, 29)
 
-#define RTL837X_L2_MC_D1_MBR_LO_MSK	    GENMASK(31, 30)
-#define  RTL837X_L2_MC_D2_MBR_HI_MSK	GENMASK(7, 0)
+#define RTL837X_L2_MC_D1_MBR_LO_MASK	    GENMASK(31, 30)
+#define  RTL837X_L2_MC_D2_MBR_HI_MASK	GENMASK(7, 0)
 #define  RTL837X_L2_MC_MBR_GET(_D1, _D2) \
-	    ((FIELD_GET(RTL837X_L2_MC_D1_MBR_LO_MSK, _D1))| \
-	     (FIELD_GET(RTL837X_L2_MC_D2_MBR_HI_MSK, _D2) << 2))
+	    ((FIELD_GET(RTL837X_L2_MC_D1_MBR_LO_MASK, _D1))| \
+	     (FIELD_GET(RTL837X_L2_MC_D2_MBR_HI_MASK, _D2) << 2))
 
-#define RTL837X_L2_MC_D2_IGMPIDX_MSK	GENMASK(15, 8)
-#define RTL837X_L2_MC_D2_IGMPASIC_MSK	GENMASK(16, 16)
+#define RTL837X_L2_MC_D2_IGMPIDX_MASK	GENMASK(15, 8)
+#define RTL837X_L2_MC_D2_IGMPASIC_MASK	GENMASK(16, 16)
 
 /* L3 field define */
 /* this chip support l3? Interesting */
-#define RTL837X_L3_D0_SIP_MSK           GENMASK(31, 0)
-#define RTL837X_L3_D1_DIP_MSK           GENMASK(27, 0)
-#define RTL837X_L3_D1_L3LOOKUP_MSK      GENMASK(28, 28)
+#define RTL837X_L3_D0_SIP_MASK           GENMASK(31, 0)
+#define RTL837X_L3_D1_DIP_MASK           GENMASK(27, 0)
+#define RTL837X_L3_D1_L3LOOKUP_MASK      GENMASK(28, 28)
 
-#define RTL837X_L3_D1_MBR_LO_MSK	    GENMASK(31, 30)
-#define  RTL837X_L3_D2_MBR_HI_MSK	GENMASK(7, 0)
+#define RTL837X_L3_D1_MBR_LO_MASK	    GENMASK(31, 30)
+#define  RTL837X_L3_D2_MBR_HI_MASK	GENMASK(7, 0)
 #define  RTL837X_L3_MBR_GET(_D1, _D2) \
-	    ((FIELD_GET(RTL837X_L3_D1_MBR_LO_MSK, _D1))| \
-	     (FIELD_GET(RTL837X_L3_D2_MBR_HI_MSK, _D2) << 2))
+	    ((FIELD_GET(RTL837X_L3_D1_MBR_LO_MASK, _D1))| \
+	     (FIELD_GET(RTL837X_L3_D2_MBR_HI_MASK, _D2) << 2))
 
-#define RTL837X_L3_D2_IGMPIDX_MSK	GENMASK(15, 8)
-#define RTL837X_L3_D2_IGMPASIC_MSK	GENMASK(16, 16)
+#define RTL837X_L3_D2_IGMPIDX_MASK	GENMASK(15, 8)
+#define RTL837X_L3_D2_IGMPASIC_MASK	GENMASK(16, 16)
 
 static void rtl837x_l2_data_to_uc(const u32 *data, struct rtl837x_l2_uc *uc)
 {
-	uc->key.mac_addr[5] = FIELD_GET(RTL837X_L2_UC_D0_MAC5_MSK, data[0]);
-	uc->key.mac_addr[4] = FIELD_GET(RTL837X_L2_UC_D0_MAC4_MSK, data[0]);
-	uc->key.mac_addr[3] = FIELD_GET(RTL837X_L2_UC_D0_MAC3_MSK, data[0]);
-	uc->key.mac_addr[2] = FIELD_GET(RTL837X_L2_UC_D0_MAC2_MSK, data[0]);
-	uc->key.mac_addr[1] = FIELD_GET(RTL837X_L2_UC_D1_MAC1_MSK, data[1]);
-	uc->key.mac_addr[0] = FIELD_GET(RTL837X_L2_UC_D1_MAC0_MSK, data[1]);
+	uc->key.mac_addr[5] = FIELD_GET(RTL837X_L2_UC_D0_MAC5_MASK, data[0]);
+	uc->key.mac_addr[4] = FIELD_GET(RTL837X_L2_UC_D0_MAC4_MASK, data[0]);
+	uc->key.mac_addr[3] = FIELD_GET(RTL837X_L2_UC_D0_MAC3_MASK, data[0]);
+	uc->key.mac_addr[2] = FIELD_GET(RTL837X_L2_UC_D0_MAC2_MASK, data[0]);
+	uc->key.mac_addr[1] = FIELD_GET(RTL837X_L2_UC_D1_MAC1_MASK, data[1]);
+	uc->key.mac_addr[0] = FIELD_GET(RTL837X_L2_UC_D1_MAC0_MASK, data[1]);
 
-	uc->key.vid_fid = FIELD_GET(RTL837X_L2_UC_D1_CVIDFID_MSK, data[1]);
+	uc->key.vid_fid = FIELD_GET(RTL837X_L2_UC_D1_CVIDFID_MASK, data[1]);
 	// shoule never be set in uc entry
-	// uc->l3lookup = FIELD_GET(RTL837X_L2_UC_D1_L3LOOKUP_MSK, data[1]);
-	uc->key.ivl = FIELD_GET(RTL837X_L2_UC_D1_IVL_MSK, data[1]);
+	// uc->l3lookup = FIELD_GET(RTL837X_L2_UC_D1_L3LOOKUP_MASK, data[1]);
+	uc->key.ivl = FIELD_GET(RTL837X_L2_UC_D1_IVL_MASK, data[1]);
 
 	uc->port = RTL837X_L2_UC_SPORT_GET(data[1], data[2]);
 
-	uc->age = FIELD_GET(RTL837X_L2_UC_D2_AGE_MSK, data[2]);
-	uc->auth = FIELD_GET(RTL837X_L2_UC_D2_AUTH_MSK, data[2]);
-	uc->is_static = FIELD_GET(RTL837X_L2_UC_D2_STATIC_MSK, data[2]);
+	uc->age = FIELD_GET(RTL837X_L2_UC_D2_AGE_MASK, data[2]);
+	uc->auth = FIELD_GET(RTL837X_L2_UC_D2_AUTH_MASK, data[2]);
+	uc->is_static = FIELD_GET(RTL837X_L2_UC_D2_STATIC_MASK, data[2]);
 }
 
 static void rtl837x_l2_uc_to_data(const struct rtl837x_l2_uc *uc, u32 *data)
 {
 	memset(data, 0, RTL837X_LUT_TABLE_SIZE * sizeof(*data));
 	data[0] |=
-		FIELD_PREP(RTL837X_L2_UC_D0_MAC5_MSK, uc->key.mac_addr[5]);
+		FIELD_PREP(RTL837X_L2_UC_D0_MAC5_MASK, uc->key.mac_addr[5]);
 	data[0] |=
-		FIELD_PREP(RTL837X_L2_UC_D0_MAC4_MSK, uc->key.mac_addr[4]);
+		FIELD_PREP(RTL837X_L2_UC_D0_MAC4_MASK, uc->key.mac_addr[4]);
 	data[0] |=
-		FIELD_PREP(RTL837X_L2_UC_D0_MAC3_MSK, uc->key.mac_addr[3]);
+		FIELD_PREP(RTL837X_L2_UC_D0_MAC3_MASK, uc->key.mac_addr[3]);
 	data[0] |=
-		FIELD_PREP(RTL837X_L2_UC_D0_MAC2_MSK, uc->key.mac_addr[2]);
+		FIELD_PREP(RTL837X_L2_UC_D0_MAC2_MASK, uc->key.mac_addr[2]);
 	data[1] |=
-		FIELD_PREP(RTL837X_L2_UC_D1_MAC1_MSK, uc->key.mac_addr[1]);
+		FIELD_PREP(RTL837X_L2_UC_D1_MAC1_MASK, uc->key.mac_addr[1]);
 	data[1] |=
-		FIELD_PREP(RTL837X_L2_UC_D1_MAC0_MSK, uc->key.mac_addr[0]);
+		FIELD_PREP(RTL837X_L2_UC_D1_MAC0_MASK, uc->key.mac_addr[0]);
 
 	data[1] |=
-		FIELD_PREP(RTL837X_L2_UC_D1_CVIDFID_MSK, uc->key.vid_fid);
+		FIELD_PREP(RTL837X_L2_UC_D1_CVIDFID_MASK, uc->key.vid_fid);
 	data[1] |=
-		FIELD_PREP(RTL837X_L2_UC_D1_IVL_MSK, uc->key.ivl);
+		FIELD_PREP(RTL837X_L2_UC_D1_IVL_MASK, uc->key.ivl);
 	// shoule never be set in uc entry
 	data[1] |=
-		FIELD_PREP(RTL837X_L2_UC_D1_L3LOOKUP_MSK, 0);
+		FIELD_PREP(RTL837X_L2_UC_D1_L3LOOKUP_MASK, 0);
 
 	data[1] |=
-		FIELD_PREP(RTL837X_L2_UC_D1_SPORT_LO_MSK, uc->port & 0x3);
+		FIELD_PREP(RTL837X_L2_UC_D1_SPORT_LO_MASK, uc->port & 0x3);
 	data[2] |=
-		FIELD_PREP(RTL837X_L2_UC_D2_SPORT_HI_MSK, (uc->port >> 2) & 0x3);
+		FIELD_PREP(RTL837X_L2_UC_D2_SPORT_HI_MASK, (uc->port >> 2) & 0x3);
 
 	data[2] |=
-		FIELD_PREP(RTL837X_L2_UC_D2_STATIC_MSK, uc->is_static);
+		FIELD_PREP(RTL837X_L2_UC_D2_STATIC_MASK, uc->is_static);
 	data[2] |=
-		FIELD_PREP(RTL837X_L2_UC_D2_AGE_MSK, uc->age);
+		FIELD_PREP(RTL837X_L2_UC_D2_AGE_MASK, uc->age);
 	data[2] |=
-		FIELD_PREP(RTL837X_L2_UC_D2_AUTH_MSK, uc->auth);
+		FIELD_PREP(RTL837X_L2_UC_D2_AUTH_MASK, uc->auth);
 }
 
 
 static void rtl837x_l2_data_to_mc(const u32 *data, struct rtl837x_l2_mc *mc)
 {
-	mc->key.mac_addr[5] = FIELD_GET(RTL837X_L2_MC_D0_MAC5_MSK, data[0]);
-	mc->key.mac_addr[4] = FIELD_GET(RTL837X_L2_MC_D0_MAC4_MSK, data[0]);
-	mc->key.mac_addr[3] = FIELD_GET(RTL837X_L2_MC_D0_MAC3_MSK, data[0]);
-	mc->key.mac_addr[2] = FIELD_GET(RTL837X_L2_MC_D0_MAC2_MSK, data[0]);
-	mc->key.mac_addr[1] = FIELD_GET(RTL837X_L2_MC_D1_MAC1_MSK, data[1]);
-	mc->key.mac_addr[0] = FIELD_GET(RTL837X_L2_MC_D1_MAC0_MSK, data[1]);
+	mc->key.mac_addr[5] = FIELD_GET(RTL837X_L2_MC_D0_MAC5_MASK, data[0]);
+	mc->key.mac_addr[4] = FIELD_GET(RTL837X_L2_MC_D0_MAC4_MASK, data[0]);
+	mc->key.mac_addr[3] = FIELD_GET(RTL837X_L2_MC_D0_MAC3_MASK, data[0]);
+	mc->key.mac_addr[2] = FIELD_GET(RTL837X_L2_MC_D0_MAC2_MASK, data[0]);
+	mc->key.mac_addr[1] = FIELD_GET(RTL837X_L2_MC_D1_MAC1_MASK, data[1]);
+	mc->key.mac_addr[0] = FIELD_GET(RTL837X_L2_MC_D1_MAC0_MASK, data[1]);
 
-	mc->key.vid_fid = FIELD_GET(RTL837X_L2_MC_D1_CVIDFID_MSK, data[1]);
+	mc->key.vid_fid = FIELD_GET(RTL837X_L2_MC_D1_CVIDFID_MASK, data[1]);
 	// shoule never be set in mc entry
-	// mc->l3lookup    = FIELD_GET(RTL837X_L2_MC_D1_L3LOOKUP_MSK, data[1]);
-	mc->key.ivl     = FIELD_GET(RTL837X_L2_MC_D1_IVL_MSK, data[1]);
+	// mc->l3lookup    = FIELD_GET(RTL837X_L2_MC_D1_L3LOOKUP_MASK, data[1]);
+	mc->key.ivl     = FIELD_GET(RTL837X_L2_MC_D1_IVL_MASK, data[1]);
 
 	mc->mbr = RTL837X_L2_MC_MBR_GET(data[1], data[2]);
 
-	mc->igmp_asic = FIELD_GET(RTL837X_L2_MC_D2_IGMPASIC_MSK, data[2]);
-	mc->igmp_idx  = FIELD_GET(RTL837X_L2_MC_D2_IGMPIDX_MSK, data[2]);
+	mc->igmp_asic = FIELD_GET(RTL837X_L2_MC_D2_IGMPASIC_MASK, data[2]);
+	mc->igmp_idx  = FIELD_GET(RTL837X_L2_MC_D2_IGMPIDX_MASK, data[2]);
 }
 
 static void rtl837x_l2_mc_to_data(const struct rtl837x_l2_mc *mc, u32 *data)
 {
 	memset(data, 0, RTL837X_LUT_TABLE_SIZE * sizeof(*data));
 	data[0] |=
-		FIELD_PREP(RTL837X_L2_MC_D0_MAC5_MSK, mc->key.mac_addr[5]);
+		FIELD_PREP(RTL837X_L2_MC_D0_MAC5_MASK, mc->key.mac_addr[5]);
 	data[0] |=
-		FIELD_PREP(RTL837X_L2_MC_D0_MAC4_MSK, mc->key.mac_addr[4]);
+		FIELD_PREP(RTL837X_L2_MC_D0_MAC4_MASK, mc->key.mac_addr[4]);
 	data[0] |=
-		FIELD_PREP(RTL837X_L2_MC_D0_MAC3_MSK, mc->key.mac_addr[3]);
+		FIELD_PREP(RTL837X_L2_MC_D0_MAC3_MASK, mc->key.mac_addr[3]);
 	data[0] |=
-		FIELD_PREP(RTL837X_L2_MC_D0_MAC2_MSK, mc->key.mac_addr[2]);
+		FIELD_PREP(RTL837X_L2_MC_D0_MAC2_MASK, mc->key.mac_addr[2]);
 	data[1] |=
-		FIELD_PREP(RTL837X_L2_MC_D1_MAC1_MSK, mc->key.mac_addr[1]);
+		FIELD_PREP(RTL837X_L2_MC_D1_MAC1_MASK, mc->key.mac_addr[1]);
 	data[1] |=
-		FIELD_PREP(RTL837X_L2_MC_D1_MAC0_MSK, mc->key.mac_addr[0]);
+		FIELD_PREP(RTL837X_L2_MC_D1_MAC0_MASK, mc->key.mac_addr[0]);
 
 	data[1] |=
-		FIELD_PREP(RTL837X_L2_MC_D1_CVIDFID_MSK, mc->key.vid_fid);
+		FIELD_PREP(RTL837X_L2_MC_D1_CVIDFID_MASK, mc->key.vid_fid);
 	data[1] |=
-		FIELD_PREP(RTL837X_L2_MC_D1_IVL_MSK, mc->key.ivl);
+		FIELD_PREP(RTL837X_L2_MC_D1_IVL_MASK, mc->key.ivl);
 
 	// shoule never be set in mc entry
 	data[1] |=
-		FIELD_PREP(RTL837X_L2_MC_D1_L3LOOKUP_MSK, 0);
+		FIELD_PREP(RTL837X_L2_MC_D1_L3LOOKUP_MASK, 0);
 
 	data[1] |=
-		FIELD_PREP(RTL837X_L2_MC_D1_MBR_LO_MSK, mc->mbr & 0x3);
+		FIELD_PREP(RTL837X_L2_MC_D1_MBR_LO_MASK, mc->mbr & 0x3);
 	data[2] |=
-		FIELD_PREP(RTL837X_L2_MC_D2_MBR_HI_MSK, (mc->mbr >> 2) & 0xFF);
+		FIELD_PREP(RTL837X_L2_MC_D2_MBR_HI_MASK, (mc->mbr >> 2) & 0xFF);
 
 	data[2] |=
-		FIELD_PREP(RTL837X_L2_MC_D2_IGMPIDX_MSK, mc->igmp_idx);
+		FIELD_PREP(RTL837X_L2_MC_D2_IGMPIDX_MASK, mc->igmp_idx);
 	data[2] |=
-		FIELD_PREP(RTL837X_L2_MC_D2_IGMPASIC_MSK, mc->igmp_asic);
+		FIELD_PREP(RTL837X_L2_MC_D2_IGMPASIC_MASK, mc->igmp_asic);
 }
 
 static void rtl837x_data_to_l3(const u32 *data, struct rtl837x_l3 *l3)
 {
-	l3->sip = FIELD_GET(RTL837X_L3_D0_SIP_MSK, data[0]);
-	l3->dip = FIELD_GET(RTL837X_L3_D1_DIP_MSK, data[1]);
+	l3->sip = FIELD_GET(RTL837X_L3_D0_SIP_MASK, data[0]);
+	l3->dip = FIELD_GET(RTL837X_L3_D1_DIP_MASK, data[1]);
 
-	l3->l3lookup = FIELD_GET(RTL837X_L3_D1_L3LOOKUP_MSK, data[1]);
+	l3->l3lookup = FIELD_GET(RTL837X_L3_D1_L3LOOKUP_MASK, data[1]);
 
 	l3->mbr = RTL837X_L3_MBR_GET(data[1], data[2]);
 
-	l3->igmp_idx = FIELD_GET(RTL837X_L3_D2_IGMPIDX_MSK, data[2]);
-	l3->igmp_asic = FIELD_GET(RTL837X_L3_D2_IGMPASIC_MSK, data[2]);
+	l3->igmp_idx = FIELD_GET(RTL837X_L3_D2_IGMPIDX_MASK, data[2]);
+	l3->igmp_asic = FIELD_GET(RTL837X_L3_D2_IGMPASIC_MASK, data[2]);
 }
 
 static void rtl837x_l3_to_data(const struct rtl837x_l3 *l3, u32 *data)
 {
 	memset(data, 0, RTL837X_LUT_TABLE_SIZE * sizeof(*data));
 	data[0] |=
-		FIELD_PREP(RTL837X_L3_D0_SIP_MSK, l3->sip);
+		FIELD_PREP(RTL837X_L3_D0_SIP_MASK, l3->sip);
 	data[1] |=
-		FIELD_PREP(RTL837X_L3_D1_DIP_MSK, l3->dip);
+		FIELD_PREP(RTL837X_L3_D1_DIP_MASK, l3->dip);
 	data[1] |=
-		FIELD_PREP(RTL837X_L3_D1_L3LOOKUP_MSK, l3->l3lookup);
+		FIELD_PREP(RTL837X_L3_D1_L3LOOKUP_MASK, l3->l3lookup);
 
 	data[1] |=
-		FIELD_PREP(RTL837X_L3_D1_MBR_LO_MSK, l3->mbr & 0x3);
+		FIELD_PREP(RTL837X_L3_D1_MBR_LO_MASK, l3->mbr & 0x3);
 	data[2] |=
-		FIELD_PREP(RTL837X_L3_D2_MBR_HI_MSK, (l3->mbr >> 2) & 0xFF);
+		FIELD_PREP(RTL837X_L3_D2_MBR_HI_MASK, (l3->mbr >> 2) & 0xFF);
 
 	data[2] |=
-		FIELD_PREP(RTL837X_L3_D2_IGMPIDX_MSK, l3->igmp_idx);
+		FIELD_PREP(RTL837X_L3_D2_IGMPIDX_MASK, l3->igmp_idx);
 	data[2] |=
-		FIELD_PREP(RTL837X_L3_D2_IGMPASIC_MSK, l3->igmp_asic);
+		FIELD_PREP(RTL837X_L3_D2_IGMPASIC_MASK, l3->igmp_asic);
 }
 
 int rtl837x_lut_query(struct realtek_priv *priv,
@@ -274,9 +282,9 @@ int rtl837x_lut_query(struct realtek_priv *priv,
 	entry->addr = addr;
 
 	// Get entry type
-	if (FIELD_GET(RTL837X_L3_D1_L3LOOKUP_MSK, tb_data[1]))
+	if (FIELD_GET(RTL837X_L3_D1_L3LOOKUP_MASK, tb_data[1]))
 		entry->type = RTL837X_LUT_TYPE_L3;
-	else if (FIELD_GET(RTL837X_L2_MC_D1_MAC0_MSK, tb_data[1]) & 1) // Check mac0 bit0
+	else if (FIELD_GET(RTL837X_L2_MC_D1_MAC0_MASK, tb_data[1]) & 1) // Check mac0 bit0
 		entry->type = RTL837X_LUT_TYPE_L2_MC;
 	else
 		entry->type = RTL837X_LUT_TYPE_L2_UC;
@@ -384,7 +392,7 @@ int rtl837x_lut_l2_flush(struct realtek_priv *priv, enum rtl837x_l2_flush_mode m
 
 	ret = rtl837x_reg_write(priv, RTL837X_L2_FLUSH_CMD_REG,
 		   FIELD_PREP(RTL837X_L2_FLUSH_CMD_ACT_MASK, 1) |
-		   FIELD_PREP(RTL837X_L2_FLUSH_CMD_PMSK_MASK, BIT(port))
+		   FIELD_PREP(RTL837X_L2_FLUSH_CMD_PORT_MASK, BIT(port))
 		);
 	if (ret)
 		return ret;

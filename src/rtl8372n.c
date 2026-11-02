@@ -18,30 +18,39 @@
 #define RTL8372N_SUPPORTED_BRIDGE_FLAGS \
 	    (BR_LEARNING)
 
-/* Chip identification */
-#define RTL837X_MODEL_NAME_REG            0x4
-#define   RTL837X_MODEL_NAME_ID_MASK      GENMASK(31, 16)
-#define   RTL837X_MODEL_NAME_CHAR1_MASK   GENMASK(15, 11)
-#define   RTL837X_MODEL_NAME_CHAR2_MASK   GENMASK(10, 6)
+/*
+ * Chip identification. The model is a 16-bit number followed by two packed
+ * 5-bit characters, e.g. "8372" + 'N'.
+ */
+#define RTL837X_CHIP_ID_REG                  0x4
+#define   RTL837X_CHIP_ID_MODEL_MASK         GENMASK(31, 16)
+#define   RTL837X_CHIP_ID_CHAR1_MASK         GENMASK(15, 11)
+#define   RTL837X_CHIP_ID_CHAR2_MASK         GENMASK(10, 6)
 
+/* Ports whose link status is polled by the switch itself */
 #define RTL837X_PORT_POLLING_REG             0x6334
-#define   RTL837X_PORT_POLLING_PORT_MASK(_p) BIT(_p) /* port 0~8 */
+#define   RTL837X_PORT_POLLING_PORT_BIT(_p)  BIT(_p) /* port 0~8 */
 
+/* Selects whether a MAC polls an internal PHY or an internal SerDes */
 #define RTL837X_SMI_MAC_TYPE_REG             0x6330
-#define   RTL837X_SMI_MAC_TYPE_PORT_MASK(_p)  (0x3 << (_p*2))
-#define   RTL837X_SMI_MAC_TYPE_SERDES         0
-#define   RTL837X_SMI_MAC_TYPE_PORT           1
+#define   RTL837X_SMI_MAC_TYPE_MASK(_p)      (0x3 << ((_p) * 2))
+#define   RTL837X_SMI_MAC_TYPE_SERDES        0
+#define   RTL837X_SMI_MAC_TYPE_PORT          1
 
-#define RTL837X_SMI_GLB_CTRL_REG                          0x632C
-#define   RTL837X_SMI_GLB_CTRL_SMI_POLLING_MASK_MASK      GENMASK(20, 12)
-#define   RTL837X_SMI_GLB_CTRL_SMI_POLLING_PORT_MASK(_p)  (BIT(_p) << 12)
-#define RTL837X_SMI_CTRL_ADDR                                   0x6454
-#define   RTL837X_SMI_CTRL_SMI2_MDC_EN_MASK                     BIT(14)
-#define   RTL837X_SMI_CTRL_SMI1_MDC_EN_MASK                     BIT(13)
-#define   RTL837X_SMI_CTRL_SMI0_MDC_EN_MASK                     BIT(12)
+/* Global SMI settings */
+#define RTL837X_SMI_GLB_CTRL_REG                    0x632C
+#define   RTL837X_SMI_GLB_CTRL_POLLING_MASK         GENMASK(20, 12)
+#define   RTL837X_SMI_GLB_CTRL_POLLING_PORT_BIT(_p)  (BIT(_p) << 12)
+#define RTL837X_SMI_CTRL_REG                         0x6454
+#define   RTL837X_SMI_CTRL_SMI2_MDC_EN_MASK          BIT(14)
+#define   RTL837X_SMI_CTRL_SMI1_MDC_EN_MASK          BIT(13)
+#define   RTL837X_SMI_CTRL_SMI0_MDC_EN_MASK          BIT(12)
 
-/* Internal SerDes */
-#define RTL837X_SDS_MODE_SEL_ADDR                          0x7B20
+/*
+ * Internal SerDes configuration. SDS0 feeds MAC3 and SDS1 feeds MAC8; each
+ * SerDes has a link mode and, for USXGMII, a separate sub-mode field.
+ */
+#define RTL837X_SDS_MODE_SEL_REG                          0x7B20
 #define   RTL837X_SDS_MODE_SEL_CFG_MAC8_8221B_MASK         BIT(22)
 #define   RTL837X_SDS_MODE_SEL_CFG_MAC3_8221B_MASK         BIT(21)
 #define   RTL837X_SDS_MODE_SEL_SDS1_USX_SUB_MODE_MASK      GENMASK(20, 16)
@@ -49,99 +58,113 @@
 #define   RTL837X_SDS_MODE_SEL_SDS1_MODE_SEL_MASK          GENMASK(9, 5)
 #define   RTL837X_SDS_MODE_SEL_SDS0_MODE_SEL_MASK          GENMASK(4, 0)
 
-/* PHY configuration */
-#define RTL837X_CFG_PHY_MDI_REVERSE_ADDR                              0xA90
-#define   RTL837X_CFG_PHY_MDI_REVERSE_P3_MDI_REVERSE_MASK             BIT(3)
-#define   RTL837X_CFG_PHY_MDI_REVERSE_P2_MDI_REVERSE_MASK             BIT(2)
-#define   RTL837X_CFG_PHY_MDI_REVERSE_P1_MDI_REVERSE_MASK             BIT(1)
-#define   RTL837X_CFG_PHY_MDI_REVERSE_P0_MDI_REVERSE_MASK             BIT(0)
-#define RTL837X_CFG_PHY_TX_POLARITY_SWAP_ADDR                         0xA94
-#define   RTL837X_CFG_PHY_TX_POLARITY_SWAP_P3_TX_POLARITY_SWAP_MASK   GENMASK(15, 12)
-#define   RTL837X_CFG_PHY_TX_POLARITY_SWAP_P2_TX_POLARITY_SWAP_MASK   GENMASK(11, 8)
-#define   RTL837X_CFG_PHY_TX_POLARITY_SWAP_P1_TX_POLARITY_SWAP_MASK   GENMASK(7, 4)
-#define   RTL837X_CFG_PHY_TX_POLARITY_SWAP_P0_TX_POLARITY_SWAP_MASK   GENMASK(3, 0)
+/* Internal PHY configuration */
+#define RTL837X_PHY_MDI_REVERSE_REG                       0xA90
+#define   RTL837X_PHY_MDI_REVERSE_P3_MASK                 BIT(3)
+#define   RTL837X_PHY_MDI_REVERSE_P2_MASK                 BIT(2)
+#define   RTL837X_PHY_MDI_REVERSE_P1_MASK                 BIT(1)
+#define   RTL837X_PHY_MDI_REVERSE_P0_MASK                 BIT(0)
+#define RTL837X_PHY_TX_POLARITY_REG                       0xA94
+#define   RTL837X_PHY_TX_POLARITY_P3_MASK                 GENMASK(15, 12)
+#define   RTL837X_PHY_TX_POLARITY_P2_MASK                 GENMASK(11, 8)
+#define   RTL837X_PHY_TX_POLARITY_P1_MASK                 GENMASK(7, 4)
+#define   RTL837X_PHY_TX_POLARITY_P0_MASK                 GENMASK(3, 0)
 
-/* Port PHY mdio address */
-#define RTL837X_SMI_PORT_MDIO_ADDR_CFG_REG(_p)        (0x644C + ((_p/6)<<2))
-#define RTL837X_SMI_PORT_MDIO_ADDR_CFG_PORT_MASK(_p)  (GENMASK(4, 0) << ((_p%6)*5))
+/* MDIO address the switch uses to reach the PHY of each external port */
+#define RTL837X_SMI_PORT_MDIO_ADDR_REG(_p)                (0x644C + (((_p) / 6) << 2))
+#define   RTL837X_SMI_PORT_MDIO_ADDR_MASK(_p)             (GENMASK(4, 0) << (((_p) % 6) * 5))
 
-/* MIB Control */
-#define RTL837X_INDIRECT_ACCESS_CTRL_ADDR                     0xF60
-#define   RTL837X_INDIRECT_ACCESS_CTRL_MIB_ID_MASK            GENMASK(10, 5)
-#define   RTL837X_INDIRECT_ACCESS_CTRL_PORT_ID_MASK           GENMASK(4, 1)
-#define   RTL837X_INDIRECT_ACCESS_CTRL_ACC_CMD_MASK           BIT(0)
-#define RTL837X_INDIRECT_ACCESS_CNT_L_ADDR                    0xF64
-#define RTL837X_INDIRECT_ACCESS_CNT_H_ADDR                    0xF68
+/*
+ * MIB counters are read indirectly: pick a counter id and port, then read
+ * the low and high words.
+ */
+#define RTL837X_MIB_CTRL_REG                     0xF60
+#define   RTL837X_MIB_CTRL_ID_MASK               GENMASK(10, 5)
+#define   RTL837X_MIB_CTRL_PORT_IDX_MASK         GENMASK(4, 1)
+#define   RTL837X_MIB_CTRL_BUSY_MASK             BIT(0)
+#define RTL837X_MIB_COUNTER_LO_REG               0xF64
+#define RTL837X_MIB_COUNTER_HI_REG               0xF68
 
-/* Port MAC, link status */
-#define RTL837X_MAC_PORT_CTRL_ADDR(_p)                          (0x122C + (((_p) << 8)))
-#define   RTL837X_MAC_PORT_CTRL_BKPRES_EN_MASK                  BIT(0)
+/* Per-port MAC control and aggregated link status registers */
+#define RTL837X_MAC_PORT_CTRL_REG(_p)                   (0x122C + (((_p) << 8)))
+#define   RTL837X_MAC_PORT_CTRL_BKPRES_EN_MASK          BIT(0)
 
-#define RTL837X_MAC_LINK_STS_ADDR                               0x63E8
-#define RTL837X_MAC_LINK_SPD_STS_ADDR(_p)                       (0x63F0 + (((_p >> 3) << 2)))
-#define   RTL837X_MAC_LINK_SPD_STS_SPD_STS_9_0_MASK(_p)         (GENMASK(3, 0) << ((_p & 0x7) << 2))
-#define RTL837X_MAC_LINK_DUP_STS_ADDR                           0x63F8
-#define RTL837X_MAC_TX_PAUSE_STS_ADDR                           0x63FC
-#define RTL837X_MAC_RX_PAUSE_STS_ADDR                           0x6400
+#define RTL837X_MAC_LINK_STS_REG                        0x63E8
+#define RTL837X_MAC_LINK_SPD_STS_REG(_p)                (0x63F0 + (((_p) >> 3) << 2))
+#define   RTL837X_MAC_LINK_SPD_STS_MASK(_p)             (GENMASK(3, 0) << (((_p) & 0x7) << 2))
+#define RTL837X_MAC_LINK_DUP_STS_REG                    0x63F8
+#define RTL837X_MAC_TX_PAUSE_STS_REG                    0x63FC
+#define RTL837X_MAC_RX_PAUSE_STS_REG                    0x6400
 
-/* EEE control */
-#define RTL837X_EEE_CTRL_ADDR(_p)                   (0x125C + (((_p) << 8)))
-#define   RTL837X_EEE_CTRL_EEE_RX_STS_MASK          BIT(3)
-#define   RTL837X_EEE_CTRL_EEE_TX_STS_MASK          BIT(2)
-#define   RTL837X_EEE_CTRL_EEE_PORT_TX_EN_MASK      BIT(1)
-#define   RTL837X_EEE_CTRL_EEE_PORT_RX_EN_MASK      BIT(0)
+/* Energy Efficient Ethernet control and status */
+#define RTL837X_EEE_CTRL_REG(_p)                        (0x125C + (((_p) << 8)))
+#define   RTL837X_EEE_CTRL_RX_STS_MASK                  BIT(3)
+#define   RTL837X_EEE_CTRL_TX_STS_MASK                  BIT(2)
+#define   RTL837X_EEE_CTRL_TX_EN_MASK                   BIT(1)
+#define   RTL837X_EEE_CTRL_RX_EN_MASK                   BIT(0)
 
-/* L2 learning control */
-#define RTL837X_MAC_L2_GLOBAL_CTRL0_ADDR                          0x5FD4
-#define   RTL837X_MAC_L2_GLOBAL_CTRL0_FWD_INVLD_MAC_CTRL_EN_MASK  BIT(20)
-#define   RTL837X_MAC_L2_GLOBAL_CTRL0_FWD_UNKN_OPCODE_EN_MASK     BIT(19)
-#define RTL837X_MAC_L2_PORT_CTRL_ADDR(_p)                         (0x1238 + (((_p) << 8)))
-#define   RTL837X_MAC_L2_PORT_CTRL_CLOCK_SWITCH_MASK              BIT(8)
-#define   RTL837X_MAC_L2_PORT_CTRL_RX_CHK_CRC_EN_MASK             BIT(4)
+/* L2 forwarding and learning control */
+#define RTL837X_MAC_L2_GLOBAL_CTRL_REG                  0x5FD4
+#define   RTL837X_MAC_L2_GLOBAL_CTRL_FWD_INVLD_MAC_EN_MASK   BIT(20)
+#define   RTL837X_MAC_L2_GLOBAL_CTRL_FWD_UNKN_OPCODE_EN_MASK BIT(19)
+#define RTL837X_MAC_L2_PORT_CTRL_REG(_p)                (0x1238 + (((_p) << 8)))
+#define   RTL837X_MAC_L2_PORT_CTRL_CLOCK_SWITCH_MASK    BIT(8)
+#define   RTL837X_MAC_L2_PORT_CTRL_RX_CHK_CRC_EN_MASK   BIT(4)
 
-/* CPU tagging */
-#define RTL837X_CPU_TAG_CTRL_ADDR                           0x6720
-#define   RTL837X_CPU_TAG_CTRL_EXT_CPUTAG_INSERTMOD_MASK    GENMASK(11, 10)
-#define   RTL837X_CPU_TAG_CTRL_EXT_CPUTAG_EN_MASK           BIT(1)
-#define RTL837X_EXT_CPU_CTRL_ADDR                           0x6724
-#define   RTL837X_EXT_CPU_CTRL_PORT_MASK                    GENMASK(3, 0)
-#define RTL837X_CPU_TAG_AWARE_CTRL_ADDR                     0x603C
+/*
+ * CPU port tagging. The switch inserts a Realtek CPU tag on frames sent to
+ * the CPU port, and only accepts tagged frames back when CPU_CTRL_EN is set.
+ */
+#define RTL837X_CPU_CTRL_REG                            0x6720
+#define   RTL837X_CPU_CTRL_INSERTMODE_MASK              GENMASK(11, 10)
+#define   RTL837X_CPU_CTRL_EN_MASK                      BIT(1)
+#define RTL837X_EXT_CPU_CTRL_REG                        0x6724
+#define   RTL837X_EXT_CPU_CTRL_PORT_IDX_MASK            GENMASK(3, 0)
+/* Ports that expect the extended CPU tag on ingress */
+#define RTL837X_CPU_TAG_AWARE_CTRL_REG                  0x603C
 
-/* VLAN and VLAN stacking */
-#define RTL837X_VLAN_CTRL_ADDR                                   0x4E14
+/* VLAN global control */
+#define RTL837X_VLAN_CTRL_REG                                   0x4E14
 #define   RTL837X_VLAN_CTRL_TABLE_RST_MASK                       BIT(3)
 #define   RTL837X_VLAN_CTRL_CVLAN_FILTER_MASK                    BIT(2)
 
-#define RTL837X_VS_GLB_CTRL_ADDR                                 0x6044
-#define RTL837X_VS_UPLINK_PORT_ADDR                              0x57C0
-#define RTL837X_VS_CTRL_ADDR                                     0x57C4
+/*
+ * VLAN stacking (SVLAN). The switch maps the customer VID of an ingress
+ * frame to a service VID, and marks that service VID on the CPU tag.
+ */
+#define RTL837X_VS_GLB_CTRL_REG                                 0x6044
+#define RTL837X_VS_UPLINK_PORT_REG                              0x57C0
+#define RTL837X_VS_CTRL_REG                                     0x57C4
 #define   RTL837X_VS_CTRL_SPRISEL_MASK                           GENMASK(4, 3)
 #define   RTL837X_VS_CTRL_UIFSEG_MASK                            BIT(2)
 #define   RTL837X_VS_CTRL_UNTAG_MASK                             GENMASK(1, 0)
-#define RTL837X_VS_PORT_DFLT_SVID_ADDR(_p)                       (0x57CC + (((_p >> 1) << 2)))
-#define   RTL837X_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(_p)      (GENMASK(11, 0) << ((_p & 0x1) * 12))
-#define RTL837X_SVLAN_TRAP_CTRL_ADDR                             0x4EC8
-#define   RTL837X_SVLAN_TRAP_CTRL_CPU_PMSK_MASK                  GENMASK(17, 16)
-#define RTL837X_VLAN_C2S_ENTRY_ADDR(_i)                          (0x57E0 + (((_i) << 3))) /* RTL837x_C2SIDXMAX */
+#define RTL837X_VS_PORT_DFLT_SVID_REG(_p)                       (0x57CC + (((_p) >> 1) << 2))
+#define   RTL837X_VS_PORT_DFLT_SVID_MASK(_p)                    (GENMASK(11, 0) << (((_p) & 0x1) * 12))
+#define RTL837X_SVLAN_TRAP_CTRL_REG                             0x4EC8
+/* Which CPU type the SVLAN trap is reported to: bit0 internal, bit1 external */
+#define   RTL837X_SVLAN_TRAP_CTRL_CPU_TYPE_MASK                  GENMASK(17, 16)
+/* Per-C2SVID entry mapping a customer VID to a service VID */
+#define RTL837X_VLAN_C2S_ENTRY_REG(_i)                          (0x57E0 + (((_i) << 3)))
 
-/* Spanning tree */
-#define RTL837X_MSPT_STATE_ADDR(_fid)       (0x5310 + (((_fid) << 2))) /* RTL837x_FIDMAX */
-#define RTL837X_MSTP_STATE(port, state) \
+/* Spanning tree port state, indexed by filtering id (FID) */
+#define RTL837X_MSTI_CTRL_REG(_fid)       (0x5310 + (((_fid) << 2)))
+#define RTL837X_MSTI_CTRL_PORT_STATE(port, state) \
 	((state) << ((port) * 2))
-#define RTL837X_MSTP_STATE_MASK(port) \
-	RTL837X_MSTP_STATE((port), GENMASK(1, 0))
+#define RTL837X_MSTI_CTRL_PORT_STATE_MASK(port) \
+	RTL837X_MSTI_CTRL_PORT_STATE((port), GENMASK(1, 0))
 
-/* Isolation */
-#define RTL837X_PORT_ISO_PORT_PMSK_ADDR(_p)                    (0x50C0 + (((_p) << 2)))
-#define   RTL837X_PORT_ISO_PORT_PMSK_PMSK_MASK                 GENMASK(9, 0)
+/* Per-port forwarding mask; a clear bit blocks frames to that port */
+#define RTL837X_PORT_ISOLATION_REG(_p)                    (0x50C0 + (((_p) << 2)))
+#define   RTL837X_PORT_ISOLATION_PORT_MASK                 GENMASK(9, 0)
 
-/* Flow control */
-#define RTL837X_FC_PORT_ACT_CTRL_ADDR(_p)                      (0x7124 + (((_p) << 2)))
-#define   RTL837X_FC_PORT_ACT_CTRL_ACT_MASK                                                                   BIT(12)
-#define   RTL837X_FC_PORT_ACT_CTRL_ALLOW_PAGE_CNT_MASK                                                        GENMASK(11, 0)
+/* Flow control: force link and pause state instead of using autoneg */
+#define RTL837X_FC_PORT_ACT_CTRL_REG(_p)                      (0x7124 + (((_p) << 2)))
+#define   RTL837X_FC_PORT_ACT_CTRL_ACT_MASK                   BIT(12)
+#define   RTL837X_FC_PORT_ACT_CTRL_ALLOW_PAGE_CNT_MASK        GENMASK(11, 0)
 
-#define RTL837X_RS_LAYER_CONFIG_ADDR                                  0xB7C
-#define   RTL837X_RS_LAYER_CONFIG_RS_LINK_FAULT_INDI_OFF_MASK         BIT(5)
+/* Reconciliation sublayer: optionally suppress link fault propagation */
+#define RTL837X_RS_LAYER_CONFIG_REG                          0xB7C
+#define   RTL837X_RS_LAYER_CONFIG_RS_LINK_FAULT_INDI_OFF_MASK BIT(5)
 
 // TODO: this should check port is serdes mode or port mode
 #define IS_SERDES_PORT(port) (((port) == 3) || ((port) == 8))
@@ -479,12 +502,12 @@ static int rtl837x_get_chip_info(struct realtek_priv *priv, const struct rtl837x
 	u32 model_id, model_char1, val;
 	int ret;
 
-	ret = regmap_read(priv->map, RTL837X_MODEL_NAME_REG, &val);
+	ret = regmap_read(priv->map, RTL837X_CHIP_ID_REG, &val);
 	if (ret)
 		return ret;
 
-	model_id = FIELD_GET(RTL837X_MODEL_NAME_ID_MASK, val);
-	model_char1 = FIELD_GET(RTL837X_MODEL_NAME_CHAR1_MASK, val);
+	model_id = FIELD_GET(RTL837X_CHIP_ID_MODEL_MASK, val);
+	model_char1 = FIELD_GET(RTL837X_CHIP_ID_CHAR1_MASK, val);
 
 	for (int i = 0; i < ARRAY_SIZE(rtl837x_chip_infos); i++) {
 		if (rtl837x_chip_infos[i].chip_model_id == model_id &&
@@ -731,26 +754,26 @@ static int rtl8372n_get_mib_counter(struct realtek_priv *priv,
 	int mib_id = (mib->offset) / 2;
 	int ret;
 
-	tmp = (FIELD_PREP(RTL837X_INDIRECT_ACCESS_CTRL_PORT_ID_MASK, port) |
-					FIELD_PREP(RTL837X_INDIRECT_ACCESS_CTRL_MIB_ID_MASK, mib_id) |
-					FIELD_PREP(RTL837X_INDIRECT_ACCESS_CTRL_ACC_CMD_MASK, 1));
+	tmp = (FIELD_PREP(RTL837X_MIB_CTRL_PORT_IDX_MASK, port) |
+					FIELD_PREP(RTL837X_MIB_CTRL_ID_MASK, mib_id) |
+					FIELD_PREP(RTL837X_MIB_CTRL_BUSY_MASK, 1));
 
-	ret = rtl837x_reg_write(priv, RTL837X_INDIRECT_ACCESS_CTRL_ADDR, tmp);
+	ret = rtl837x_reg_write(priv, RTL837X_MIB_CTRL_REG, tmp);
 	if (ret)
 		return ret;
 
-	ret = regmap_read_poll_timeout(priv->map, RTL837X_INDIRECT_ACCESS_CTRL_ADDR, tmp,
-			  ((tmp & RTL837X_INDIRECT_ACCESS_CTRL_ACC_CMD_MASK) == 0),
+	ret = regmap_read_poll_timeout(priv->map, RTL837X_MIB_CTRL_REG, tmp,
+			  ((tmp & RTL837X_MIB_CTRL_BUSY_MASK) == 0),
 			  0, 1000
 			);
 	if (ret)
 		return ret;
 
 	if (mib->length > 1) {
-		ret = rtl837x_reg_read(priv, RTL837X_INDIRECT_ACCESS_CNT_L_ADDR, &val_l);
+		ret = rtl837x_reg_read(priv, RTL837X_MIB_COUNTER_LO_REG, &val_l);
 		if (ret)
 			return ret;
-		ret = rtl837x_reg_read(priv, RTL837X_INDIRECT_ACCESS_CNT_H_ADDR, &val_h);
+		ret = rtl837x_reg_read(priv, RTL837X_MIB_COUNTER_HI_REG, &val_h);
 		if (ret)
 			return ret;
 		*mibvalue = ((u64)val_l << 32) | val_h;
@@ -758,9 +781,9 @@ static int rtl8372n_get_mib_counter(struct realtek_priv *priv,
 	}
 
 	if (mib->offset % 2)
-		ret = rtl837x_reg_read(priv, RTL837X_INDIRECT_ACCESS_CNT_H_ADDR, &val);
+		ret = rtl837x_reg_read(priv, RTL837X_MIB_COUNTER_HI_REG, &val);
 	else
-		ret = rtl837x_reg_read(priv, RTL837X_INDIRECT_ACCESS_CNT_L_ADDR, &val);
+		ret = rtl837x_reg_read(priv, RTL837X_MIB_COUNTER_LO_REG, &val);
 	*mibvalue = val;
 	return ret;
 }
@@ -832,7 +855,7 @@ static struct device_node *of_get_phy_node(struct device_node *dn)
 static int rtl8372n_setup_mdio(struct realtek_priv *priv)
 {
 	struct device_node *phy_dn, *mnp, *phy_parent_mnp;
-	struct rtl837x_chip_info *chip_info;
+	const struct rtl837x_chip_info *chip_info;
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct device_node *np = priv->dev->of_node;
 	struct dsa_switch *ds = priv->ds;
@@ -919,9 +942,9 @@ static int rtl8372n_setup_mdio(struct realtek_priv *priv)
 
 		/* set port mdio address */
 		ret = regmap_update_bits(priv->map,
-			    RTL837X_SMI_PORT_MDIO_ADDR_CFG_REG(dp->index),
-			    RTL837X_SMI_PORT_MDIO_ADDR_CFG_PORT_MASK(dp->index),
-			    phy_addr << __ffs(RTL837X_SMI_PORT_MDIO_ADDR_CFG_PORT_MASK(dp->index))
+			    RTL837X_SMI_PORT_MDIO_ADDR_REG(dp->index),
+			    RTL837X_SMI_PORT_MDIO_ADDR_MASK(dp->index),
+			    phy_addr << __ffs(RTL837X_SMI_PORT_MDIO_ADDR_MASK(dp->index))
 			);
 		if (ret)
 			goto out;
@@ -973,35 +996,35 @@ static void rtl8372n_sds_pcs_get_state(struct phylink_pcs *pcs,
 	u32 tmp;
 	int ret;
 
-	ret = rtl837x_reg_bits_read(priv, RTL837X_MAC_LINK_STS_ADDR, BIT(port), &tmp);
+	ret = rtl837x_reg_bits_read(priv, RTL837X_MAC_LINK_STS_REG, BIT(port), &tmp);
 	if (ret < 0)
 		return;
 	state->link = tmp&1;
 	state->an_complete = tmp&1;
 
-	ret = rtl837x_reg_bits_read(priv, RTL837X_MAC_LINK_DUP_STS_ADDR, BIT(port), &tmp);
+	ret = rtl837x_reg_bits_read(priv, RTL837X_MAC_LINK_DUP_STS_REG, BIT(port), &tmp);
 	if (ret < 0)
 		return;
 	state->duplex = tmp&1;
 
 	state->pause &= ~(MLO_PAUSE_RX | MLO_PAUSE_TX);
 
-	ret = rtl837x_reg_bits_read(priv, RTL837X_MAC_RX_PAUSE_STS_ADDR, BIT(port), &tmp);
+	ret = rtl837x_reg_bits_read(priv, RTL837X_MAC_RX_PAUSE_STS_REG, BIT(port), &tmp);
 	if (ret < 0)
 		return;
 	if (tmp&1)
 		state->pause |= MLO_PAUSE_RX;
 
-	ret = rtl837x_reg_bits_read(priv, RTL837X_MAC_TX_PAUSE_STS_ADDR, BIT(port), &tmp);
+	ret = rtl837x_reg_bits_read(priv, RTL837X_MAC_TX_PAUSE_STS_REG, BIT(port), &tmp);
 	if (ret < 0)
 		return;
 	if (tmp&1)
 		state->pause |= MLO_PAUSE_TX;
 
-	ret = rtl837x_reg_read(priv, RTL837X_MAC_LINK_SPD_STS_ADDR(port), &tmp);
+	ret = rtl837x_reg_read(priv, RTL837X_MAC_LINK_SPD_STS_REG(port), &tmp);
 	if (ret)
 		return;
-	tmp = (tmp & RTL837X_MAC_LINK_SPD_STS_SPD_STS_9_0_MASK(port)) >> __ffs(RTL837X_MAC_LINK_SPD_STS_SPD_STS_9_0_MASK(port));
+	tmp = (tmp & RTL837X_MAC_LINK_SPD_STS_MASK(port)) >> __ffs(RTL837X_MAC_LINK_SPD_STS_MASK(port));
 	switch (tmp) {
 	case 0:
 		state->speed = SPEED_10;
@@ -1055,9 +1078,9 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 			  phy_modes(interface), neg_mode);
 
 	if (sds_idx == 0)
-		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_ADDR, RTL837X_SDS_MODE_SEL_CFG_MAC3_8221B_MASK, 0);
+		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG, RTL837X_SDS_MODE_SEL_CFG_MAC3_8221B_MASK, 0);
 	else
-		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_ADDR, RTL837X_SDS_MODE_SEL_CFG_MAC8_8221B_MASK, 0);
+		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG, RTL837X_SDS_MODE_SEL_CFG_MAC8_8221B_MASK, 0);
 	if (ret)
 		return ret;
 
@@ -1068,7 +1091,7 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 	// Chip rtl8372n doesn't support 10G QSXGMII, The sub mode always be zero
 	u32 sds_sub_mode_mask = sds_idx == 0 ?
 		  RTL837X_SDS_MODE_SEL_SDS0_USX_SUB_MODE_MASK : RTL837X_SDS_MODE_SEL_SDS1_USX_SUB_MODE_MASK;
-	ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_ADDR,
+	ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
 			  sds_sub_mode_mask, 0);
 	if (ret)
 		return ret;
@@ -1077,27 +1100,27 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 		  RTL837X_SDS_MODE_SEL_SDS0_MODE_SEL_MASK : RTL837X_SDS_MODE_SEL_SDS1_MODE_SEL_MASK;
 	switch (interface) {
 	case PHY_INTERFACE_MODE_USXGMII:
-		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_ADDR,
+		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
 			   sds_mode_mask, 0x0d);
 		break;
 	case PHY_INTERFACE_MODE_10GBASER:
-		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_ADDR,
+		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
 			   sds_mode_mask, 0x1a);
 		break;
 	case PHY_INTERFACE_MODE_2500BASEX:
-		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_ADDR,
+		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
 			   sds_mode_mask, 0x16);
 		break;
 	case PHY_INTERFACE_MODE_1000BASEX:
-		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_ADDR,
+		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
 			   sds_mode_mask, 0x04);
 		break;
 	case PHY_INTERFACE_MODE_SGMII:
-		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_ADDR,
+		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
 			   sds_mode_mask, 0x02);
 		break;
 	case PHY_INTERFACE_MODE_100BASEX:
-		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_ADDR,
+		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
 			   sds_mode_mask, 0x05);
 		break;
 	default:
@@ -1343,28 +1366,28 @@ static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 	 *	CPU_INSERT_TO_NONE,
 	 *	CPU_INSERT_END
 	 */
-	ret = rtl837x_reg_bits_write(priv, RTL837X_CPU_TAG_CTRL_ADDR,
-			  RTL837X_CPU_TAG_CTRL_EXT_CPUTAG_INSERTMOD_MASK, 0
+	ret = rtl837x_reg_bits_write(priv, RTL837X_CPU_CTRL_REG,
+			  RTL837X_CPU_CTRL_INSERTMODE_MASK, 0
 			);
 	if (ret)
 		return ret;
 
 	// Set external CPU port
-	ret = rtl837x_reg_bits_write(priv, RTL837X_EXT_CPU_CTRL_ADDR,
-			  RTL837X_EXT_CPU_CTRL_PORT_MASK, cpu_dp->index
+	ret = rtl837x_reg_bits_write(priv, RTL837X_EXT_CPU_CTRL_REG,
+			  RTL837X_EXT_CPU_CTRL_PORT_IDX_MASK, cpu_dp->index
 			);
 	if (ret)
 		return ret;
 
 	// Enable CPU tag
-	ret = rtl837x_reg_bits_write(priv, RTL837X_CPU_TAG_CTRL_ADDR,
-			  RTL837X_CPU_TAG_CTRL_EXT_CPUTAG_EN_MASK, 1
+	ret = rtl837x_reg_bits_write(priv, RTL837X_CPU_CTRL_REG,
+			  RTL837X_CPU_CTRL_EN_MASK, 1
 			);
 	if (ret)
 		return ret;
 
 	// Add cpu port to RTL8_4 TAG aware port
-	ret = rtl837x_reg_bits_write(priv, RTL837X_CPU_TAG_AWARE_CTRL_ADDR, BIT(cpu_dp->index), 1);
+	ret = rtl837x_reg_bits_write(priv, RTL837X_CPU_TAG_AWARE_CTRL_REG, BIT(cpu_dp->index), 1);
 	if (ret)
 		return ret;
 
@@ -1414,18 +1437,18 @@ static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 	 *	CPU_INSERT_TO_NONE,
 	 *	CPU_INSERT_END
 	 */
-	rtl837x_reg_bits_write(priv, RTL837X_CPU_TAG_CTRL_ADDR,
-			  RTL837X_CPU_TAG_CTRL_EXT_CPUTAG_INSERTMOD_MASK, 2
+	rtl837x_reg_bits_write(priv, RTL837X_CPU_CTRL_REG,
+			  RTL837X_CPU_CTRL_INSERTMODE_MASK, 2
 			);
 
 	// Disable CPU tag
-	rtl837x_reg_bits_write(priv, RTL837X_CPU_TAG_CTRL_ADDR,
-			  RTL837X_CPU_TAG_CTRL_EXT_CPUTAG_EN_MASK, 0
+	rtl837x_reg_bits_write(priv, RTL837X_CPU_CTRL_REG,
+			  RTL837X_CPU_CTRL_EN_MASK, 0
 			);
 
 	// Remove cpu port from RTL8_4 TAG aware port
 	dsa_switch_for_each_cpu_port(dp, ds) {
-		rtl837x_reg_bits_write(priv, RTL837X_CPU_TAG_AWARE_CTRL_ADDR, BIT(dp->index), 0);
+		rtl837x_reg_bits_write(priv, RTL837X_CPU_TAG_AWARE_CTRL_REG, BIT(dp->index), 0);
 	}
 
 	master_dev->wanted_features |= chip_data->csum_feature_backup;
@@ -1441,8 +1464,8 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 	int ret;
 
 	//  bit0: internal cpu; bit1: external cpu
-	ret = rtl837x_reg_bits_write(priv, RTL837X_SVLAN_TRAP_CTRL_ADDR,
-			  RTL837X_SVLAN_TRAP_CTRL_CPU_PMSK_MASK, BIT(1)
+	ret = rtl837x_reg_bits_write(priv, RTL837X_SVLAN_TRAP_CTRL_REG,
+			  RTL837X_SVLAN_TRAP_CTRL_CPU_TYPE_MASK, BIT(1)
 			);
 	if (ret)
 		return ret;
@@ -1455,7 +1478,7 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 	 *	REF_PB_PRI,
 	 *	REF_PRI_END
 	 */
-	ret = rtl837x_reg_bits_write(priv, RTL837X_VS_CTRL_ADDR,
+	ret = rtl837x_reg_bits_write(priv, RTL837X_VS_CTRL_REG,
 			  RTL837X_VS_CTRL_SPRISEL_MASK, 1
 			);
 	if (ret)
@@ -1468,28 +1491,28 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 	 *	UNTAG_ASSIGN,
 	 *	UNTAG_END
 	 */
-	ret = rtl837x_reg_bits_write(priv, RTL837X_VS_CTRL_ADDR,
+	ret = rtl837x_reg_bits_write(priv, RTL837X_VS_CTRL_REG,
 			  RTL837X_VS_CTRL_UNTAG_MASK, 0
 		);
 	if (ret)
 		return ret;
 
 	// Set custom TPID
-	ret = rtl837x_reg_write(priv, RTL837X_VS_GLB_CTRL_ADDR, ETH_P_8021Q);
+	ret = rtl837x_reg_write(priv, RTL837X_VS_GLB_CTRL_REG, ETH_P_8021Q);
 	if (ret)
 		return ret;
 
 	// Set cpu port as service port
-	ret = rtl837x_reg_write(priv, RTL837X_VS_UPLINK_PORT_ADDR, dsa_cpu_ports(ds));
+	ret = rtl837x_reg_write(priv, RTL837X_VS_UPLINK_PORT_REG, dsa_cpu_ports(ds));
 	if (ret)
 		return ret;
 
 	for (int idx = 0; idx <= RTL837x_C2SIDXMAX;  idx++) {
-		ret = rtl837x_reg_write(priv, RTL837X_VLAN_C2S_ENTRY_ADDR(idx)+4, 0);
+		ret = rtl837x_reg_write(priv, RTL837X_VLAN_C2S_ENTRY_REG(idx)+4, 0);
 		if (ret)
 			return ret;
 
-		ret = rtl837x_reg_write(priv, RTL837X_VLAN_C2S_ENTRY_ADDR(idx), 0);
+		ret = rtl837x_reg_write(priv, RTL837X_VLAN_C2S_ENTRY_REG(idx), 0);
 		if (ret)
 			return ret;
 	}
@@ -1500,7 +1523,7 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 	 *	UNASSIGN_TRAP,
 	 *	UNASSIGN_END
 	 */
-	ret = rtl837x_reg_bits_write(priv, RTL837X_VS_CTRL_ADDR,
+	ret = rtl837x_reg_bits_write(priv, RTL837X_VS_CTRL_REG,
 			  RTL837X_VS_CTRL_UIFSEG_MASK, 0
 		);
 	if (ret)
@@ -1526,7 +1549,7 @@ static int rtl8372n_teardown_tag_8021q(struct dsa_switch *ds)
 		dsa_tag_8021q_unregister(ds);
 
 	// Clean service port
-	rtl837x_reg_write(priv, RTL837X_VS_UPLINK_PORT_ADDR, 0);
+	rtl837x_reg_write(priv, RTL837X_VS_UPLINK_PORT_REG, 0);
 
 
 	vlan_data.mbr = 0;
@@ -1543,8 +1566,8 @@ static int rtl8372n_teardown_tag_8021q(struct dsa_switch *ds)
 	}
 
 	dsa_switch_for_each_user_port(dp, ds) {
-		rtl837x_reg_bits_write(priv, RTL837X_VS_PORT_DFLT_SVID_ADDR(dp->index),
-				  RTL837X_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(dp->index), 0
+		rtl837x_reg_bits_write(priv, RTL837X_VS_PORT_DFLT_SVID_REG(dp->index),
+				  RTL837X_VS_PORT_DFLT_SVID_MASK(dp->index), 0
 				);
 	}
 
@@ -1566,8 +1589,8 @@ static int rtl8372n_tag_8021q_vlan_add(struct dsa_switch *ds, int port,
 
 	// Set Port SVID
 	if (flags & BRIDGE_VLAN_INFO_PVID)
-		ret = rtl837x_reg_bits_write(priv, RTL837X_VS_PORT_DFLT_SVID_ADDR(port),
-				  RTL837X_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(port), vid
+		ret = rtl837x_reg_bits_write(priv, RTL837X_VS_PORT_DFLT_SVID_REG(port),
+				  RTL837X_VS_PORT_DFLT_SVID_MASK(port), vid
 				);
 	if (ret)
 		return ret;
@@ -1587,8 +1610,8 @@ fail_rollback:
 	dev_err(priv->dev, "failed to add 8021q tag for port(%d) vid: %u\n", port, vid);
 
 	if (flags & BRIDGE_VLAN_INFO_PVID)
-		rtl837x_reg_bits_write(priv, RTL837X_VS_PORT_DFLT_SVID_ADDR(port),
-				  RTL837X_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(port), 0
+		rtl837x_reg_bits_write(priv, RTL837X_VS_PORT_DFLT_SVID_REG(port),
+				  RTL837X_VS_PORT_DFLT_SVID_MASK(port), 0
 				);
 	return ret;
 }
@@ -1630,8 +1653,8 @@ static int rtl8372n_tag_8021q_vlan_del(struct dsa_switch *ds, int port,
 
 	// Clean Port SVID
 	if (dsa_is_user_port(ds, port))
-		ret = rtl837x_reg_bits_write(priv, RTL837X_VS_PORT_DFLT_SVID_ADDR(port),
-				  RTL837X_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(port), 0
+		ret = rtl837x_reg_bits_write(priv, RTL837X_VS_PORT_DFLT_SVID_REG(port),
+				  RTL837X_VS_PORT_DFLT_SVID_MASK(port), 0
 				);
 	if (ret) {
 		dev_err(priv->dev,
@@ -1680,20 +1703,20 @@ static int rtl8372n_change_tag_protocol(struct dsa_switch *ds,
 static int rtl8372n_port_set_isolation(struct realtek_priv *priv, int port,
 					u32 mask)
 {
-	return rtl837x_reg_write(priv, RTL837X_PORT_ISO_PORT_PMSK_ADDR(port), mask);
+	return rtl837x_reg_write(priv, RTL837X_PORT_ISOLATION_REG(port), mask);
 }
 
 static int rtl8372n_port_add_isolation(struct realtek_priv *priv, int port,
 					u32 mask)
 {
-	return rtl837x_reg_bits_write(priv, RTL837X_PORT_ISO_PORT_PMSK_ADDR(port),
+	return rtl837x_reg_bits_write(priv, RTL837X_PORT_ISOLATION_REG(port),
 				  mask, 0xffffffff);
 }
 
 static int rtl8372n_port_remove_isolation(struct realtek_priv *priv, int port,
 					   u32 mask)
 {
-	return rtl837x_reg_bits_write(priv, RTL837X_PORT_ISO_PORT_PMSK_ADDR(port),
+	return rtl837x_reg_bits_write(priv, RTL837X_PORT_ISOLATION_REG(port),
 				  mask, 0);
 }
 
@@ -2280,13 +2303,13 @@ static int rtl8372n_set_mac_eee(struct dsa_switch *ds, int port, struct ethtool_
 						  port, eee->eee_enabled ? "true" : "false");
 
 	if (eee->eee_enabled)
-		return rtl837x_reg_bits_write(priv, RTL837X_EEE_CTRL_ADDR(port),
-				  RTL837X_EEE_CTRL_EEE_PORT_TX_EN_MASK | RTL837X_EEE_CTRL_EEE_PORT_RX_EN_MASK,
+		return rtl837x_reg_bits_write(priv, RTL837X_EEE_CTRL_REG(port),
+				  RTL837X_EEE_CTRL_TX_EN_MASK | RTL837X_EEE_CTRL_RX_EN_MASK,
 				  0xffffffff
 				);
 	else
-		return rtl837x_reg_bits_write(priv, RTL837X_EEE_CTRL_ADDR(port),
-				  RTL837X_EEE_CTRL_EEE_PORT_TX_EN_MASK | RTL837X_EEE_CTRL_EEE_PORT_RX_EN_MASK,
+		return rtl837x_reg_bits_write(priv, RTL837X_EEE_CTRL_REG(port),
+				  RTL837X_EEE_CTRL_TX_EN_MASK | RTL837X_EEE_CTRL_RX_EN_MASK,
 				  0
 				);
 	return 0;
@@ -2592,8 +2615,8 @@ static void rtl8372n_port_stp_state_set(struct dsa_switch *ds, int port, u8 stat
 
 	/* Set the same status for the port on all the FIDs */
 	for (int i = 0; i < RTL837x_FIDMAX; i++) {
-		rtl837x_reg_bits_write(priv, RTL837X_MSPT_STATE_ADDR(i),
-				  RTL837X_MSTP_STATE_MASK(port), val
+		rtl837x_reg_bits_write(priv, RTL837X_MSTI_CTRL_REG(i),
+				  RTL837X_MSTI_CTRL_PORT_STATE_MASK(port), val
 				);
 	}
 }
@@ -2662,17 +2685,17 @@ static int rtl8372n_of_setup_phy_and_serdes(struct realtek_priv *priv)
 	 */
 
 	if (of_property_read_bool(np, "phy-mdi-reverse"))
-		ret = rtl837x_reg_bits_write(priv, RTL837X_CFG_PHY_MDI_REVERSE_ADDR,
-				  RTL837X_CFG_PHY_MDI_REVERSE_P0_MDI_REVERSE_MASK | RTL837X_CFG_PHY_MDI_REVERSE_P1_MDI_REVERSE_MASK |
-				   RTL837X_CFG_PHY_MDI_REVERSE_P2_MDI_REVERSE_MASK | RTL837X_CFG_PHY_MDI_REVERSE_P3_MDI_REVERSE_MASK,
+		ret = rtl837x_reg_bits_write(priv, RTL837X_PHY_MDI_REVERSE_REG,
+				  RTL837X_PHY_MDI_REVERSE_P0_MASK | RTL837X_PHY_MDI_REVERSE_P1_MASK |
+				   RTL837X_PHY_MDI_REVERSE_P2_MASK | RTL837X_PHY_MDI_REVERSE_P3_MASK,
 				  0xC
 				);
 	if (ret)
 		return ret;
 	if (of_property_read_bool(np, "phy-tx-polarity-swap"))
-		ret = rtl837x_reg_bits_write(priv, RTL837X_CFG_PHY_TX_POLARITY_SWAP_ADDR,
-				 RTL837X_CFG_PHY_TX_POLARITY_SWAP_P0_TX_POLARITY_SWAP_MASK | RTL837X_CFG_PHY_TX_POLARITY_SWAP_P1_TX_POLARITY_SWAP_MASK |
-				  RTL837X_CFG_PHY_TX_POLARITY_SWAP_P2_TX_POLARITY_SWAP_MASK | RTL837X_CFG_PHY_TX_POLARITY_SWAP_P3_TX_POLARITY_SWAP_MASK,
+		ret = rtl837x_reg_bits_write(priv, RTL837X_PHY_TX_POLARITY_REG,
+				 RTL837X_PHY_TX_POLARITY_P0_MASK | RTL837X_PHY_TX_POLARITY_P1_MASK |
+				  RTL837X_PHY_TX_POLARITY_P2_MASK | RTL837X_PHY_TX_POLARITY_P3_MASK,
 				 0x596A
 				);
 	if (ret)
@@ -2727,8 +2750,8 @@ static int rtl8372n_setup_port(struct realtek_priv *priv, int port)
 	}
 
 	ret = regmap_update_bits(priv->map, RTL837X_SMI_MAC_TYPE_REG,
-				    RTL837X_SMI_MAC_TYPE_PORT_MASK(port),
-				    port_type << __ffs(RTL837X_SMI_MAC_TYPE_PORT_MASK(port))
+				    RTL837X_SMI_MAC_TYPE_MASK(port),
+				    port_type << __ffs(RTL837X_SMI_MAC_TYPE_MASK(port))
 				);
 	if (ret)
 		return ret;
@@ -2747,7 +2770,7 @@ static int rtl8372n_setup_port(struct realtek_priv *priv, int port)
 			 * behavior/updates of these registers.
 			 */
 			ret = regmap_set_bits(priv->map, RTL837X_PORT_POLLING_REG,
-						 RTL837X_PORT_POLLING_PORT_MASK(port)
+						 RTL837X_PORT_POLLING_PORT_BIT(port)
 						);
 			if (ret)
 				return ret;
@@ -2762,17 +2785,17 @@ static int rtl8372n_setup_port(struct realtek_priv *priv, int port)
 
 		/* Use the polled (PHY/Serdes). */
 		ret = regmap_set_bits(priv->map, RTL837X_SMI_GLB_CTRL_REG,
-			 RTL837X_SMI_GLB_CTRL_SMI_POLLING_PORT_MASK(port)
+			 RTL837X_SMI_GLB_CTRL_POLLING_PORT_BIT(port)
 			);
 		if (ret)
 			return ret;
 	}
 
-	ret = regmap_write(priv->map, RTL837X_FC_PORT_ACT_CTRL_ADDR(port), 0x1050);
+	ret = regmap_write(priv->map, RTL837X_FC_PORT_ACT_CTRL_REG(port), 0x1050);
 	if (ret)
 		return ret;
 
-	ret = regmap_set_bits(priv->map, RTL837X_MAC_L2_PORT_CTRL_ADDR(port),
+	ret = regmap_set_bits(priv->map, RTL837X_MAC_L2_PORT_CTRL_REG(port),
 		  RTL837X_MAC_L2_PORT_CTRL_RX_CHK_CRC_EN_MASK |
 		   RTL837X_MAC_L2_PORT_CTRL_CLOCK_SWITCH_MASK
 		);
@@ -2797,7 +2820,7 @@ static int rtl8372n_setup_port(struct realtek_priv *priv, int port)
 		return ret;
 
 	/* Enable backpressure */
-	ret = regmap_set_bits(priv->map, RTL837X_MAC_PORT_CTRL_ADDR(port),
+	ret = regmap_set_bits(priv->map, RTL837X_MAC_PORT_CTRL_REG(port),
 			  RTL837X_MAC_PORT_CTRL_BKPRES_EN_MASK
 			);
 	if (ret)
@@ -2837,8 +2860,8 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 			 * limit, not for the DSA tag (rtl8_4).
 			 * With the rtl8_4 tagger, rtl8372n_set_tag_rtl() overwrites it.
 			 */
-			ret = rtl837x_reg_bits_write(priv, RTL837X_EXT_CPU_CTRL_ADDR,
-					RTL837X_EXT_CPU_CTRL_PORT_MASK, dp->index
+			ret = rtl837x_reg_bits_write(priv, RTL837X_EXT_CPU_CTRL_REG,
+					RTL837X_EXT_CPU_CTRL_PORT_IDX_MASK, dp->index
 					);
 			if (ret)
 				return ret;
@@ -2846,14 +2869,14 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	}
 
 	//#cfg_FWD_INVLD_MAC_CTRL_EN,cfg_FWD_UNKN_OPCODE_EN
-	rtl837x_reg_bits_write(priv, RTL837X_MAC_L2_GLOBAL_CTRL0_ADDR,
-			 RTL837X_MAC_L2_GLOBAL_CTRL0_FWD_UNKN_OPCODE_EN_MASK |
-			  RTL837X_MAC_L2_GLOBAL_CTRL0_FWD_INVLD_MAC_CTRL_EN_MASK,
+	rtl837x_reg_bits_write(priv, RTL837X_MAC_L2_GLOBAL_CTRL_REG,
+			 RTL837X_MAC_L2_GLOBAL_CTRL_FWD_UNKN_OPCODE_EN_MASK |
+			  RTL837X_MAC_L2_GLOBAL_CTRL_FWD_INVLD_MAC_EN_MASK,
 			 0b11
 			);
 
 	// #RS_LINK_FAULT_INDI_OFF=1 disable link fault flag, resolve port4-port7 linkdown dsc expand issue
-	rtl837x_reg_bits_write(priv, RTL837X_RS_LAYER_CONFIG_ADDR,
+	rtl837x_reg_bits_write(priv, RTL837X_RS_LAYER_CONFIG_REG,
 		 RTL837X_RS_LAYER_CONFIG_RS_LINK_FAULT_INDI_OFF_MASK,
 		 1
 		);
@@ -2867,7 +2890,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	of_extra_init(ds);
 
 	// enable SMI0/1/2 MDC clock output
-	rtl837x_reg_bits_write(priv, RTL837X_SMI_CTRL_ADDR,
+	rtl837x_reg_bits_write(priv, RTL837X_SMI_CTRL_REG,
 			 RTL837X_SMI_CTRL_SMI0_MDC_EN_MASK |
 			  RTL837X_SMI_CTRL_SMI1_MDC_EN_MASK |
 			  RTL837X_SMI_CTRL_SMI2_MDC_EN_MASK,
@@ -2887,7 +2910,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	}
 
 	// Reset vlan table
-	ret = rtl837x_reg_bits_write(priv, RTL837X_VLAN_CTRL_ADDR, RTL837X_VLAN_CTRL_TABLE_RST_MASK, 1);
+	ret = rtl837x_reg_bits_write(priv, RTL837X_VLAN_CTRL_REG, RTL837X_VLAN_CTRL_TABLE_RST_MASK, 1);
 	if (ret)
 		return ret;
 
@@ -2931,7 +2954,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		return ret;
 
 	// Enable vlan egrFilter
-	ret = rtl837x_reg_bits_write(priv, RTL837X_VLAN_CTRL_ADDR,
+	ret = rtl837x_reg_bits_write(priv, RTL837X_VLAN_CTRL_REG,
 			  RTL837X_VLAN_CTRL_CVLAN_FILTER_MASK, 1
 			);
 	if (ret)

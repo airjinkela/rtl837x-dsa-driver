@@ -7,12 +7,16 @@
 #include "rtl837x.h"
 #include "rtl837x_serdes.h"
 
-#define RTL837X_CHIP_INFO_REG                  0xC
-#define   RTL837X_CHIP_INFO_RELEASE_VID_MASK   GENMASK(31, 28)
-#define   RTL837X_CHIP_INFO_MCID_MASK          GENMASK(27, 24)
-#define   RTL837X_CHIP_INFO_BO_CHIP_MODE_MASK  GENMASK(23, 20)
-#define   RTL837X_CHIP_INFO_EN_MASK            GENMASK(19, 16)
-#define   RTL837X_CHIP_INFO_RELEASE_ID_MASK    GENMASK(15, 0)
+/*
+ * Chip version. The release id field is only valid while the EN field is
+ * armed (0xa), so reading it requires a write-read-write sequence.
+ */
+#define RTL837X_CHIP_VER_REG                  0xC
+#define   RTL837X_CHIP_VER_RELEASE_VID_MASK   GENMASK(31, 28)
+#define   RTL837X_CHIP_VER_MCID_MASK          GENMASK(27, 24)
+#define   RTL837X_CHIP_VER_BO_CHIP_MODE_MASK  GENMASK(23, 20)
+#define   RTL837X_CHIP_VER_EN_MASK            GENMASK(19, 16)
+#define   RTL837X_CHIP_VER_RELEASE_ID_MASK    GENMASK(15, 0)
 
 /*
  * As Realtek has not released the register manual
@@ -184,16 +188,16 @@ static int rtl837x_get_chip_ver(struct realtek_priv *priv, u16 *chip_ver)
 	int ret;
 	u32 tmp;
 
-	ret = rtl837x_reg_bits_write(priv, RTL837X_CHIP_INFO_REG,
-			    RTL837X_CHIP_INFO_EN_MASK, 0xa);
+	ret = rtl837x_reg_bits_write(priv, RTL837X_CHIP_VER_REG,
+			    RTL837X_CHIP_VER_EN_MASK, 0xa);
 	if (ret)
 		return ret;
-	ret = rtl837x_reg_bits_read(priv, RTL837X_CHIP_INFO_REG,
-			    RTL837X_CHIP_INFO_RELEASE_VID_MASK, &tmp);
+	ret = rtl837x_reg_bits_read(priv, RTL837X_CHIP_VER_REG,
+			    RTL837X_CHIP_VER_RELEASE_VID_MASK, &tmp);
 	if (ret)
 		return ret;
-	ret = rtl837x_reg_bits_write(priv, RTL837X_CHIP_INFO_REG,
-			    RTL837X_CHIP_INFO_EN_MASK, 0);
+	ret = rtl837x_reg_bits_write(priv, RTL837X_CHIP_VER_REG,
+			    RTL837X_CHIP_VER_EN_MASK, 0);
 
 	*chip_ver = tmp;
 	return 0;

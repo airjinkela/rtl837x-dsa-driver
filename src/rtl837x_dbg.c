@@ -9,20 +9,24 @@
 #include "rtl837x_l2.h"
 #include "rtl837x_vlan.h"
 
-/* EEE control */
-#define RTL837X_EEE_LPI_DLY_CYCLE_ADDR                                0x954
+/*
+ * EEE control. The LPI delay cycle register sets how long the MAC keeps
+ * transmitting before entering low power idle.
+ */
+#define RTL837X_EEE_LPI_DLY_CYCLE_REG                                0x954
 #define   RTL837X_EEE_LPI_DLY_CYCLE_CFG_WATER_LEVEL_ST_MASK           GENMASK(13, 8)
 #define   RTL837X_EEE_LPI_DLY_CYCLE_TX_LPI_DLY_CYCLE_MASK             GENMASK(7, 4)
 #define   RTL837X_EEE_LPI_DLY_CYCLE_RX_LPI_DLY_CYCLE_MASK             GENMASK(3, 0)
-/* Multiple definitions in rtl8372n.c */
-#define RTL837X_EEE_CTRL_ADDR(_p)                   (0x125C + (((_p) << 8)))
-#define   RTL837X_EEE_CTRL_EEE_RX_STS_MASK          BIT(3)
-#define   RTL837X_EEE_CTRL_EEE_TX_STS_MASK          BIT(2)
-#define   RTL837X_EEE_CTRL_EEE_PORT_TX_EN_MASK      BIT(1)
-#define   RTL837X_EEE_CTRL_EEE_PORT_RX_EN_MASK      BIT(0)
 
-/* Multiple definitions in rtl8372n.c */
-#define RTL837X_SDS_MODE_SEL_ADDR                          0x7B20
+/* Per-port EEE control and status. Also defined in rtl8372n.c */
+#define RTL837X_EEE_CTRL_REG(_p)                   (0x125C + (((_p) << 8)))
+#define   RTL837X_EEE_CTRL_RX_STS_MASK          BIT(3)
+#define   RTL837X_EEE_CTRL_TX_STS_MASK          BIT(2)
+#define   RTL837X_EEE_CTRL_TX_EN_MASK           BIT(1)
+#define   RTL837X_EEE_CTRL_RX_EN_MASK           BIT(0)
+
+/* Internal SerDes mode selection. Also defined in rtl8372n.c */
+#define RTL837X_SDS_MODE_SEL_REG                          0x7B20
 
 #define TO_FOPS(name) _##name##_rw_fops
 
@@ -725,7 +729,7 @@ static ssize_t _sds_page_dump_read(struct file *filep, char __user *ubuf,
 		} \
 	} while (0)
 
-	rtl837x_reg_read(priv, RTL837X_SDS_MODE_SEL_ADDR, &tmp32);
+	rtl837x_reg_read(priv, RTL837X_SDS_MODE_SEL_REG, &tmp32);
 	SDS_DUMP_APPEND("reg 0x7b20: %#08x\n", tmp32);
 	rtl837x_sds_reg_read(priv, 0, 0x21, 0x10, &tmp16);
 	SDS_DUMP_APPEND("sds page 0x21  reg 0x10; data = 0x%04x\n", tmp16);
@@ -933,7 +937,7 @@ static ssize_t _port_eee_status_dump_read(struct file *filep, char __user *ubuf,
 		return -ENOMEM;
 
 	/* Global EEE LPI delay / FIFO water-level setting */
-	ret = rtl837x_reg_read(priv, RTL837X_EEE_LPI_DLY_CYCLE_ADDR, &reg);
+	ret = rtl837x_reg_read(priv, RTL837X_EEE_LPI_DLY_CYCLE_REG, &reg);
 	if (!ret)
 		len += scnprintf(buf + len, PAGE_SIZE - len,
 			"lpi_dly_cycle: 0x%08x tx_dly_cycle:%lu rx_dly_cycle:%lu water_level_st:0x%02lx\n",
@@ -944,17 +948,17 @@ static ssize_t _port_eee_status_dump_read(struct file *filep, char __user *ubuf,
 
 	/* Per-port EEE control (TX/RX enable + TX/RX status) */
 	for (port = 0; port < priv->num_ports; port++) {
-		ret = rtl837x_reg_read(priv, RTL837X_EEE_CTRL_ADDR(port), &reg);
+		ret = rtl837x_reg_read(priv, RTL837X_EEE_CTRL_REG(port), &reg);
 		if (ret)
 			continue;
 
 		len += scnprintf(buf + len, PAGE_SIZE - len,
 			"port:%u tx_en:%d rx_en:%d tx_sts:%d rx_sts:%d\n",
 			port,
-			!!(reg & RTL837X_EEE_CTRL_EEE_PORT_TX_EN_MASK),
-			!!(reg & RTL837X_EEE_CTRL_EEE_PORT_RX_EN_MASK),
-			!!(reg & RTL837X_EEE_CTRL_EEE_TX_STS_MASK),
-			!!(reg & RTL837X_EEE_CTRL_EEE_RX_STS_MASK));
+			!!(reg & RTL837X_EEE_CTRL_TX_EN_MASK),
+			!!(reg & RTL837X_EEE_CTRL_RX_EN_MASK),
+			!!(reg & RTL837X_EEE_CTRL_TX_STS_MASK),
+			!!(reg & RTL837X_EEE_CTRL_RX_STS_MASK));
 
 		if (len >= PAGE_SIZE - 64)
 			break;
