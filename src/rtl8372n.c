@@ -1761,7 +1761,8 @@ static void rtl8372n_get_strings(struct dsa_switch *ds, int port, u32 stringset,
 	struct realtek_priv *priv = ds->priv;
 	int i;
 
-	if (port >= priv->num_ports)
+	/* Only ETH_SS_STATS has strings (see get_sset_count) */
+	if (stringset != ETH_SS_STATS || port >= priv->num_ports)
 		return;
 
 	for (i = 0; i < priv->num_mib_counters; i++) {
