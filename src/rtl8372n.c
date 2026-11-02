@@ -2397,6 +2397,10 @@ rtl8372n_port_fdb_static_del(struct realtek_priv *priv,
 			__func__, addr, vid);
 		return 0;
 	}
+	/* Any other error leaves entry.addr unset: do not delete index 0 */
+	if (ret)
+		return ret;
+
 	dev_dbg(priv->dev, "[%s]:deleted mac:%pM vid:%04d addr: %04d\n",
 		__func__, addr, vid, entry.addr);
 	return rtl837x_lut_del(priv, entry.addr);
