@@ -28,7 +28,7 @@ sfp0: sfp {
 		compatible = "realtek,rtl8372n";
 		reg = <29>;
 
-		reset-gpios = <&pio 42 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&pio 42 GPIO_ACTIVE_LOW>;
 
         // Serdes config
 		sds0-rx-swap; # optional
