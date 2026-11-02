@@ -678,6 +678,47 @@ int rtl837x_serdes_pause_frame_config(struct realtek_priv *priv, u8 sds_idx,
 	return 0;
 }
 
+/*
+ * Switch a SerDes in USXGMII mode from Realtek's proprietary USXGMII variant
+ * (the chip default) to standard USXGMII, so that it works with PHYs in their
+ * default setup (e.g. RTL8261N/BE with the unmodified rtl8261n.bin firmware).
+ * Same values as the RTL930x PCS driver in OpenWrt; pages 6 and 7 are
+ * TGR_PRO_0 and TGR_PRO_1.
+ */
+static int rtl837x_serdes_usxgmii_std(struct realtek_priv *priv, u8 sds_idx)
+{
+	static const u16 cfg[][3] = {
+		{ 0x06, 0x0d, 0x0f00 },
+		{ 0x06, 0x1d, 0x0600 },
+		{ 0x07, 0x06, 0x1401 },
+		{ 0x07, 0x08, 0x1401 },
+		{ 0x07, 0x0a, 0x1401 },
+		{ 0x07, 0x0c, 0x1401 },
+		/* AM insert period */
+		{ 0x06, 0x12, 0x00a4 },
+		/* no alignment markers */
+		{ 0x06, 0x13, 0x0000 },
+		{ 0x06, 0x14, 0x0000 },
+		{ 0x06, 0x15, 0x0000 },
+		{ 0x06, 0x16, 0x0000 },
+		{ 0x06, 0x17, 0x0000 },
+		{ 0x06, 0x18, 0x0000 },
+	};
+	int ret;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(cfg); i++) {
+		ret = rtl837x_sds_reg_write(priv, sds_idx, cfg[i][0], cfg[i][1],
+					    cfg[i][2]);
+		if (ret)
+			return ret;
+	}
+
+	/* USXGMII AN opcode: 0x03 standard, 0xaa Realtek */
+	return rtl837x_sds_reg_bits_write(priv, sds_idx, 0x07, 0x10,
+					  GENMASK(7, 0), 0x03);
+}
+
 int rtl837x_serdes_an_config(struct realtek_priv *priv, u8 sds_idx,
 			     phy_interface_t interface,
 			     unsigned int neg_mode)
@@ -733,6 +774,10 @@ int rtl837x_serdes_an_config(struct realtek_priv *priv, u8 sds_idx,
 							 SDS_NWAY_QHSG_AN_CH2_EN_MASK |
 							 SDS_NWAY_QHSG_AN_CH3_EN_MASK,
 							 0x0);
+		if (ret)
+			return ret;
+
+		ret = rtl837x_serdes_usxgmii_std(priv, sds_idx);
 		if (ret)
 			return ret;
 		break;
