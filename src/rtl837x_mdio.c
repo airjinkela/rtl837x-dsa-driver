@@ -195,7 +195,8 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 
 	dev_set_drvdata(dev, priv);
 
-	priv->reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
+	/* Request the reset asserted; the polarity comes from the DT flag */
+	priv->reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(priv->reset)) {
 		dev_err(dev, "failed to get RESET GPIO\n");
 		ret = PTR_ERR(priv->reset);
@@ -203,11 +204,9 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	}
 
 	if (priv->reset) {
-		// This chip takes a long time to fully reset
-		dev_dbg(dev, "asserted RESET\n");
-		gpiod_set_value_cansleep(priv->reset, 0);
+		/* This chip takes a long time to fully reset */
 		usleep_range(50000, 51100);
-		gpiod_set_value_cansleep(priv->reset, 1);
+		gpiod_set_value_cansleep(priv->reset, 0);
 		usleep_range(50000, 51100);
 		dev_dbg(dev, "deasserted RESET\n");
 	}
