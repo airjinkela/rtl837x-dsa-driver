@@ -37,6 +37,14 @@
 #define   RTL837X_SMI_MAC_TYPE_SERDES        0
 #define   RTL837X_SMI_MAC_TYPE_PORT          1
 
+/*
+ * MAC force mode, one register per port. With the force link bits set the
+ * MAC uses the forced speed/duplex/link of this register instead of the
+ * state polled from its PHY or SerDes.
+ */
+#define RTL837X_MAC_FORCE_MODE_REG(_p)       (0x6344 + ((_p) << 2))
+#define   RTL837X_MAC_FORCE_MODE_FORCE_LINK_MASK GENMASK(1, 0)
+
 /* Global SMI settings */
 #define RTL837X_SMI_GLB_CTRL_REG                    0x632C
 #define   RTL837X_SMI_GLB_CTRL_POLLING_MASK         GENMASK(20, 12)
@@ -2826,6 +2834,20 @@ static int rtl8372n_setup_port(struct realtek_priv *priv, int port)
 		ret = regmap_set_bits(priv->map, RTL837X_SMI_GLB_CTRL_REG,
 				      RTL837X_SMI_GLB_CTRL_POLLING_PORT_BIT(port)
 			);
+		if (ret)
+			return ret;
+	}
+
+	/*
+	 * Let the port follow its polled PHY or SerDes. A port can be left
+	 * force-linked by the bootloader (after a U-Boot TFTP boot the SerDes
+	 * port 3 is forced to 10G), and setup no longer soft-resets the
+	 * switch. A USXGMII port forced to 10G passes no frames when its PHY
+	 * links at 1G or 2.5G. The CPU port keeps its forced link.
+	 */
+	if (!dsa_port_is_cpu(dp)) {
+		ret = regmap_clear_bits(priv->map, RTL837X_MAC_FORCE_MODE_REG(port),
+					RTL837X_MAC_FORCE_MODE_FORCE_LINK_MASK);
 		if (ret)
 			return ret;
 	}
