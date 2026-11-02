@@ -76,18 +76,18 @@ enum rtl837x_l2_flush_mode {
 };
 
 int rtl837x_lut_query(struct realtek_priv *priv,
-			  enum rtl837x_lut_method method,
+		      enum rtl837x_lut_method method,
 			  struct rtl837x_lut_entry *entry);
 int rtl837x_lut_set(struct realtek_priv *priv,
-			  struct rtl837x_lut_entry *entry);
+		    struct rtl837x_lut_entry *entry);
 int rtl837x_lut_del(struct realtek_priv *priv,
-				  u16 addr);
+		    u16 addr);
 
 int rtl837x_lut_port_set_learning(struct realtek_priv *priv, int port,
-				       bool enable);
+				  bool enable);
 
 int rtl837x_lut_l2_flush(struct realtek_priv *priv, enum rtl837x_l2_flush_mode mode,
-		    int port, u16 vid, u16 fid);
+			 int port, u16 vid, u16 fid);
 int rtl837x_lut_l2_flush_all(struct realtek_priv *priv);
 
 #endif /* _RTL837X_L2_H */

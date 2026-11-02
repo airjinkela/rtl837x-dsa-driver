@@ -27,9 +27,8 @@
 #define   RTL837X_TABLE_L2_CTRL_ADDR_EXT_MASK        GENMASK(11, 0)
 
 int rtl837x_ita_execute(struct realtek_priv *priv, enum rtl837x_table table,
-		    enum rtl837x_table_opera opera, u16 *addr, int port,
-			enum rtl837x_lut_method method,
-		    u32 *data, size_t size)
+			enum rtl837x_table_opera opera, u16 *addr, int port,
+			enum rtl837x_lut_method method, u32 *data, size_t size)
 {
 	u32 cmd, l2_ctrl, tmp;
 	bool write_data = false;
@@ -74,57 +73,63 @@ int rtl837x_ita_execute(struct realtek_priv *priv, enum rtl837x_table table,
 		cmd |= FIELD_PREP(RTL837X_TABLE_CTRL_ADDR_MASK, *addr);
 		if (opera == RTL837X_TABLE_OPERA_WRITE)
 			write_data = true;
-	} else if (opera == RTL837X_TABLE_OPERA_WRITE)
+	} else if (opera == RTL837X_TABLE_OPERA_WRITE) {
 		write_data = true;
+	}
 
 	mutex_lock(&priv->map_lock);
 
-	// check busy
-	ret = regmap_read_poll_timeout(priv->map_nolock, RTL837X_TABLE_CTRL_REG, tmp,
-		  ((tmp & RTL837X_TABLE_CTRL_EXECUTE_MASK) == 0),
-		  10, 10000);
+	/* Check the busy flag before touching the table */
+	ret = regmap_read_poll_timeout(priv->map_nolock,
+				       RTL837X_TABLE_CTRL_REG, tmp,
+				       ((tmp & RTL837X_TABLE_CTRL_EXECUTE_MASK) == 0),
+				       10, 10000);
 	if (ret)
 		goto out;
 
 	if (write_data) {
 		for (int i = 0; i < size; i++) {
-			ret = regmap_write(priv->map_nolock, RTL837X_TABLE_WRITE_REG(i), data[i]);
+			ret = regmap_write(priv->map_nolock,
+					   RTL837X_TABLE_WRITE_REG(i), data[i]);
 			if (ret)
 				goto out;
 		}
 	}
 
-	// write the ita l2 ctrl reg
+	/* Write the ITA L2 control register */
 	ret = regmap_write(priv->map_nolock, RTL837X_TABLE_L2_CTRL_REG, l2_ctrl);
 	if (ret)
 		goto out;
 
-	// execute the table cmd
+	/* Execute the table command */
 	ret = regmap_write(priv->map_nolock, RTL837X_TABLE_CTRL_REG, cmd);
 	if (ret)
 		goto out;
 
-	// wait busy flag
-	ret = regmap_read_poll_timeout(priv->map_nolock, RTL837X_TABLE_CTRL_REG, tmp,
-		  ((tmp & RTL837X_TABLE_CTRL_EXECUTE_MASK) == 0),
-		  10, 10000);
+	/* Wait for the busy flag to clear */
+	ret = regmap_read_poll_timeout(priv->map_nolock,
+				       RTL837X_TABLE_CTRL_REG, tmp,
+				       ((tmp & RTL837X_TABLE_CTRL_EXECUTE_MASK) == 0),
+				       10, 10000);
 	if (ret)
 		goto out;
 
 	if (table == RTL837X_TABLE_L2) {
+		bool hit;
+
 		if (opera == RTL837X_TABLE_OPERA_DELETE)
 			goto out;
 
-		// check did the query hit a entry
+		/* Check whether the query hit an entry */
 		ret = regmap_read(priv->map_nolock, RTL837X_TABLE_L2_CTRL_REG,
-					&tmp);
+				  &tmp);
 		if (ret)
 			goto out;
 
-		bool hit = FIELD_GET(RTL837X_TABLE_L2_CTRL_HIT_MASK, tmp);
+		hit = FIELD_GET(RTL837X_TABLE_L2_CTRL_HIT_MASK, tmp);
 
 		if (!hit) {
-			ret = -ENOENT; // not hit
+			ret = -ENOENT;
 			goto out;
 		}
 
@@ -133,7 +138,8 @@ int rtl837x_ita_execute(struct realtek_priv *priv, enum rtl837x_table table,
 
 	if (opera == RTL837X_TABLE_OPERA_READ) {
 		for (int i = 0; i < size; i++) {
-			ret = regmap_read(priv->map_nolock, RTL837X_TABLE_READ_REG(i), &data[i]);
+			ret = regmap_read(priv->map_nolock,
+					  RTL837X_TABLE_READ_REG(i), &data[i]);
 			if (ret)
 				goto out;
 		}

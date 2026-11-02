@@ -19,7 +19,7 @@ int rtl837x_serdes_an_patch(struct realtek_priv *priv, u8 sds_idx, phy_interface
 int rtl837x_serdes_mac_patch(struct realtek_priv *priv, u8 sds_idx);
 
 int rtl837x_serdes_pause_frame_config(struct realtek_priv *priv, u8 sds_idx,
-			     phy_interface_t interface,
+				      phy_interface_t interface,
 				 bool pause, bool asympause);
 int rtl837x_serdes_an_config(struct realtek_priv *priv, u8 sds_idx,
 			     phy_interface_t interface,

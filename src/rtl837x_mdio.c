@@ -27,19 +27,23 @@ static int rtl837x_mdio_write(void *ctx, u32 reg, u32 val)
 
 	mutex_lock(&bus->mdio_lock);
 
-	ret = bus->write(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_ADDRESS_REG, reg);
+	ret = bus->write(bus, priv->mdio_addr,
+			 REALTEK_RTL837X_MDIO_ADDRESS_REG, reg);
 	if (ret)
 		goto out_unlock;
 
-	ret = bus->write(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_DATA_LOW, (val & 0xFFFF));
+	ret = bus->write(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_DATA_LOW,
+			 val & 0xFFFF);
 	if (ret)
 		goto out_unlock;
 
-	ret = bus->write(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_DATA_HIGH, ((val >> 16) & 0xFFFF));
+	ret = bus->write(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_DATA_HIGH,
+			 (val >> 16) & 0xFFFF);
 	if (ret)
 		goto out_unlock;
 
-	ret = bus->write(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_CTRL_REG, REALTEK_RTL837X_MDIO_WRITE_CMD);
+	ret = bus->write(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_CTRL_REG,
+			 REALTEK_RTL837X_MDIO_WRITE_CMD);
 	if (ret)
 		goto out_unlock;
 
@@ -59,11 +63,13 @@ static int rtl837x_mdio_read(void *ctx, u32 reg, u32 *val)
 
 	mutex_lock(&bus->mdio_lock);
 
-	ret = bus->write(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_ADDRESS_REG, reg);
+	ret = bus->write(bus, priv->mdio_addr,
+			 REALTEK_RTL837X_MDIO_ADDRESS_REG, reg);
 	if (ret)
 		goto out_unlock;
 
-	ret = bus->write(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_CTRL_REG, REALTEK_RTL837X_MDIO_READ_CMD);
+	ret = bus->write(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_CTRL_REG,
+			 REALTEK_RTL837X_MDIO_READ_CMD);
 	if (ret)
 		goto out_unlock;
 
@@ -117,7 +123,7 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 		return -EINVAL;
 
 	priv = devm_kzalloc(dev,
-				size_add(sizeof(*priv), var->chip_data_sz),
+			    size_add(sizeof(*priv), var->chip_data_sz),
 				GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;

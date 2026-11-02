@@ -39,33 +39,35 @@ static int simple_debugfs_open(struct inode *inode, struct file *file)
 #define MK_BUFNAME(_name) _buf_rd_##_name
 #define MK_BUFLEN(_name) _buf_size_##_name
 
-#define REGRWFUNC(name, BUF_SIZE) \
-	static const int MK_BUFLEN(name) = BUF_SIZE; \
-	static char MK_BUFNAME(name)[BUF_SIZE];  \
-	static ssize_t _##name##_rw_read(struct file *filep, char __user *ubuf,  \
-				  size_t count, loff_t *offp)   \
-	{   \
-		return simple_read_from_buffer(ubuf, count, offp, MK_BUFNAME(name), strlen(MK_BUFNAME(name)));   \
-	}   \
-	extern ssize_t MAKE_WRITE_FUNCNAME(name)(struct file *filep, const char __user *ubuf,   \
-				   size_t count, loff_t *offp);   \
-	static const struct file_operations _##name##_rw_fops = {   \
-		.owner = THIS_MODULE,   \
-		.open = simple_debugfs_open,   \
-		.write = MAKE_WRITE_FUNCNAME(name),   \
-		.read = _##name##_rw_read   \
+#define REGRWFUNC(name, bufsize) \
+	enum { _buf_size_##name = bufsize }; \
+	static char _buf_rd_##name[_buf_size_##name]; \
+	static ssize_t _##name##_rw_read(struct file *filep, char __user *ubuf, \
+					 size_t count, loff_t *offp) \
+	{ \
+		return simple_read_from_buffer(ubuf, count, offp, \
+					       _buf_rd_##name, \
+					       strlen(_buf_rd_##name)); \
+	} \
+	ssize_t _##name##_rw_write(struct file *filep, \
+				   const char __user *ubuf, \
+				   size_t count, loff_t *offp); \
+	static const struct file_operations _##name##_rw_fops = { \
+		.owner = THIS_MODULE, \
+		.open = simple_debugfs_open, \
+		.write = _##name##_rw_write, \
+		.read = _##name##_rw_read \
 	}
 
-#define BUF_APPEND(_bname, fmt, ...) do { \
-	size_t _l = strlen(MK_BUFNAME(_bname)); \
-	if (_l + 1 < MK_BUFLEN(_bname)) \
-		snprintf(MK_BUFNAME(_bname) + _l, MK_BUFLEN(_bname) - _l, \
+#define BUF_APPEND(bname, fmt, ...) do { \
+	size_t _len = strlen(_buf_rd_##bname); \
+	if (_len + 1 < _buf_size_##bname) \
+		snprintf(_buf_rd_##bname + _len, _buf_size_##bname - _len, \
 			 fmt, ##__VA_ARGS__); \
 } while (0)
 
-#define BUF_PRINTF(_bname, fmt, ...) \
-		snprintf(MK_BUFNAME(_bname), MK_BUFLEN(_bname), \
-			 fmt, ##__VA_ARGS__)
+#define BUF_PRINTF(bname, fmt, ...) \
+	snprintf(_buf_rd_##bname, _buf_size_##bname, fmt, ##__VA_ARGS__)
 
 REGRWFUNC(vlan, 128);
 REGRWFUNC(pvid, 64);
@@ -81,7 +83,7 @@ REGRWFUNC(vlan_ingress_filter, 64);
 REGRWFUNC(vlan_keep, 64);
 
 ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
-				   size_t count, loff_t *offp)
+				  size_t count, loff_t *offp)
 {
 	u32 vlan_id, member, untag, fid;
 	struct realtek_priv *priv;
@@ -106,7 +108,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 		memset(&vlan4k, 0, sizeof(vlan4k));
 		priv->ops->get_vlan_4k(priv, vlan_id, &vlan4k);
 		BUF_PRINTF(vlan, "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
-			  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
+			   vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
 	} else if (buf[0] == 'd') {
 		struct rtl837x_vlan_4k vlan4k;
 
@@ -118,7 +120,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 		memset(&vlan4k, 0, sizeof(vlan4k));
 		priv->ops->get_vlan_4k(priv, vlan_id, &vlan4k);
 		BUF_PRINTF(vlan, "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
-			  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
+			   vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
 		vlan4k.member = 0;
 		vlan4k.untag = 0;
 		priv->ops->set_vlan_4k(priv, &vlan4k);
@@ -137,16 +139,17 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 		vlan4k.fid = fid;
 		priv->ops->set_vlan_4k(priv, &vlan4k);
 		BUF_PRINTF(vlan, "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
-			  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
+			   vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
 	} else {
-		BUF_PRINTF(vlan, "echo \"r/d <Dvlan_id> | w <Dvlan_id> <Xmbr> <Xutag> <Dfid>\" > vlan_dump\n");
+		BUF_PRINTF(vlan,
+			   "echo \"r/d <Dvlan_id> | w <Dvlan_id> <Xmbr> <Xutag> <Dfid>\" > vlan_dump\n");
 	}
 	kfree(buf);
 	return count;
 }
 
 ssize_t MAKE_WRITE_FUNCNAME(pvid)(struct file *filep, const char __user *ubuf,
-				   size_t count, loff_t *offp)
+				  size_t count, loff_t *offp)
 {
 	struct realtek_priv *priv;
 	struct seq_file *sfile;
@@ -196,7 +199,7 @@ readback:
 }
 
 ssize_t MAKE_WRITE_FUNCNAME(sdsreg)(struct file *filep, const char __user *ubuf,
-				   size_t count, loff_t *offp)
+				    size_t count, loff_t *offp)
 {
 	u32 sds_id, page, reg, val;
 	struct realtek_priv *priv;
@@ -231,7 +234,9 @@ ssize_t MAKE_WRITE_FUNCNAME(sdsreg)(struct file *filep, const char __user *ubuf,
 			return -EFAULT;
 		}
 		rtl837x_sds_reg_read(priv, sds_id, page, reg, &tmp16);
-		BUF_PRINTF(sdsreg, "sds_id: %d, page: 0x%08x, reg: 0x%08x, val: 0x%08x\n", sds_id, page, reg, tmp16);
+		BUF_PRINTF(sdsreg,
+			   "sds_id: %d, page: 0x%08x, reg: 0x%08x, val: 0x%08x\n",
+			   sds_id, page, reg, tmp16);
 	} else {
 		BUF_PRINTF(sdsreg, "echo \"w/r <Dsds_id> <Xpage> <Xreg> [<Xval>]\" > sdsreg\n");
 	}
@@ -240,7 +245,7 @@ ssize_t MAKE_WRITE_FUNCNAME(sdsreg)(struct file *filep, const char __user *ubuf,
 }
 
 ssize_t MAKE_WRITE_FUNCNAME(phyreg_mmd)(struct file *filep, const char __user *ubuf,
-				   size_t count, loff_t *offp)
+					size_t count, loff_t *offp)
 {
 	u32 port, devad, reg, val;
 	struct realtek_priv *priv;
@@ -278,17 +283,19 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mmd)(struct file *filep, const char __user *u
 			kfree(buf);
 			return -EIO;
 		}
-		BUF_PRINTF(phyreg_mmd, "port: %d, devad: 0x%08x, reg: 0x%08x, val: 0x%08x\n", port, devad, reg, tmp16);
+		BUF_PRINTF(phyreg_mmd,
+			   "port: %d, devad: 0x%08x, reg: 0x%08x, val: 0x%08x\n",
+			   port, devad, reg, tmp16);
 	} else {
-		BUF_PRINTF(phyreg_mmd, "echo \"w/r <Dport> <Xdevad> <Xreg> [<Xval>]\" > phyreg_mmd\n");
+		BUF_PRINTF(phyreg_mmd,
+			   "echo \"w/r <Dport> <Xdevad> <Xreg> [<Xval>]\" > phyreg_mmd\n");
 	}
 	kfree(buf);
 	return count;
 }
 
-
 ssize_t MAKE_WRITE_FUNCNAME(phyreg_mii)(struct file *filep, const char __user *ubuf,
-				   size_t count, loff_t *offp)
+					size_t count, loff_t *offp)
 {
 	struct realtek_priv *priv;
 	struct seq_file *sfile;
@@ -335,7 +342,7 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mii)(struct file *filep, const char __user *u
 }
 
 ssize_t MAKE_WRITE_FUNCNAME(phyreg_ocp)(struct file *filep, const char __user *ubuf,
-				   size_t count, loff_t *offp)
+					size_t count, loff_t *offp)
 {
 	struct realtek_priv *priv;
 	struct seq_file *sfile;
@@ -382,7 +389,7 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_ocp)(struct file *filep, const char __user *u
 }
 
 ssize_t MAKE_WRITE_FUNCNAME(reg)(struct file *filep, const char __user *ubuf,
-				   size_t count, loff_t *offp)
+				 size_t count, loff_t *offp)
 {
 	struct realtek_priv *priv;
 	struct seq_file *sfile;
@@ -422,7 +429,7 @@ reg_readback:
 }
 
 ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
-				   size_t count, loff_t *offp)
+				  size_t count, loff_t *offp)
 {
 	struct rtl837x_lut_entry entry = {0};
 	struct realtek_priv *priv;
@@ -456,7 +463,7 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 		case RTL837X_LUT_TYPE_L2_UC:
 			BUF_APPEND(l2uc, "type:%s ", "l2uc");
 			BUF_APPEND(l2uc, "%02X:%02X:%02X:%02X:%02X:%02X ",
-								entry.uc.key.mac_addr[0],
+				   entry.uc.key.mac_addr[0],
 								entry.uc.key.mac_addr[1],
 								entry.uc.key.mac_addr[2],
 								entry.uc.key.mac_addr[3],
@@ -473,7 +480,7 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 		case RTL837X_LUT_TYPE_L2_MC:
 			BUF_APPEND(l2uc, "type:%s ", "l2mc");
 			BUF_APPEND(l2uc, "%02X:%02X:%02X:%02X:%02X:%02X ",
-								entry.mc.key.mac_addr[0],
+				   entry.mc.key.mac_addr[0],
 								entry.mc.key.mac_addr[1],
 								entry.mc.key.mac_addr[2],
 								entry.mc.key.mac_addr[3],
@@ -514,7 +521,7 @@ out:
 }
 
 ssize_t MAKE_WRITE_FUNCNAME(vlan_trans)(struct file *filep, const char __user *ubuf,
-				   size_t count, loff_t *offp)
+					size_t count, loff_t *offp)
 {
 	struct realtek_priv *priv;
 	struct seq_file *sfile;
@@ -538,9 +545,9 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_trans)(struct file *filep, const char __user *u
 read_back:
 		rtl837x_vlan_port_get_transparent_mbr(priv, port, &mbr);
 		BUF_PRINTF(vlan_trans, "port: %d, igr_mbr: 0x%04X\n",
-			  port, mbr);
+			   port, mbr);
 	} else if (buf[0] == 's' || buf[0] == 'd') {
-		if (sscanf(buf+1, " %d %d", &port, &igr_port) != 2) {
+		if (sscanf(buf + 1, " %d %d", &port, &igr_port) != 2) {
 			kfree(buf);
 			return -EFAULT;
 		}
@@ -556,7 +563,7 @@ read_back:
 }
 
 ssize_t MAKE_WRITE_FUNCNAME(vlan_keep)(struct file *filep, const char __user *ubuf,
-				   size_t count, loff_t *offp)
+				       size_t count, loff_t *offp)
 {
 	struct realtek_priv *priv;
 	struct seq_file *sfile;
@@ -581,9 +588,9 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_keep)(struct file *filep, const char __user *ub
 read_back:
 		rtl837x_vlan_port_get_egress_vlan_keep_mbr(priv, port, &mbr);
 		BUF_PRINTF(vlan_keep, "port: %d, igr_mbr: 0x%04X\n",
-			  port, mbr);
+			   port, mbr);
 	} else if (buf[0] == 's' || buf[0] == 'd') {
-		if (sscanf(buf+1, " %d %d", &port, &igr_port) != 2) {
+		if (sscanf(buf + 1, " %d %d", &port, &igr_port) != 2) {
 			kfree(buf);
 			return -EFAULT;
 		}
@@ -601,7 +608,7 @@ read_back:
 }
 
 ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __user *ubuf,
-				   size_t count, loff_t *offp)
+					      size_t count, loff_t *offp)
 {
 	struct realtek_priv *priv;
 	struct seq_file *sfile;
@@ -617,7 +624,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __u
 		return PTR_ERR(buf);
 
 	if (buf[0] == 'r') {
-		const char *stmp = "Unknow";
+		const char *stmp = "Unknown";
 
 		if (sscanf(buf, "r %d", &port) != 1) {
 			kfree(buf);
@@ -645,14 +652,15 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __u
 			break;
 		}
 		BUF_PRINTF(vlan_tag_rewrite, "port: %d, mode: %s\n",
-			  port, stmp);
+			   port, stmp);
 	} else if (buf[0] == 'w') {
 		if (sscanf(buf, "w %d %x", &port, &tmp) != 2) {
 			kfree(buf);
 			return -EFAULT;
 		}
 
-		rtl837x_vlan_port_set_vlan_egress_mode(priv, port, (enum rtl837x_vlan_egress_mode)tmp);
+		rtl837x_vlan_port_set_vlan_egress_mode(priv, port,
+						       (enum rtl837x_vlan_egress_mode)tmp);
 	} else {
 		BUF_PRINTF(vlan_tag_rewrite, "echo \"r/w <Dport> [<Xval>]\" > vlan_tag_rewrite\n");
 	}
@@ -661,7 +669,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __u
 }
 
 ssize_t MAKE_WRITE_FUNCNAME(vlan_ingress_filter)(struct file *filep, const char __user *ubuf,
-				   size_t count, loff_t *offp)
+						 size_t count, loff_t *offp)
 {
 	struct realtek_priv *priv;
 	struct seq_file *sfile;
@@ -685,7 +693,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_ingress_filter)(struct file *filep, const char 
 readback:
 		rtl837x_vlan_port_get_ingress_filtering(priv, port, &igr_flt_en);
 		BUF_PRINTF(vlan_ingress_filter, "port: %d, ingress_filter: %s\n",
-			  port, igr_flt_en ? "Enable" : "Disable");
+			   port, igr_flt_en ? "Enable" : "Disable");
 	} else if (buf[0] == 'w') {
 		if (sscanf(buf, "w %d %d", &port, &tmp) != 2) {
 			kfree(buf);
@@ -694,14 +702,15 @@ readback:
 		rtl837x_vlan_port_set_ingress_filtering(priv, port, !!tmp);
 		goto readback;
 	} else {
-		BUF_PRINTF(vlan_ingress_filter, "echo \"r/w <Dport> [<Dval>]\" > vlan_ingress_filter\n");
+		BUF_PRINTF(vlan_ingress_filter,
+			   "echo \"r/w <Dport> [<Dval>]\" > vlan_ingress_filter\n");
 	}
 	kfree(buf);
 	return count;
 }
 
 static ssize_t _sds_page_dump_read(struct file *filep, char __user *ubuf,
-				size_t count, loff_t *offp)
+				   size_t count, loff_t *offp)
 {
 	struct realtek_priv *priv;
 	struct seq_file *sfile;
@@ -829,7 +838,6 @@ static const struct file_operations _vlan_dump_fops = {
 	.read = _vlan_dump_read
 };
 
-
 static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 			       size_t count, loff_t *offp)
 {
@@ -841,7 +849,7 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 	sfile = filep->private_data;
 	priv = sfile->private;
 
-	const int MK_BUFLEN(l2uc_dump) = PAGE_SIZE*64;
+	const int MK_BUFLEN(l2uc_dump) = PAGE_SIZE * 64;
 	char *_buf_rd_l2uc_dump = kmalloc(MK_BUFLEN(l2uc_dump), GFP_KERNEL);
 
 	if (!MK_BUFNAME(l2uc_dump))
@@ -862,7 +870,7 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 		case RTL837X_LUT_TYPE_L2_UC:
 			BUF_APPEND(l2uc_dump, "type:%-4s ", "l2uc");
 			BUF_APPEND(l2uc_dump, "%02X:%02X:%02X:%02X:%02X:%02X ",
-								entry.uc.key.mac_addr[0],
+				   entry.uc.key.mac_addr[0],
 								entry.uc.key.mac_addr[1],
 								entry.uc.key.mac_addr[2],
 								entry.uc.key.mac_addr[3],
@@ -879,7 +887,7 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 		case RTL837X_LUT_TYPE_L2_MC:
 			BUF_APPEND(l2uc_dump, "type:%-4s ", "l2mc");
 			BUF_APPEND(l2uc_dump, "%02X:%02X:%02X:%02X:%02X:%02X ",
-								entry.mc.key.mac_addr[0],
+				   entry.mc.key.mac_addr[0],
 								entry.mc.key.mac_addr[1],
 								entry.mc.key.mac_addr[2],
 								entry.mc.key.mac_addr[3],
@@ -908,7 +916,9 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 		i = entry.addr;
 	}
 
-	ret = simple_read_from_buffer(ubuf, count, offp, MK_BUFNAME(l2uc_dump), strlen(MK_BUFNAME(l2uc_dump)));
+	ret = simple_read_from_buffer(ubuf, count, offp,
+				      MK_BUFNAME(l2uc_dump),
+				      strlen(MK_BUFNAME(l2uc_dump)));
 	kfree(MK_BUFNAME(l2uc_dump));
 	return ret;
 }
@@ -942,9 +952,15 @@ static ssize_t _port_eee_status_dump_read(struct file *filep, char __user *ubuf,
 		len += scnprintf(buf + len, PAGE_SIZE - len,
 			"lpi_dly_cycle: 0x%08x tx_dly_cycle:%lu rx_dly_cycle:%lu water_level_st:0x%02lx\n",
 			reg,
-			(unsigned long)FIELD_GET(RTL837X_EEE_LPI_DLY_CYCLE_TX_LPI_DLY_CYCLE_MASK, reg),
-			(unsigned long)FIELD_GET(RTL837X_EEE_LPI_DLY_CYCLE_RX_LPI_DLY_CYCLE_MASK, reg),
-			(unsigned long)FIELD_GET(RTL837X_EEE_LPI_DLY_CYCLE_CFG_WATER_LEVEL_ST_MASK, reg));
+			(unsigned long)
+			FIELD_GET(RTL837X_EEE_LPI_DLY_CYCLE_TX_LPI_DLY_CYCLE_MASK,
+				  reg),
+			(unsigned long)
+			FIELD_GET(RTL837X_EEE_LPI_DLY_CYCLE_RX_LPI_DLY_CYCLE_MASK,
+				  reg),
+			(unsigned long)
+			FIELD_GET(RTL837X_EEE_LPI_DLY_CYCLE_CFG_WATER_LEVEL_ST_MASK,
+				  reg));
 
 	/* Per-port EEE control (TX/RX enable + TX/RX status) */
 	for (port = 0; port < priv->num_ports; port++) {
@@ -1041,71 +1057,71 @@ int rtl837x_debug_proc_init(struct realtek_priv *priv)
 	snprintf(name, 64, "rtl837x-%d-ds", priv->ds->index);
 	priv->debugfs_parent = debugfs_create_dir(name, NULL);
 	debugfs_create_file("reg", 0600,
-			priv->debugfs_parent, priv,
+			    priv->debugfs_parent, priv,
 			&TO_FOPS(reg));
 
 	debugfs_create_file("phy_mmd", 0600,
-		priv->debugfs_parent, priv,
+			    priv->debugfs_parent, priv,
 		&TO_FOPS(phyreg_mmd));
 
 	debugfs_create_file("phy_mii", 0600,
-		priv->debugfs_parent, priv,
+			    priv->debugfs_parent, priv,
 		&TO_FOPS(phyreg_mii));
 
 	debugfs_create_file("phy_ocp", 0600,
-		priv->debugfs_parent, priv,
+			    priv->debugfs_parent, priv,
 		&TO_FOPS(phyreg_ocp));
 
 	debugfs_create_file("sdsreg", 0600,
-		priv->debugfs_parent, priv,
+			    priv->debugfs_parent, priv,
 		&TO_FOPS(sdsreg));
 
 	debugfs_create_file("vlan", 0600,
-		priv->debugfs_parent, priv,
+			    priv->debugfs_parent, priv,
 		&TO_FOPS(vlan));
 
 	debugfs_create_file("pvid", 0600,
-		priv->debugfs_parent, priv,
+			    priv->debugfs_parent, priv,
 		&TO_FOPS(pvid));
 
 	debugfs_create_file("vlan_trans", 0600,
-		priv->debugfs_parent, priv,
+			    priv->debugfs_parent, priv,
 		&TO_FOPS(vlan_trans));
 
 	debugfs_create_file("vlan_keep", 0600,
-		priv->debugfs_parent, priv,
+			    priv->debugfs_parent, priv,
 		&TO_FOPS(vlan_keep));
 
 	debugfs_create_file("vlan_tag_rewrite", 0600,
-		priv->debugfs_parent, priv,
+			    priv->debugfs_parent, priv,
 		&TO_FOPS(vlan_tag_rewrite));
 
 	debugfs_create_file("vlan_ingress_filter", 0600,
-		priv->debugfs_parent, priv,
+			    priv->debugfs_parent, priv,
 		&TO_FOPS(vlan_ingress_filter));
 
 	debugfs_create_file("l2uc", 0600,
-		priv->debugfs_parent, priv,
+			    priv->debugfs_parent, priv,
 		&TO_FOPS(l2uc));
 
 	debugfs_create_file("l2uc_dump", 0400,
-		priv->debugfs_parent, priv,
+			    priv->debugfs_parent, priv,
 		&_l2uc_dump_fops);
 
 	debugfs_create_file("vlan_dump", 0400,
-		priv->debugfs_parent, priv,
+			    priv->debugfs_parent, priv,
 		&_vlan_dump_fops);
 
 	debugfs_create_file("sds_page_dump", 0400,
-		priv->debugfs_parent, priv,
+			    priv->debugfs_parent, priv,
 		&_sds_page_dump_fops);
 
 	debugfs_create_file("port_eee_status_dump", 0400,
-		priv->debugfs_parent, priv,
+			    priv->debugfs_parent, priv,
 		&_port_eee_status_dump_fops);
 
 	debugfs_create_file("led_dump", 0400,
-		priv->debugfs_parent, priv,
+			    priv->debugfs_parent, priv,
 		&_led_dump_fops);
 
 	return 0;

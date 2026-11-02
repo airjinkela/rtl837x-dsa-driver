@@ -56,7 +56,7 @@
 #define RTL837X_L2_UC_D1_SPORT_LO_MASK	GENMASK(31, 30)
 #define  RTL837X_L2_UC_D2_SPORT_HI_MASK	GENMASK(1, 0)
 #define  RTL837X_L2_UC_SPORT_GET(_D1, _D2) \
-			((FIELD_GET(RTL837X_L2_UC_D1_SPORT_LO_MASK, _D1))| \
+			((FIELD_GET(RTL837X_L2_UC_D1_SPORT_LO_MASK, _D1)) | \
 			 (FIELD_GET(RTL837X_L2_UC_D2_SPORT_HI_MASK, _D2) << 2))
 
 #define RTL837X_L2_UC_D2_AGE_MASK		GENMASK(4, 2)
@@ -78,7 +78,7 @@
 #define RTL837X_L2_MC_D1_MBR_LO_MASK	    GENMASK(31, 30)
 #define  RTL837X_L2_MC_D2_MBR_HI_MASK	GENMASK(7, 0)
 #define  RTL837X_L2_MC_MBR_GET(_D1, _D2) \
-	    ((FIELD_GET(RTL837X_L2_MC_D1_MBR_LO_MASK, _D1))| \
+	    ((FIELD_GET(RTL837X_L2_MC_D1_MBR_LO_MASK, _D1)) | \
 	     (FIELD_GET(RTL837X_L2_MC_D2_MBR_HI_MASK, _D2) << 2))
 
 #define RTL837X_L2_MC_D2_IGMPIDX_MASK	GENMASK(15, 8)
@@ -93,7 +93,7 @@
 #define RTL837X_L3_D1_MBR_LO_MASK	    GENMASK(31, 30)
 #define  RTL837X_L3_D2_MBR_HI_MASK	GENMASK(7, 0)
 #define  RTL837X_L3_MBR_GET(_D1, _D2) \
-	    ((FIELD_GET(RTL837X_L3_D1_MBR_LO_MASK, _D1))| \
+	    ((FIELD_GET(RTL837X_L3_D1_MBR_LO_MASK, _D1)) | \
 	     (FIELD_GET(RTL837X_L3_D2_MBR_HI_MASK, _D2) << 2))
 
 #define RTL837X_L3_D2_IGMPIDX_MASK	GENMASK(15, 8)
@@ -109,7 +109,7 @@ static void rtl837x_l2_data_to_uc(const u32 *data, struct rtl837x_l2_uc *uc)
 	uc->key.mac_addr[0] = FIELD_GET(RTL837X_L2_UC_D1_MAC0_MASK, data[1]);
 
 	uc->key.vid_fid = FIELD_GET(RTL837X_L2_UC_D1_CVIDFID_MASK, data[1]);
-	// shoule never be set in uc entry
+	// should never be set in uc entry
 	// uc->l3lookup = FIELD_GET(RTL837X_L2_UC_D1_L3LOOKUP_MASK, data[1]);
 	uc->key.ivl = FIELD_GET(RTL837X_L2_UC_D1_IVL_MASK, data[1]);
 
@@ -140,7 +140,7 @@ static void rtl837x_l2_uc_to_data(const struct rtl837x_l2_uc *uc, u32 *data)
 		FIELD_PREP(RTL837X_L2_UC_D1_CVIDFID_MASK, uc->key.vid_fid);
 	data[1] |=
 		FIELD_PREP(RTL837X_L2_UC_D1_IVL_MASK, uc->key.ivl);
-	// shoule never be set in uc entry
+	// should never be set in uc entry
 	data[1] |=
 		FIELD_PREP(RTL837X_L2_UC_D1_L3LOOKUP_MASK, 0);
 
@@ -157,7 +157,6 @@ static void rtl837x_l2_uc_to_data(const struct rtl837x_l2_uc *uc, u32 *data)
 		FIELD_PREP(RTL837X_L2_UC_D2_AUTH_MASK, uc->auth);
 }
 
-
 static void rtl837x_l2_data_to_mc(const u32 *data, struct rtl837x_l2_mc *mc)
 {
 	mc->key.mac_addr[5] = FIELD_GET(RTL837X_L2_MC_D0_MAC5_MASK, data[0]);
@@ -168,7 +167,7 @@ static void rtl837x_l2_data_to_mc(const u32 *data, struct rtl837x_l2_mc *mc)
 	mc->key.mac_addr[0] = FIELD_GET(RTL837X_L2_MC_D1_MAC0_MASK, data[1]);
 
 	mc->key.vid_fid = FIELD_GET(RTL837X_L2_MC_D1_CVIDFID_MASK, data[1]);
-	// shoule never be set in mc entry
+	// should never be set in mc entry
 	// mc->l3lookup    = FIELD_GET(RTL837X_L2_MC_D1_L3LOOKUP_MASK, data[1]);
 	mc->key.ivl     = FIELD_GET(RTL837X_L2_MC_D1_IVL_MASK, data[1]);
 
@@ -199,7 +198,7 @@ static void rtl837x_l2_mc_to_data(const struct rtl837x_l2_mc *mc, u32 *data)
 	data[1] |=
 		FIELD_PREP(RTL837X_L2_MC_D1_IVL_MASK, mc->key.ivl);
 
-	// shoule never be set in mc entry
+	// should never be set in mc entry
 	data[1] |=
 		FIELD_PREP(RTL837X_L2_MC_D1_L3LOOKUP_MASK, 0);
 
@@ -249,7 +248,7 @@ static void rtl837x_l3_to_data(const struct rtl837x_l3 *l3, u32 *data)
 }
 
 int rtl837x_lut_query(struct realtek_priv *priv,
-			  enum rtl837x_lut_method method,
+		      enum rtl837x_lut_method method,
 			  struct rtl837x_lut_entry *entry)
 {
 	u32 tb_data[RTL837X_LUT_TABLE_SIZE] = {0};
@@ -275,7 +274,7 @@ int rtl837x_lut_query(struct realtek_priv *priv,
 	}
 
 	ret = rtl837x_ita_execute(priv, RTL837X_TABLE_L2, RTL837X_TABLE_OPERA_READ,
-			    &addr, port, method, tb_data, RTL837X_LUT_TABLE_SIZE);
+				  &addr, port, method, tb_data, RTL837X_LUT_TABLE_SIZE);
 	if (ret)
 		return ret;
 
@@ -291,13 +290,13 @@ int rtl837x_lut_query(struct realtek_priv *priv,
 
 	switch (entry->type) {
 	case RTL837X_LUT_TYPE_L2_UC:
-		rtl837x_l2_data_to_uc(tb_data, &(entry->uc));
+		rtl837x_l2_data_to_uc(tb_data, &entry->uc);
 		break;
 	case RTL837X_LUT_TYPE_L2_MC:
-		rtl837x_l2_data_to_mc(tb_data, &(entry->mc));
+		rtl837x_l2_data_to_mc(tb_data, &entry->mc);
 		break;
 	case RTL837X_LUT_TYPE_L3:
-		rtl837x_data_to_l3(tb_data, &(entry->l3));
+		rtl837x_data_to_l3(tb_data, &entry->l3);
 		break;
 	}
 
@@ -311,7 +310,7 @@ int rtl837x_lut_query(struct realtek_priv *priv,
  * it will throw an error (-ENOENT)
  */
 int rtl837x_lut_set(struct realtek_priv *priv,
-			  struct rtl837x_lut_entry *entry)
+		    struct rtl837x_lut_entry *entry)
 {
 	u32 tb_data[RTL837X_LUT_TABLE_SIZE] = {0};
 	u16 addr;
@@ -332,7 +331,7 @@ int rtl837x_lut_set(struct realtek_priv *priv,
 	}
 
 	ret = rtl837x_ita_execute(priv, RTL837X_TABLE_L2, RTL837X_TABLE_OPERA_WRITE,
-			    &addr, -0, -0, tb_data, RTL837X_LUT_TABLE_SIZE);
+				  &addr, -0, -0, tb_data, RTL837X_LUT_TABLE_SIZE);
 	if (ret)
 		return ret;
 	entry->addr = addr;
@@ -340,17 +339,17 @@ int rtl837x_lut_set(struct realtek_priv *priv,
 }
 
 int rtl837x_lut_del(struct realtek_priv *priv,
-			  u16 addr)
+		    u16 addr)
 {
 	int ret;
 
 	ret = rtl837x_ita_execute(priv, RTL837X_TABLE_L2, RTL837X_TABLE_OPERA_DELETE,
-		   &addr, -0, -0, NULL, 0);
+				  &addr, -0, -0, NULL, 0);
 	return ret;
 }
 
 int rtl837x_lut_port_set_learning(struct realtek_priv *priv, int port,
-				       bool enable)
+				  bool enable)
 {
 	/* Enable/disable learning by limiting the number of L2 addresses the
 	 * port can learn. Realtek documentation states that a limit of zero
@@ -363,35 +362,35 @@ int rtl837x_lut_port_set_learning(struct realtek_priv *priv, int port,
 }
 
 int rtl837x_lut_l2_flush(struct realtek_priv *priv, enum rtl837x_l2_flush_mode mode,
-		    int port, u16 vid, u16 fid)
+			 int port, u16 vid, u16 fid)
 {
 	int ret;
 	u32 tmp;
 
 	/* wait busy flag */
 	ret = regmap_read_poll_timeout(priv->map, RTL837X_L2_FLUSH_CMD_REG, tmp,
-		  ((tmp & RTL837X_L2_FLUSH_CMD_BUSY_MASK) == 0),
+				       ((tmp & RTL837X_L2_FLUSH_CMD_BUSY_MASK) == 0),
 		  20, 5000);
 	if (ret)
 		return ret;
 
 	/* Configure flushing mode; only flush dynamic entries */
 	ret = rtl837x_reg_write(priv, RTL837X_L2_FLUSH_CTRL_REG,
-		   FIELD_PREP(RTL837X_L2_FLUSH_CTRL_MODE_MASK, mode) |
+				FIELD_PREP(RTL837X_L2_FLUSH_CTRL_MODE_MASK, mode) |
 		   FIELD_PREP(RTL837X_L2_FLUSH_CTRL_TYPE_MASK, RTL837X_L2_FLUSH_CTRL_TYPE_DYNAMIC)
 		);
 	if (ret)
 		return ret;
 
 	ret = rtl837x_reg_write(priv, RTL837X_L2_FLUSH_XID_REG,
-		   FIELD_PREP(RTL837X_L2_FLUSH_XID_FID_MASK, fid) |
+				FIELD_PREP(RTL837X_L2_FLUSH_XID_FID_MASK, fid) |
 		   FIELD_PREP(RTL837X_L2_FLUSH_XID_VID_MASK, vid)
 		);
 	if (ret)
 		return ret;
 
 	ret = rtl837x_reg_write(priv, RTL837X_L2_FLUSH_CMD_REG,
-		   FIELD_PREP(RTL837X_L2_FLUSH_CMD_ACT_MASK, 1) |
+				FIELD_PREP(RTL837X_L2_FLUSH_CMD_ACT_MASK, 1) |
 		   FIELD_PREP(RTL837X_L2_FLUSH_CMD_PORT_MASK, BIT(port))
 		);
 	if (ret)
@@ -399,7 +398,7 @@ int rtl837x_lut_l2_flush(struct realtek_priv *priv, enum rtl837x_l2_flush_mode m
 
 	// check busy
 	ret = regmap_read_poll_timeout(priv->map, RTL837X_L2_FLUSH_CMD_REG, tmp,
-		  ((tmp & RTL837X_L2_FLUSH_CMD_BUSY_MASK) == 0),
+				       ((tmp & RTL837X_L2_FLUSH_CMD_BUSY_MASK) == 0),
 		  10, 10000);
 	if (ret)
 		return ret;
@@ -413,13 +412,13 @@ int rtl837x_lut_l2_flush_all(struct realtek_priv *priv)
 	u32 tmp;
 
 	ret = rtl837x_reg_write(priv, RTL837X_L2_FLUSH_ALL_REG,
-		   FIELD_PREP(RTL837X_L2_FLUSH_ALL_MASK, 1)
+				FIELD_PREP(RTL837X_L2_FLUSH_ALL_MASK, 1)
 		);
 	if (ret)
 		return ret;
 
 	ret = regmap_read_poll_timeout(priv->map, RTL837X_L2_FLUSH_ALL_REG, tmp,
-		  ((tmp & RTL837X_L2_FLUSH_ALL_MASK) == 0),
+				       ((tmp & RTL837X_L2_FLUSH_ALL_MASK) == 0),
 		  10, 10000);
 	if (ret)
 		return ret;

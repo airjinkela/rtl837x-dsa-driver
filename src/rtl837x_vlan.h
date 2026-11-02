@@ -26,9 +26,9 @@ struct rtl837x_vlan_data {
  * enum rtl837x_frame_ingress - port accept ingress frame
  * @RTL837X_FRAME_TYPE_ANY_FRAME:  accept tagged and untagged frame
  * @RTL837X_FRAME_TYPE_TAGGED_ONLY: only accept tagged frame, untagged frame
- * will be dorp
+ * will be drop
  * @RTL837X_FRAME_TYPE_UNTAGGED_ONLY: only accept untagged frame, tagged frame
- * will be dorp
+ * will be drop
  * It is the same as the RTL8365MB
  */
 enum rtl837x_frame_ingress {
@@ -62,26 +62,25 @@ int rtl837x_vlan_port_set_pvid(struct realtek_priv *priv, int port, u16 pvid);
 int rtl837x_vlan_port_get_pvid(struct realtek_priv *priv, int port, u16 *pvid);
 
 int rtl837x_vlan_port_set_framefilter(struct realtek_priv *priv, int port,
-		    enum rtl837x_frame_ingress frame_type);
+				      enum rtl837x_frame_ingress frame_type);
 int rtl837x_vlan_port_get_framefilter(struct realtek_priv *priv, int port,
-		    enum rtl837x_frame_ingress *frame_type);
+				      enum rtl837x_frame_ingress *frame_type);
 
 int rtl837x_vlan_port_set_vlan_egress_mode(struct realtek_priv *priv, int port,
-		    enum rtl837x_vlan_egress_mode mode);
+					   enum rtl837x_vlan_egress_mode mode);
 int rtl837x_vlan_port_get_vlan_egress_mode(struct realtek_priv *priv, int port,
-		    enum rtl837x_vlan_egress_mode *mode);
+					   enum rtl837x_vlan_egress_mode *mode);
 
 int rtl837x_vlan_port_set_transparent(struct realtek_priv *priv,
-		    int igr_port, int egr_port, bool enable);
+				      int igr_port, int egr_port, bool enable);
 int rtl837x_vlan_port_get_transparent_mbr(struct realtek_priv *priv,
-		    int egr_port, u32 *igr_mbr);
+					  int egr_port, u32 *igr_mbr);
 int rtl837x_vlan_port_set_egress_vlan_keep(struct realtek_priv *priv,
-			int igr_port, int egr_port, bool enable);
+					   int igr_port, int egr_port, bool enable);
 int rtl837x_vlan_port_get_egress_vlan_keep_mbr(struct realtek_priv *priv,
-			int egr_port, u32 *igr_mbr);
+					       int egr_port, u32 *igr_mbr);
 
 int rtl837x_vlan_port_set_ingress_filtering(struct realtek_priv *priv, int port, bool enable);
 int rtl837x_vlan_port_get_ingress_filtering(struct realtek_priv *priv, int port, bool *enable);
-
 
 #endif /* _RTL837X_VLAN_H */

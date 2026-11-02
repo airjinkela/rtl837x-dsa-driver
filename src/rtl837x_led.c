@@ -63,13 +63,13 @@
 #define RTL837X_LED_LINK_MASTER_EN_MASK       BIT(14)
 
 // SELx_1
-#define RTL837X_LED_LINK_5000M_EN_MASK        (BIT(2)<<16)
-#define RTL837X_LED_LINK_10000M_EN_MASK       (BIT(0)<<16)
-#define RTL837X_LED_LINK_2PAIR_2500M_EN_MASK  (BIT(3)<<16)
-#define RTL837X_LED_LINK_2PAIR_5000M_EN_MASK  (BIT(1)<<16)
+#define RTL837X_LED_LINK_5000M_EN_MASK        (BIT(2) << 16)
+#define RTL837X_LED_LINK_10000M_EN_MASK       (BIT(0) << 16)
+#define RTL837X_LED_LINK_2PAIR_2500M_EN_MASK  (BIT(3) << 16)
+#define RTL837X_LED_LINK_2PAIR_5000M_EN_MASK  (BIT(1) << 16)
 
 #define RTL837X_LED_PORT_INDEX(_p, _l) \
-		    ((_p*RTL837X_PORT_LED_COUNT)+_l)
+	(((_p) * RTL837X_PORT_LED_COUNT) + (_l))
 
 #define RTL837X_LED_LINK_MASK \
 	    (RTL837X_LED_LINK_10M_EN_MASK | \
@@ -178,13 +178,13 @@ static int rtl837x_apply_led_set(struct rtl837x_led_set *led_set)
 
 	for (int i = 0; i < RTL837X_PORT_LED_COUNT; i++) {
 		ret = rtl837x_reg_bits_write(priv, RTL837X_LED_SET_SEL0_REG(led_set->idx, i),
-					RTL837X_LED_SET_SEL0_MASK(i),
+					     RTL837X_LED_SET_SEL0_MASK(i),
 					led_set->led_cfg_mask[i] & 0xffff
 				);
 		if (ret)
 			return ret;
 		ret = rtl837x_reg_bits_write(priv, RTL837X_LED_SET_SEL1_REG(led_set->idx),
-					RTL837X_LED_SET_SEL1_MASK(led_set->idx, i),
+					     RTL837X_LED_SET_SEL1_MASK(led_set->idx, i),
 					(led_set->led_cfg_mask[i] >> 16) & 0xf
 				);
 		if (ret)
@@ -274,9 +274,9 @@ static int rtl837x_parse_netdev(unsigned long rules, u32 *offload_trigger)
 		*offload_trigger |= RTL837X_LED_LINK_LINK_EN_MASK;
 
 	if (test_bit(TRIGGER_NETDEV_RX, &rules) &&
-		test_bit(TRIGGER_NETDEV_TX, &rules))
+	    test_bit(TRIGGER_NETDEV_TX, &rules)) {
 		*offload_trigger |= RTL837X_LED_LINK_ACT_EN_MASK;
-	else {
+	} else {
 		if (test_bit(TRIGGER_NETDEV_RX, &rules))
 			*offload_trigger |= RTL837X_LED_LINK_RX_EN_MASK;
 		if (test_bit(TRIGGER_NETDEV_TX, &rules))
@@ -299,11 +299,11 @@ static int rtl837x_set_led_hw_offload(struct rtl837x_led *port_led, bool enable)
 		if (ret)
 			return ret;
 		ret = rtl837x_reg_bits_write(priv, RTL837X_LED_GLB_IO_EN_REG,
-			    BIT(port_led->led_pin), 1);
+					     BIT(port_led->led_pin), 1);
 		if (ret)
 			return ret;
 		ret = rtl837x_reg_bits_write(priv, RTL837X_LED_ACTIVE_LOW_REG,
-				    RTL837X_LED_ACTIVE_LOW_MASK(port_led->led_pin),
+					     RTL837X_LED_ACTIVE_LOW_MASK(port_led->led_pin),
 				    !!port_led->active_low
 				);
 		if (ret)
@@ -324,7 +324,7 @@ static int rtl837x_set_led_hw_offload(struct rtl837x_led *port_led, bool enable)
 			return ret;
 
 		ret = rtl837x_reg_bits_write(priv, RTL837X_LED_GLB_IO_EN_REG,
-			    BIT(port_led->led_pin), 0);
+					     BIT(port_led->led_pin), 0);
 		if (ret)
 			return ret;
 	}
@@ -334,7 +334,7 @@ static int rtl837x_set_led_hw_offload(struct rtl837x_led *port_led, bool enable)
 }
 
 static int rtl837x_led_set_brightness(struct rtl837x_led *port_led,
-			 enum led_brightness brightness)
+				      enum led_brightness brightness)
 {
 	struct realtek_priv *priv = port_led->priv;
 	int br_val = port_led->active_low ? 0 : 1;
@@ -351,7 +351,7 @@ static int rtl837x_led_set_brightness(struct rtl837x_led *port_led,
 }
 
 static int rtl837x_led_get_brightness(struct rtl837x_led *port_led,
-			 enum led_brightness *brightness)
+				      enum led_brightness *brightness)
 {
 	struct realtek_priv *priv = port_led->priv;
 	u32 val;
@@ -378,7 +378,7 @@ rtl837x_cled_hw_control_is_supported(struct led_classdev *ldev, unsigned long ru
 }
 
 static int rtl837x_brightness_set_blocking(struct led_classdev *ldev,
-						  enum led_brightness brightness)
+					   enum led_brightness brightness)
 {
 	struct rtl837x_led *port_led = container_of(ldev, struct rtl837x_led, cdev);
 
@@ -401,7 +401,7 @@ rtl837x_cled_hw_control_set(struct led_classdev *ldev, unsigned long rules)
 	if (ret)
 		return ret;
 	dev_dbg(priv->dev, "[%s]: set led hardware offload: 0x%x\n", __func__,
-			  offload_trigger
+		offload_trigger
 			);
 
 	return rtl837x_set_led_hw_offload(port_led, true);
@@ -420,22 +420,22 @@ rtl837x_cled_hw_control_get(struct led_classdev *ldev, unsigned long *rules)
 		return -EINVAL;
 
 	ret = rtl837x_reg_bits_read(priv,
-		  RTL837X_LED_SET_SEL0_REG(port_led->led_set->idx, port_led->led_id),
-		  RTL837X_LED_SET_SEL0_MASK(port_led->led_id),
-		  &tmp
-		);
+				    RTL837X_LED_SET_SEL0_REG(port_led->led_set->idx,
+							     port_led->led_id),
+				    RTL837X_LED_SET_SEL0_MASK(port_led->led_id),
+				    &tmp);
 	if (ret)
 		return ret;
 	offload_trigger |= tmp;
 
 	ret = rtl837x_reg_bits_read(priv,
-		  RTL837X_LED_SET_SEL1_REG(port_led->led_set->idx),
-		  RTL837X_LED_SET_SEL1_MASK(port_led->led_set->idx, port_led->led_id),
-		  &tmp
-		);
+				    RTL837X_LED_SET_SEL1_REG(port_led->led_set->idx),
+				    RTL837X_LED_SET_SEL1_MASK(port_led->led_set->idx,
+							      port_led->led_id),
+				    &tmp);
 	if (ret)
 		return ret;
-	offload_trigger |= (0xf&tmp)<<16;
+	offload_trigger |= (0xf & tmp) << 16;
 
 	/* Parsing specific to netdev trigger */
 	if (offload_trigger & RTL837X_LED_LINK_TX_EN_MASK)
@@ -496,13 +496,16 @@ static int rtl837x_set_led_mux(struct rtl837x_led *port_led)
 	 *   led_id : the led0..led3 slot of that port
 	 */
 	u32 tmp = FIELD_PREP(0x03, port_led->led_id) |
-			  FIELD_PREP(0x3c, port_led->port_num);
+		  FIELD_PREP(0x3c, port_led->port_num);
 
-	return rtl837x_reg_bits_write(priv, RTL837X_LED_GLB_MUX_REG(port_led->led_pin),
-			RTL837X_LED_GLB_MUX_MASK(port_led->led_pin), tmp);
+	return rtl837x_reg_bits_write(priv,
+				      RTL837X_LED_GLB_MUX_REG(port_led->led_pin),
+				      RTL837X_LED_GLB_MUX_MASK(port_led->led_pin),
+				      tmp);
 }
 
-static int rtl837x_parse_port_leds(struct realtek_priv *priv, struct fwnode_handle *port, int port_num)
+static int rtl837x_parse_port_leds(struct realtek_priv *priv,
+				   struct fwnode_handle *port, int port_num)
 {
 	struct led_init_data init_data = {0};
 	u32 led_id, led_index, led_pin;
@@ -587,7 +590,7 @@ static int rtl837x_parse_port_leds(struct realtek_priv *priv, struct fwnode_hand
 		init_data.fwnode = led;
 		init_data.devname_mandatory = true;
 		init_data.devicename = kasprintf(GFP_KERNEL, "%s:0%d:0%d",
-						    priv->bus->id, port_num, led_id
+						 priv->bus->id, port_num, led_id
 						);
 		if (!init_data.devicename) {
 			fwnode_handle_put(led);

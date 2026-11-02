@@ -65,10 +65,10 @@ int rtl837x_gpio_value_set(struct realtek_priv *priv, unsigned int offset, int v
 
 	if (offset < 32)
 		ret = rtl837x_reg_bits_write(priv, RTL837X_GPIO_OUT0_REG,
-				BIT(offset), !!val);
+					     BIT(offset), !!val);
 	else
 		ret = rtl837x_reg_bits_write(priv, RTL837X_GPIO_OUT1_REG,
-				BIT(offset-32), !!val);
+					     BIT(offset - 32), !!val);
 	return ret;
 }
 
@@ -82,14 +82,14 @@ int rtl837x_gpio_value_get(struct realtek_priv *priv, unsigned int offset, int *
 
 	if (offset < 32)
 		ret = rtl837x_reg_bits_read(priv, RTL837X_GPIO_IN0_REG,
-				BIT(offset), &tmp);
+					    BIT(offset), &tmp);
 	else
 		ret = rtl837x_reg_bits_read(priv, RTL837X_GPIO_IN1_REG,
-				BIT(offset-32), &tmp);
+					    BIT(offset - 32), &tmp);
 	if (ret)
 		return ret;
 
-	*val = !!(tmp&1);
+	*val = !!(tmp & 1);
 	return 0;
 }
 
@@ -101,13 +101,12 @@ int rtl837x_gpio_direction_set(struct realtek_priv *priv, unsigned int offset, b
 	if (offset > RTL837X_MAX_GPIO)
 		return -EINVAL;
 
-
 	if (offset < 32)
 		ret = rtl837x_reg_bits_write(priv, RTL837X_GPIO_OE0_REG,
-				BIT(offset), value);
+					     BIT(offset), value);
 	else
 		ret = rtl837x_reg_bits_write(priv, RTL837X_GPIO_OE1_REG,
-				BIT(offset-32), value);
+					     BIT(offset - 32), value);
 	return ret;
 }
 
@@ -121,14 +120,14 @@ int rtl837x_gpio_direction_get(struct realtek_priv *priv, unsigned int offset, b
 
 	if (offset < 32)
 		ret = rtl837x_reg_bits_read(priv, RTL837X_GPIO_OE0_REG,
-				BIT(offset), &tmp);
+					    BIT(offset), &tmp);
 	else
 		ret = rtl837x_reg_bits_read(priv, RTL837X_GPIO_OE1_REG,
-				BIT(offset-32), &tmp);
+					    BIT(offset - 32), &tmp);
 	if (ret)
 		return ret;
 
-	if (tmp&1)
+	if (tmp & 1)
 		*input = false;
 	else
 		*input = true;
@@ -149,68 +148,77 @@ static int rtl837x_gpiochip_request(struct gpio_chip *gc, unsigned int offset)
 		break;
 	case 30:
 		ret = rtl837x_reg_bits_write(priv, RTL837X_IO_MUX_SEL_2_REG,
-				 RTL837X_IO_MUX_SEL_2_ACL_BIT3_EN_MASK, 1);
+					     RTL837X_IO_MUX_SEL_2_ACL_BIT3_EN_MASK,
+					     1);
 		break;
 	case 31 ... 32:
-		// we have to set RTL837X_IO_MUX_SEL_1_PAD_UART0_SEL_0_MASK and RTL837X_IO_MUX_SEL_1_PAD_UART0_SEL_1_MASK
-		// only set RTL837X_IO_MUX_SEL_1_PAD_UART0_SEL_0_MASK or RTL837X_IO_MUX_SEL_1_PAD_UART0_SEL_1_MASK is not work
+		/* Both UART0 select bits have to be written at once, setting
+		 * only one of them does not switch the pin mux.
+		 */
 		ret = rtl837x_reg_bits_write(priv, RTL837X_IO_MUX_SEL_1_REG,
-				 RTL837X_IO_MUX_SEL_1_PAD_UART0_SEL_0_MASK | RTL837X_IO_MUX_SEL_1_PAD_UART0_SEL_1_MASK, 3);
+					     RTL837X_IO_MUX_SEL_1_PAD_UART0_SEL_0_MASK |
+					     RTL837X_IO_MUX_SEL_1_PAD_UART0_SEL_1_MASK,
+					     3);
 		break;
 	case 33 ... 35:
 		ret = rtl837x_reg_bits_write(priv, RTL837X_IO_MUX_SEL_1_REG,
-				 BIT(offset-31), 1);
+					     BIT(offset - 31), 1);
 		break;
 	case 36:
 		ret = rtl837x_reg_bits_write(priv, RTL837X_IO_MUX_SEL_1_REG,
-				 RTL837X_IO_MUX_SEL_1_GPIO_PWM_OUT_SEL_MASK, 1);
+					     RTL837X_IO_MUX_SEL_1_GPIO_PWM_OUT_SEL_MASK,
+					     1);
 		break;
 	case 37 ... 38:
-		break; //do nothing
+		break;
 	case 39:
 		ret = rtl837x_reg_bits_write(priv, RTL837X_IO_MUX_SEL_1_REG,
-				 RTL837X_IO_MUX_SEL_1_GPIO_SDA4_SEL_MASK, 1);
+					     RTL837X_IO_MUX_SEL_1_GPIO_SDA4_SEL_MASK,
+					     1);
 		break;
 	case 40:
 		ret = rtl837x_reg_bits_write(priv, RTL837X_IO_MUX_SEL_1_REG,
-				 RTL837X_IO_MUX_SEL_1_GPIO_MDX1_SEL_0_MASK, 1);
+					     RTL837X_IO_MUX_SEL_1_GPIO_MDX1_SEL_0_MASK,
+					     1);
 		break;
 	case 41:
 		ret = rtl837x_reg_bits_write(priv, RTL837X_IO_MUX_SEL_1_REG,
-				 RTL837X_IO_MUX_SEL_1_GPIO_MDX1_SEL_1_MASK, 1);
+					     RTL837X_IO_MUX_SEL_1_GPIO_MDX1_SEL_1_MASK,
+					     1);
 		break;
 	case 42 ... 45:
-		// what fuck is this?
-		// I don't know how does realtek use two bits to represent gpio 42 43 44 45
-		// Is this a magic?????
+		/* The datasheet does not describe how these four GPIOs are
+		 * encoded, the vendor driver always writes 1 to INI_MODE.
+		 */
 		ret = rtl837x_reg_bits_write(priv, RTL837X_INI_MODE_REG,
-				 RTL837X_INI_MODE_MASK, 1);
+					     RTL837X_INI_MODE_MASK, 1);
 		break;
 	case 46 ... 51:
-		// MSCK and MSDA
-		// Humm. what val should I set to make the gpiomux mode to gpio?
-		// Maybe is 0b0011 ? I'm not sure about this.
+		/* MSCK and MSDA, the vendor driver uses 0b11 as mux value */
 		ret = rtl837x_reg_bits_write(priv, RTL837X_IO_MUX_SEL_1_REG,
-				 (0x180 << ((offset-46)*2)), 3);
+					     0x180 << ((offset - 46) * 2), 3);
 		break;
 	case 52 ... 54:
 		ret = rtl837x_reg_bits_write(priv, RTL837X_IO_MUX_SEL_2_REG,
-				 BIT(offset-52), 1);
+					     BIT(offset - 52), 1);
 		break;
 	case 55 ... 60:
 		ret = rtl837x_reg_bits_write(priv, RTL837X_IO_MUX_SEL_1_REG,
-				 BIT(offset-36), 1);
+					     BIT(offset - 36), 1);
 		break;
 	case 61 ... 62:
 		ret = rtl837x_reg_bits_write(priv, RTL837X_IO_MUX_SEL_1_REG,
-				 BIT(offset-34), 1);
+					     BIT(offset - 34), 1);
 		break;
 	case 63:
 		ret = rtl837x_reg_bits_write(priv, RTL837X_IO_MUX_SEL_1_REG,
-				RTL837X_IO_MUX_SEL_1_GPIO_MDIO0_SEL_MASK, 1);
+					     RTL837X_IO_MUX_SEL_1_GPIO_MDIO0_SEL_MASK,
+					     1);
 		break;
 	default:
-		dev_err(priv->dev, "gpio(%d): failed to request gpio, Out of range\n", offset);
+		dev_err(priv->dev,
+			"gpio(%d): failed to request gpio, Out of range\n",
+			offset);
 		return -EINVAL;
 	}
 
@@ -274,7 +282,7 @@ static int rtl837x_gpiochip_direction_input(struct gpio_chip *gc, unsigned int o
 }
 
 static int rtl837x_gpiochip_direction_output(struct gpio_chip *gc,
-					unsigned int offset, int value)
+					     unsigned int offset, int value)
 {
 	struct rtl837x_gpio *gpio = gpiochip_get_data(gc);
 	struct realtek_priv *priv = gpio->priv;
@@ -282,20 +290,23 @@ static int rtl837x_gpiochip_direction_output(struct gpio_chip *gc,
 
 	ret = rtl837x_gpio_direction_set(priv, offset, false);
 	if (ret) {
-		dev_err(gpio->priv->dev, "gpio(%d): failed to set gpio direction output %x", offset, ret);
+		dev_err(gpio->priv->dev,
+			"gpio(%d): failed to set gpio direction output %x\n",
+			offset, ret);
 		return ret;
 	}
 
 	ret = rtl837x_gpio_value_set(priv, offset, value);
 	if (ret) {
-		dev_err(gpio->priv->dev, "gpio(%d): failed to write gpio val %x", offset, ret);
+		dev_err(gpio->priv->dev,
+			"gpio(%d): failed to write gpio val %x\n", offset, ret);
 		return ret;
 	}
 	return 0;
 }
 
 static int rtl837x_gpiochip_get_direction(struct gpio_chip *gc,
-						unsigned int offset)
+					  unsigned int offset)
 {
 	struct rtl837x_gpio *gpio = gpiochip_get_data(gc);
 	struct realtek_priv *priv = gpio->priv;
