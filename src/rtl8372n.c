@@ -16,7 +16,7 @@
 #define RTL837X_LUT_MAX 4160
 
 #define RTL8372N_SUPPORTED_BRIDGE_FLAGS \
-	    (BR_LEARNING)
+	    (BR_LEARNING | BR_FLOOD | BR_MCAST_FLOOD | BR_BCAST_FLOOD)
 
 /*
  * Chip identification. The model is a 16-bit number followed by two packed
@@ -158,6 +158,13 @@
 /* Per-port forwarding mask; a clear bit blocks frames to that port */
 #define RTL837X_PORT_ISOLATION_REG(_p)                    (0x50C0 + (((_p) << 2)))
 #define   RTL837X_PORT_ISOLATION_PORT_MASK                 GENMASK(9, 0)
+
+/* Flood port masks: bit n set = frames of that kind are flooded to port n */
+#define RTL837X_FLOOD_UNKNOWN_UC_REG                      0x5360
+#define RTL837X_FLOOD_UNKNOWN_L2MC_REG                    0x5364
+#define RTL837X_FLOOD_UNKNOWN_IP4MC_REG                   0x5368
+#define RTL837X_FLOOD_UNKNOWN_IP6MC_REG                   0x536C
+#define RTL837X_FLOOD_BCAST_REG                           0x5370
 
 /* Flow control: force link and pause state instead of using autoneg */
 #define RTL837X_FC_PORT_ACT_CTRL_REG(_p)                      (0x7124 + (((_p) << 2)))
@@ -2176,6 +2183,41 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 	return 0;
 }
 
+static int rtl8372n_port_set_ucast_flood(struct realtek_priv *priv, int port,
+					 bool enable)
+{
+	return rtl837x_reg_bits_write(priv, RTL837X_FLOOD_UNKNOWN_UC_REG,
+				      BIT(port), enable);
+}
+
+/* Unknown L2 multicast as well as unknown IPv4 and IPv6 multicast */
+static int rtl8372n_port_set_mcast_flood(struct realtek_priv *priv, int port,
+					 bool enable)
+{
+	static const u32 regs[] = {
+		RTL837X_FLOOD_UNKNOWN_L2MC_REG,
+		RTL837X_FLOOD_UNKNOWN_IP4MC_REG,
+		RTL837X_FLOOD_UNKNOWN_IP6MC_REG,
+	};
+	int ret;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(regs); i++) {
+		ret = rtl837x_reg_bits_write(priv, regs[i], BIT(port), enable);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int rtl8372n_port_set_bcast_flood(struct realtek_priv *priv, int port,
+					 bool enable)
+{
+	return rtl837x_reg_bits_write(priv, RTL837X_FLOOD_BCAST_REG,
+				      BIT(port), enable);
+}
+
 static int rtl8372n_port_pre_bridge_flags(struct dsa_switch *ds, int port,
 					  struct switchdev_brport_flags flags,
 					   struct netlink_ext_ack *extack)
@@ -2208,6 +2250,28 @@ static int rtl8372n_port_bridge_flags(struct dsa_switch *ds, int port,
 		if (ret)
 			return ret;
 	}
+
+	if (flags.mask & BR_FLOOD) {
+		ret = rtl8372n_port_set_ucast_flood(priv, port,
+						    !!(flags.val & BR_FLOOD));
+		if (ret)
+			return ret;
+	}
+
+	if (flags.mask & BR_MCAST_FLOOD) {
+		ret = rtl8372n_port_set_mcast_flood(priv, port,
+						    !!(flags.val & BR_MCAST_FLOOD));
+		if (ret)
+			return ret;
+	}
+
+	if (flags.mask & BR_BCAST_FLOOD) {
+		ret = rtl8372n_port_set_bcast_flood(priv, port,
+						    !!(flags.val & BR_BCAST_FLOOD));
+		if (ret)
+			return ret;
+	}
+
 	return 0;
 }
 
@@ -2979,6 +3043,21 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	}
 
 	dsa_switch_for_each_available_port(dp, ds) {
+		/* Flood every kind of frame to every port, as DSA expects for
+		 * standalone ports; port_bridge_flags changes it per bridge port.
+		 */
+		ret = rtl8372n_port_set_ucast_flood(priv, dp->index, true);
+		if (ret)
+			return ret;
+
+		ret = rtl8372n_port_set_mcast_flood(priv, dp->index, true);
+		if (ret)
+			return ret;
+
+		ret = rtl8372n_port_set_bcast_flood(priv, dp->index, true);
+		if (ret)
+			return ret;
+
 		/* Disable vlan-filtering for all ports */
 		ret = rtl8372n_port_vlan_filtering(ds, dp->index, false, NULL);
 		if (ret) {
