@@ -5,6 +5,7 @@
 #include <linux/version.h>
 #include <linux/regmap.h>
 #include <linux/if_bridge.h>
+#include <linux/if_vlan.h>
 #include <linux/of_net.h>
 
 #include "rtl837x.h"
@@ -88,6 +89,12 @@
 /* Per-port MAC control and aggregated link status registers */
 #define RTL837X_MAC_PORT_CTRL_REG(_p)                   (0x122C + (((_p) << 8)))
 #define   RTL837X_MAC_PORT_CTRL_BKPRES_EN_MASK          BIT(0)
+
+/* Maximum frame length per port, two 14-bit fields set to the same value */
+#define RTL837X_MAC_MAX_LEN_REG(_p)                     (0x1250 + (((_p) << 8)))
+#define   RTL837X_MAC_MAX_LEN_LO_MASK                   GENMASK(13, 0)
+#define   RTL837X_MAC_MAX_LEN_HI_MASK                   GENMASK(27, 14)
+#define RTL837X_MAC_MAX_LEN_MAX                         0x3FFF
 
 #define RTL837X_MAC_LINK_STS_REG                        0x63E8
 #define RTL837X_MAC_LINK_SPD_STS_REG(_p)                (0x63F0 + (((_p) >> 3) << 2))
@@ -2218,6 +2225,27 @@ static int rtl8372n_port_set_bcast_flood(struct realtek_priv *priv, int port,
 				      BIT(port), enable);
 }
 
+static int rtl8372n_port_change_mtu(struct dsa_switch *ds, int port,
+				    int new_mtu)
+{
+	struct realtek_priv *priv = ds->priv;
+	u32 len = new_mtu + VLAN_ETH_HLEN + ETH_FCS_LEN;
+
+	if (len > RTL837X_MAC_MAX_LEN_MAX)
+		return -EINVAL;
+
+	return regmap_update_bits(priv->map, RTL837X_MAC_MAX_LEN_REG(port),
+				  RTL837X_MAC_MAX_LEN_LO_MASK |
+				  RTL837X_MAC_MAX_LEN_HI_MASK,
+				  FIELD_PREP(RTL837X_MAC_MAX_LEN_LO_MASK, len) |
+				  FIELD_PREP(RTL837X_MAC_MAX_LEN_HI_MASK, len));
+}
+
+static int rtl8372n_port_max_mtu(struct dsa_switch *ds, int port)
+{
+	return RTL837X_MAC_MAX_LEN_MAX - VLAN_ETH_HLEN - ETH_FCS_LEN;
+}
+
 static int rtl8372n_port_pre_bridge_flags(struct dsa_switch *ds, int port,
 					  struct switchdev_brport_flags flags,
 					   struct netlink_ext_ack *extack)
@@ -3129,6 +3157,8 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 
 	.port_pre_bridge_flags = rtl8372n_port_pre_bridge_flags,
 	.port_bridge_flags = rtl8372n_port_bridge_flags,
+	.port_change_mtu = rtl8372n_port_change_mtu,
+	.port_max_mtu = rtl8372n_port_max_mtu,
 	.port_bridge_join = rtl8372n_port_bridge_join,
 	.port_bridge_leave = rtl8372n_port_bridge_leave,
 
