@@ -7,6 +7,8 @@
 #include <linux/if_bridge.h>
 #include <linux/if_vlan.h>
 #include <linux/of_net.h>
+#include <linux/spinlock.h>
+#include <linux/workqueue.h>
 
 #include "rtl837x.h"
 #include "rtl837x_l2.h"
@@ -412,11 +414,17 @@ struct rtl837x_chip_info {
 	bool is_support;
 };
 
+/* get_stats64 runs in atomic context, so the MIB counters are polled */
+#define RTL8372N_STATS_INTERVAL_JIFFIES	(3 * HZ)
+
 struct rtl8372n_port {
 	struct realtek_priv *priv;
 	struct phylink_pcs pcs;
 	bool have_pcs;
 	int index;
+	struct delayed_work mib_work;
+	spinlock_t stats_lock;		/* protects stats */
+	struct rtnl_link_stats64 stats;
 };
 
 struct rtl8372n {
@@ -2969,6 +2977,123 @@ static int rtl8372n_setup_port(struct realtek_priv *priv, int port)
 	return 0;
 }
 
+static void rtl8372n_stats_update(struct realtek_priv *priv, int port)
+{
+	static const int idx[] = {
+		RTL837X_MIB_ifInOctets,
+		RTL837X_MIB_ifOutOctets,
+		RTL837X_MIB_ifInUcastPkts,
+		RTL837X_MIB_ifInMulticastPkts,
+		RTL837X_MIB_ifInBroadcastPkts,
+		RTL837X_MIB_ifOutUcastPkts,
+		RTL837X_MIB_ifOutMulticastPkts,
+		RTL837X_MIB_ifOutBroadcastPkts,
+		RTL837X_MIB_ifOutDiscards,
+		RTL837X_MIB_etherStatsDropEvents,
+		RTL837X_MIB_tx_etherStatsCollisions,
+		RTL837X_MIB_rx_etherStatsFragments,
+		RTL837X_MIB_rx_etherStatsJabbers,
+		RTL837X_MIB_rx_etherStatsCRCAlignErrors,
+		RTL837X_MIB_dot3StatsLateCollisions,
+	};
+	struct rtl8372n *chip_data = priv->chip_data;
+	struct rtl8372n_port *p = &chip_data->ports[port];
+	struct rtnl_link_stats64 *stats = &p->stats;
+	u64 cnt[RTL837X_MIB_END] = {};
+	int ret = 0;
+	int i;
+
+	mutex_lock(&priv->mib_lock);
+	for (i = 0; i < ARRAY_SIZE(idx); i++) {
+		ret = priv->ops->get_mib_counter(priv, port,
+						 &priv->mib_counters[idx[i]],
+						 &cnt[idx[i]]);
+		if (ret)
+			break;
+	}
+	mutex_unlock(&priv->mib_lock);
+
+	/* Keep the old values if a counter could not be read */
+	if (ret)
+		return;
+
+	spin_lock(&p->stats_lock);
+
+	stats->rx_packets = cnt[RTL837X_MIB_ifInUcastPkts] +
+			    cnt[RTL837X_MIB_ifInMulticastPkts] +
+			    cnt[RTL837X_MIB_ifInBroadcastPkts];
+	stats->tx_packets = cnt[RTL837X_MIB_ifOutUcastPkts] +
+			    cnt[RTL837X_MIB_ifOutMulticastPkts] +
+			    cnt[RTL837X_MIB_ifOutBroadcastPkts];
+
+	/* if{In,Out}Octets include the FCS */
+	stats->rx_bytes = cnt[RTL837X_MIB_ifInOctets] - 4 * stats->rx_packets;
+	stats->tx_bytes = cnt[RTL837X_MIB_ifOutOctets] - 4 * stats->tx_packets;
+
+	stats->rx_dropped = cnt[RTL837X_MIB_etherStatsDropEvents];
+	stats->tx_dropped = cnt[RTL837X_MIB_ifOutDiscards];
+	stats->multicast = cnt[RTL837X_MIB_ifInMulticastPkts];
+	stats->collisions = cnt[RTL837X_MIB_tx_etherStatsCollisions];
+
+	stats->rx_length_errors = cnt[RTL837X_MIB_rx_etherStatsFragments] +
+				  cnt[RTL837X_MIB_rx_etherStatsJabbers];
+	stats->rx_crc_errors = cnt[RTL837X_MIB_rx_etherStatsCRCAlignErrors];
+	stats->rx_errors = stats->rx_length_errors + stats->rx_crc_errors;
+
+	stats->tx_aborted_errors = cnt[RTL837X_MIB_ifOutDiscards];
+	stats->tx_window_errors = cnt[RTL837X_MIB_dot3StatsLateCollisions];
+	stats->tx_errors = stats->tx_aborted_errors + stats->tx_window_errors;
+
+	spin_unlock(&p->stats_lock);
+}
+
+static void rtl8372n_stats_poll(struct work_struct *work)
+{
+	struct rtl8372n_port *p = container_of(to_delayed_work(work),
+					       struct rtl8372n_port, mib_work);
+
+	rtl8372n_stats_update(p->priv, p->index);
+	schedule_delayed_work(&p->mib_work, RTL8372N_STATS_INTERVAL_JIFFIES);
+}
+
+static void rtl8372n_get_stats64(struct dsa_switch *ds, int port,
+				 struct rtnl_link_stats64 *s)
+{
+	struct realtek_priv *priv = ds->priv;
+	struct rtl8372n *chip_data = priv->chip_data;
+	struct rtl8372n_port *p = &chip_data->ports[port];
+
+	spin_lock(&p->stats_lock);
+	memcpy(s, &p->stats, sizeof(*s));
+	spin_unlock(&p->stats_lock);
+}
+
+static void rtl8372n_stats_start(struct dsa_switch *ds)
+{
+	struct realtek_priv *priv = ds->priv;
+	struct rtl8372n *chip_data = priv->chip_data;
+	struct dsa_port *dp;
+
+	/* priv and index are set in rtl8372n_setup_port() */
+	dsa_switch_for_each_available_port(dp, ds) {
+		struct rtl8372n_port *p = &chip_data->ports[dp->index];
+
+		spin_lock_init(&p->stats_lock);
+		INIT_DELAYED_WORK(&p->mib_work, rtl8372n_stats_poll);
+		schedule_delayed_work(&p->mib_work, 0);
+	}
+}
+
+static void rtl8372n_teardown(struct dsa_switch *ds)
+{
+	struct realtek_priv *priv = ds->priv;
+	struct rtl8372n *chip_data = priv->chip_data;
+	struct dsa_port *dp;
+
+	dsa_switch_for_each_available_port(dp, ds)
+		cancel_delayed_work_sync(&chip_data->ports[dp->index].mib_work);
+}
+
 // TODO: init chip based on rtl837x_chip_info
 static int rtl8372n_setup(struct dsa_switch *ds)
 {
@@ -3131,6 +3256,8 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	if (ret)
 		return ret;
 
+	rtl8372n_stats_start(ds);
+
 	return 0;
 }
 
@@ -3138,10 +3265,11 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.get_tag_protocol = rtl8372n_get_tag_protocol,
 	.change_tag_protocol = rtl8372n_change_tag_protocol,
 	.setup = rtl8372n_setup,
+	.teardown = rtl8372n_teardown,
 
 	.phylink_get_caps = rtl8372n_phylink_get_caps,
 
-	//: TODO: get_stats64
+	.get_stats64 = rtl8372n_get_stats64,
 	.get_strings = rtl8372n_get_strings,
 	.get_ethtool_stats = rtl8372n_get_ethtool_stats,
 	.get_sset_count = rtl8372n_get_sset_count,
