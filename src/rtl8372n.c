@@ -2274,15 +2274,11 @@ static int rtl8372n_port_bridge_flags(struct dsa_switch *ds, int port,
 			      struct netlink_ext_ack *extack)
 {
 	struct realtek_priv *priv = ds->priv;
-	bool enable;
 	int ret;
 
 	if (flags.mask & BR_LEARNING) {
-		enable = !!(flags.val & BR_LEARNING);
-		dev_dbg(priv->dev, "[%s] port:%d BR_LEARNING %s\n", __func__,
-			port, enable ? "Enable" : "Disable");
-
-		ret = rtl837x_lut_port_set_learning(priv, port, enable);
+		ret = rtl837x_lut_port_set_learning(priv, port,
+						    !!(flags.val & BR_LEARNING));
 		if (ret)
 			return ret;
 	}
