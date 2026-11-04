@@ -19,167 +19,262 @@
 #define   RTL837X_CHIP_VER_RELEASE_ID_MASK    GENMASK(15, 0)
 
 /*
+ * Internal SerDes configuration. SDS0 feeds MAC3 and SDS1 feeds MAC8; each
+ * SerDes has a link mode and, for USXGMII, a separate sub-mode field.
+ */
+#define RTL837X_SDS_MODE_SEL_REG                          0x7B20
+#define   RTL837X_SDS_MODE_SEL_CFG_MAC8_8221B_MASK         BIT(22)
+#define   RTL837X_SDS_MODE_SEL_CFG_MAC3_8221B_MASK         BIT(21)
+#define   RTL837X_SDS_MODE_SEL_SDS1_USX_SUB_MODE_MASK      GENMASK(20, 16)
+#define   RTL837X_SDS_MODE_SEL_SDS0_USX_SUB_MODE_MASK      GENMASK(14, 10)
+#define   RTL837X_SDS_MODE_SEL_SDS1_MODE_SEL_MASK          GENMASK(9, 5)
+#define   RTL837X_SDS_MODE_SEL_SDS0_MODE_SEL_MASK          GENMASK(4, 0)
+
+enum rtl837x_serdes_mode {
+	RTL837X_SERDES_MODE_SGMII = 0x02,
+	RTL837X_SERDES_MODE_1000BASEX = 0x04,
+	RTL837X_SERDES_MODE_100FX = 0x05,
+	RTL837X_SERDES_MODE_USXGMII = 0x0D,
+	RTL837X_SERDES_MODE_HSGMII = 0x12,
+	RTL837X_SERDES_MODE_2500BASEX = 0x16,
+	RTL837X_SERDES_MODE_10GBASER = 0x1A,
+	RTL837X_SERDES_MODE_OFF = 0x1f
+};
+
+enum rtl837x_serdes_usxgmii_submode {
+	RTL837X_SERDES_USXGMII_SM_NONE = 0,
+	RTL837X_SERDES_USXGMII_SM_10GQXGMII = 2,
+};
+
+/*
  * As Realtek has not released the register manual
  * for the internal SerDes, the register definitions
  * below have been inferred from comments and names
  * found in OEM code and code for similar IP chips.
  */
-/* PAGE_FRC */
-#define SDS_PAGE_FRC            0x20
-#define SDS_REG_FRC             0x00
-#define   SDS_FRC_RX_EN_ON_MASK    BIT(4)
-#define   SDS_FRC_RX_EN_VAL_MASK   BIT(5)
-#define   SDS_FRC_PDOWN_ON_MASK    BIT(6)
-#define   SDS_FRC_PDOWN_VAL_MASK   BIT(7)
-#define   SDS_FRC_CMU_EN_ON_MASK   BIT(10)
-#define   SDS_FRC_CMU_EN_VAL_MASK  BIT(11)
 
-/* PAGE_NWAY_AN */
-#define SDS_PAGE_NWAY_AN   0x07
-#define SDS_REG_NWAY_AN    17
-#define   SDS_NWAY_QHSG_AN_CH0_EN_MASK BIT(0)
-#define   SDS_NWAY_QHSG_AN_CH1_EN_MASK BIT(1)
-#define   SDS_NWAY_QHSG_AN_CH2_EN_MASK BIT(2)
-#define   SDS_NWAY_QHSG_AN_CH3_EN_MASK BIT(3)
-
-/* PAGE_CTRL00 */
-#define SDS_PAGE_CTRL00    0x00
-#define SDS_REG_CTRL00_REG00     0x00
-#define   SDS_CTRL00_REG00_XSG_TX_INV_MASK  BIT(8)
-#define   SDS_CTRL00_REG00_XSG_RX_INV_MASK  BIT(9)
-
-/*	I Guess
- *                         Force_En  Force_Dis Auto
- * BIT8   SP_SDS_FRC_AN       1        1        0
- * BIT9   SP_SDS_FRC_AN_EN    1        0        x
- *                            3        1        0
- * 0: NWAY_AUTO
- * 1: NWAY_FORCE_DIS
- * 3: NWAY_FORCE_EN (maybe?)
+/* Paged SerDes registers */
+/* Page define code from :
+ * https://github.com/openwrt/openwrt/blob/main/target/linux/realtek/files-6.18/drivers/net/pcs/pcs-rtl-otto.c
  */
-#define SDS_REG_CTRL00_REG02     0x02
-#define   SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN    BIT(8)
-#define   SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN BIT(9)
+enum rtpcs_page {
+	PAGE_SDS		= 0x00,
+	PAGE_SDS_EXT		= 0x01,
+	PAGE_FIB		= 0x02,
+	PAGE_FIB_EXT		= 0x03,
+	PAGE_TGR_STD_0		= 0x04,
+	PAGE_TGR_STD_1		= 0x05,
+	PAGE_TGR_PRO_0		= 0x06,
+	PAGE_TGR_PRO_1		= 0x07,
+	PAGE_TGX_STD_0		= 0x08,
+	PAGE_TGX_STD_1		= 0x09,
+	PAGE_TGX_PRO_0		= 0x0a,
+	PAGE_TGX_PRO_1		= 0x0b,
+	PAGE_WDIG		= 0x1f,
+	PAGE_ANA_MISC		= 0x20,
+	PAGE_ANA_COM		= 0x21,
+	PAGE_ANA_SPD		= 0x22,
+	PAGE_ANA_SPD_EXT	= 0x23,
+	PAGE_ANA_1G2		= 0x24,
+	PAGE_ANA_1G2_EXT	= 0x25,
+	PAGE_ANA_2G5		= 0x26,
+	PAGE_ANA_2G5_EXT	= 0x27,
+	PAGE_ANA_3G1		= 0x28,
+	PAGE_ANA_3G1_EXT	= 0x29,
+	PAGE_ANA_5G0		= 0x2a,
+	PAGE_ANA_5G0_EXT	= 0x2b,
+	PAGE_ANA_6G2		= 0x2c,
+	PAGE_ANA_6G2_EXT	= 0x2d,
+	PAGE_ANA_10G		= 0x2e,
+	PAGE_ANA_10G_EXT	= 0x2f,
+	PAGE_GPON_SP		= 0x30,
+	PAGE_GPON_SP_EXT	= 0x31,
+	PAGE_EPON_SP		= 0x32,
+	PAGE_EPON_SP_EXT	= 0x33,
+	PAGE_ANA_6G0		= 0x34,
+	PAGE_ANA_6G0_EXT	= 0x35,
+};
 
-#define SDS_REG_CTRL00_REG04     0x04
-#define   SDS_CTRL00_REG04_SP_CFG_EN_LINK_FIB1G_MASK   BIT(2)
+/* PAGE_ANA_MISC */
+#define ANA_MISC_FRC             0x00
+#define   ANA_MISC_FRC_RX_EN_ON_MASK    BIT(4)
+#define   ANA_MISC_FRC_RX_EN_VAL_MASK   BIT(5)
+#define   ANA_MISC_FRC_PDOWN_ON_MASK    BIT(6)
+#define   ANA_MISC_FRC_PDOWN_VAL_MASK   BIT(7)
+#define   ANA_MISC_FRC_CMU_EN_ON_MASK   BIT(10)
+#define   ANA_MISC_FRC_CMU_EN_VAL_MASK  BIT(11)
 
-/* PAGE_CTRL01 */
-#define SDS_PAGE_CTRL01             0x01
-#define SDS_REG_CTRL01_XSG_STS      0x1d     // I Guess
-#define   SDS_CTRL01_XSG_STS_SYNC_OK   BIT(0) // I Guess
-#define   SDS_CTRL01_XSG_STS_LINK_OK   BIT(4) // I Guess
-#define   SDS_CTRL01_XSG_STS_SIG_OK    BIT(8) // I Guess
+/* PAGE_TGR_PRO_1 */
+#define TGR_PRO_1_REG06			0x06
+#define  TGR_PRO_1_REG06_CFG_QHSG_TXCFG_MAC_CH0	GENMASK(15, 0)
 
-/* PAGE_CTRL02 */
-#define SDS_PAGE_CTRL02       0x02
+#define TGR_PRO_1_REG08			0x08
+#define  TGR_PRO_1_REG08_CFG_QHSG_TXCFG_MAC_CH1	GENMASK(15, 0)
+
+#define TGR_PRO_1_REG10			0x0a
+#define  TGR_PRO_1_REG16_CFG_QHSG_TXCFG_MAC_CH2	GENMASK(15, 0)
+
+#define TGR_PRO_1_REG12			0x0c
+#define  TGR_PRO_1_REG12_CFG_QHSG_TXCFG_MAC_CH3	GENMASK(15, 0)
+
+#define TGR_PRO_1_REG16			0x10
+#define  TGR_PRO_1_REG16_CFG_QHSG_AN_OPC	GENMASK(7, 0)
+#define   TGR_PRO_1_REG16_CFG_QHSG_AN_OPC_STD	0x03
+#define   TGR_PRO_1_REG16_CFG_QHSG_AN_OPC_RTK	0xaa
+
+#define TGR_PRO_1_REG17    0x11
+#define   TGR_PRO_1_REG17_QHSG_AN_CH0_EN_MASK BIT(0)
+#define   TGR_PRO_1_REG17_QHSG_AN_CH1_EN_MASK BIT(1)
+#define   TGR_PRO_1_REG17_QHSG_AN_CH2_EN_MASK BIT(2)
+#define   TGR_PRO_1_REG17_QHSG_AN_CH3_EN_MASK BIT(3)
+
+/* PAGE_SDS */
+#define SDS_REG00     0x00
+#define   SDS_REG00_XSG_TX_INV_MASK  BIT(8)
+#define   SDS_REG00_XSG_RX_INV_MASK  BIT(9)
+#define   SDS_REG00_XSG_RX_EN_MASK   BIT(1)
+#define   SDS_REG00_XSG_TX_EN_MASK   BIT(0)
+
+#define SDS_REG02     0x02
+#define   SDS_REG02_XSG_SP_SDS_FRC_AN    BIT(8)
+#define   SDS_REG02_XSG_SP_SDS_FRC_AN_EN BIT(9)
+
+#define SDS_REG04     0x04
+#define   SDS_REG04_SP_CFG_EN_LINK_FIB1G_MASK   BIT(2)
+
+/* PAGE_SDS_EXT */
+#define SDS_EXT_XSG_STS      0x1d     // I Guess
+#define   SDS_EXT_XSG_STS_SYNC_OK_MASK   BIT(0) // I Guess
+#define   SDS_EXT_XSG_STS_LINK_OK_MASK   BIT(4) // I Guess
+#define   SDS_EXT_XSG_STS_SIG_OK_MASK    BIT(8) // I Guess
+
+/* PAGE_FIB */
 // It seems like 'Advertisement control register'
-#define SDS_REG_CTRL02_XSG_AN   0x04
-#define   SDS_CTRL02_XSG_AN_10_100_ASYM_PAUSE_MASK BIT(11)
-#define   SDS_CTRL02_XSG_AN_10_100_PAUSE_MASK           BIT(10)
-#define   SDS_CTRL02_XSG_AN_1G_ASYM_PAUSE_MASK BIT(8)
-#define   SDS_CTRL02_XSG_AN_1G_PAUSE_MASK           BIT(7)
-#define   SDS_CTRL02_XSG_AN_1G_HALF_DUPLEX_MASK      BIT(6)
-#define   SDS_CTRL02_XSG_AN_1G_FULL_DUPLEX_MASK      BIT(5)
+#define FIB_XSG_AN   0x04
+#define   FIB_XSG_AN_10_100_ASYM_PAUSE_MASK BIT(11)
+#define   FIB_XSG_AN_10_100_PAUSE_MASK           BIT(10)
+#define   FIB_XSG_AN_1G_ASYM_PAUSE_MASK BIT(8)
+#define   FIB_XSG_AN_1G_PAUSE_MASK           BIT(7)
+#define   FIB_XSG_AN_1G_HALF_DUPLEX_MASK      BIT(6)
+#define   FIB_XSG_AN_1G_FULL_DUPLEX_MASK      BIT(5)
 
-/* PAGE_CTRL05 */
-#define SDS_PAGE_CTRL05             0x05
-#define SDS_REG_CTRL05_10GR_STS     0x00       // I Guess
-#define   SDS_CTRL05_10GR_STS_SYNC_OK   BIT(0)  // I Guess
-#define   SDS_CTRL05_10GR_STS_HI_BER    BIT(1)  // I Guess
-#define   SDS_CTRL05_10GR_STS_LINK_OK   BIT(12) // I Guess
+/* PAGE_TGR_STD_1 */
+#define TGR_STD_1_10GR_STS     0x00       // I Guess
+#define   TGR_STD_1_10GR_STS_SYNC_OK_MASK   BIT(0)  // I Guess
+#define   TGR_STD_1_10GR_STS_HI_BER_MASK    BIT(1)  // I Guess
+#define   TGR_STD_1_10GR_STS_LINK_OK_MASK   BIT(12) // I Guess
 
-/* PAGE_CTRL06 */
-#define SDS_PAGE_CTRL06       0x06
-#define SDS_REG_CTRL06_REG02   0x02
-#define   SDS_CTRL06_REG02_FSM_RESET_MASK    BIT(12)
-#define   SDS_CTRL06_REG02_10GR_RX_INV_MASK  BIT(13)
-#define   SDS_CTRL06_REG02_10GR_TX_INV_MASK  BIT(14)
+/* PAGE_TGR_PRO_0 */
+#define TGR_PRO_0_REG02   0x02
+#define   TGR_PRO_0_REG02_FSM_RESET_MASK    BIT(12)
+#define   TGR_PRO_0_REG02_10GR_RX_INV_MASK  BIT(13)
+#define   TGR_PRO_0_REG02_10GR_TX_INV_MASK  BIT(14)
 
-/* PAGE_CTRL1F */
-#define SDS_PAGE_CTRL1F       0x1f
-#define SDS_REG_CTRL1F_10GR_AN  0x0B
-#define   SDS_CTRL1F_10GR_AN_PAUSE_MASK     BIT(2)
-#define   SDS_CTRL1F_10GR_AN_ASYM_PAUSE_MASK  BIT(3)
+/* PAGE_WDIG */
+#define WDIG_10GR_AN  0x0B
+#define   WDIG_10GR_AN_PAUSE_MASK       BIT(2)
+#define   WDIG_10GR_AN_ASYM_PAUSE_MASK  BIT(3)
 
 static const u16 patch_an_10p3125g_a[][3] = {
-	{0x0021, 0x0010, 0x4480}, {0x0021, 0x0013, 0x0400}, {0x0021, 0x0018, 0x6D02},
-	{0x0021, 0x001B, 0x424E}, {0x0021, 0x001D, 0x0002}, {0x0036, 0x001C, 0x1390},
-	{0x002E, 0x0004, 0x0080}, {0x002E, 0x0006, 0x0408}, {0x002E, 0x0007, 0x020D},
-	{0x002E, 0x0009, 0x0601}, {0x002E, 0x000B, 0x222C}, {0x002E, 0x000C, 0x9217},
-	{0x002E, 0x0016, 0x0743}, {0x002E, 0x001D, 0xABB0}
+	{PAGE_ANA_COM, 0x0010, 0x4480}, {PAGE_ANA_COM, 0x0013, 0x0400},
+	{PAGE_ANA_COM, 0x0018, 0x6D02}, {PAGE_ANA_COM, 0x001B, 0x424E},
+	{PAGE_ANA_COM, 0x001D, 0x0002}, {0x0036, 0x001C, 0x1390},
+	{PAGE_ANA_10G, 0x0004, 0x0080}, {PAGE_ANA_10G, 0x0006, 0x0408},
+	{PAGE_ANA_10G, 0x0007, 0x020D}, {PAGE_ANA_10G, 0x0009, 0x0601},
+	{PAGE_ANA_10G, 0x000B, 0x222C}, {PAGE_ANA_10G, 0x000C, 0x9217},
+	{PAGE_ANA_10G, 0x0016, 0x0743}, {PAGE_ANA_10G, 0x001D, 0xABB0}
 };
 
 static const u16 patch_an_10p3125g_b[][3] = {
-	{0x0021, 0x0010, 0x4480}, {0x0021, 0x0013, 0x0400}, {0x0021, 0x0018, 0x6D02},
-	{0x0021, 0x001B, 0x424E}, {0x0021, 0x001D, 0x0002}, {0x0036, 0x001C, 0x1390},
-	{0x0036, 0x0014, 0x003F}, {0x0036, 0x0010, 0x0200}, {0x002E, 0x0004, 0x0080},
-	{0x002E, 0x0006, 0x0408}, {0x002E, 0x0007, 0x020D}, {0x002E, 0x0009, 0x0601},
-	{0x002E, 0x000B, 0x222C}, {0x002E, 0x000C, 0xA217}, {0x002E, 0x000D, 0xFE40},
-	{0x002E, 0x0015, 0xF5C1}, {0x002E, 0x0016, 0x0443}, {0x002E, 0x001D, 0xABB0}
+	{PAGE_ANA_COM, 0x0010, 0x4480}, {PAGE_ANA_COM, 0x0013, 0x0400},
+	{PAGE_ANA_COM, 0x0018, 0x6D02}, {PAGE_ANA_COM, 0x001B, 0x424E},
+	{PAGE_ANA_COM, 0x001D, 0x0002}, {0x0036, 0x001C, 0x1390},
+	{0x0036, 0x0014, 0x003F}, {0x0036, 0x0010, 0x0200},
+	{PAGE_ANA_10G, 0x0004, 0x0080}, {PAGE_ANA_10G, 0x0006, 0x0408},
+	{PAGE_ANA_10G, 0x0007, 0x020D}, {PAGE_ANA_10G, 0x0009, 0x0601},
+	{PAGE_ANA_10G, 0x000B, 0x222C}, {PAGE_ANA_10G, 0x000C, 0xA217},
+	{PAGE_ANA_10G, 0x000D, 0xFE40}, {PAGE_ANA_10G, 0x0015, 0xF5C1},
+	{PAGE_ANA_10G, 0x0016, 0x0443}, {PAGE_ANA_10G, 0x001D, 0xABB0}
 };
 
 static const u16 patch_an_3p125g_a[][3] = {
-	{0x0021, 0x0010, 0x6480}, {0x0021, 0x0013, 0x0400}, {0x0021, 0x0018, 0x6D02},
-	{0x0021, 0x001B, 0x424E}, {0x0021, 0x001D, 0x0002}, {0x0036, 0x001C, 0x1390},
-	{0x0028, 0x0004, 0x0080}, {0x0028, 0x0009, 0x0601}, {0x0028, 0x000B, 0x232C},
-	{0x0028, 0x000C, 0x9217}, {0x0028, 0x000F, 0x5B50}, {0x0028, 0x0016, 0x0443},
-	{0x0028, 0x001D, 0xABB0}
+	{PAGE_ANA_COM, 0x0010, 0x6480}, {PAGE_ANA_COM, 0x0013, 0x0400},
+	{PAGE_ANA_COM, 0x0018, 0x6D02}, {PAGE_ANA_COM, 0x001B, 0x424E},
+	{PAGE_ANA_COM, 0x001D, 0x0002}, {0x0036, 0x001C, 0x1390},
+	{PAGE_ANA_3G1, 0x0004, 0x0080}, {PAGE_ANA_3G1, 0x0009, 0x0601},
+	{PAGE_ANA_3G1, 0x000B, 0x232C}, {PAGE_ANA_3G1, 0x000C, 0x9217},
+	{PAGE_ANA_3G1, 0x000F, 0x5B50}, {PAGE_ANA_3G1, 0x0016, 0x0443},
+	{PAGE_ANA_3G1, 0x001D, 0xABB0}
 };
 
 static const u16 patch_an_3p125g_b[][3] = {
-	{0x0021, 0x0010, 0x6480}, {0x0021, 0x0013, 0x0400}, {0x0021, 0x0018, 0x6D02},
-	{0x0021, 0x001B, 0x424E}, {0x0021, 0x001D, 0x0002}, {0x0036, 0x001C, 0x1390},
-	{0x0036, 0x0014, 0x003F}, {0x0036, 0x0010, 0x0200}, {0x0028, 0x0004, 0x0080},
-	{0x0028, 0x0007, 0x1201}, {0x0028, 0x0009, 0x0601}, {0x0028, 0x000B, 0x232C},
-	{0x0028, 0x000C, 0x9217}, {0x0028, 0x000F, 0x5B50}, {0x0028, 0x0015, 0xE7F1},
-	{0x0028, 0x0016, 0x0443}, {0x0028, 0x001D, 0xABB0}
+	{PAGE_ANA_COM, 0x0010, 0x6480}, {PAGE_ANA_COM, 0x0013, 0x0400},
+	{PAGE_ANA_COM, 0x0018, 0x6D02}, {PAGE_ANA_COM, 0x001B, 0x424E},
+	{PAGE_ANA_COM, 0x001D, 0x0002}, {0x0036, 0x001C, 0x1390},
+	{0x0036, 0x0014, 0x003F}, {0x0036, 0x0010, 0x0200},
+	{PAGE_ANA_3G1, 0x0004, 0x0080}, {PAGE_ANA_3G1, 0x0007, 0x1201},
+	{PAGE_ANA_3G1, 0x0009, 0x0601}, {PAGE_ANA_3G1, 0x000B, 0x232C},
+	{PAGE_ANA_3G1, 0x000C, 0x9217}, {PAGE_ANA_3G1, 0x000F, 0x5B50},
+	{PAGE_ANA_3G1, 0x0015, 0xE7F1}, {PAGE_ANA_3G1, 0x0016, 0x0443},
+	{PAGE_ANA_3G1, 0x001D, 0xABB0}
 };
 
 static const u16 patch_an_1p25g_a[][3] = {
-	{0x0021, 0x0010, 0x6480}, {0x0021, 0x0013, 0x0400}, {0x0021, 0x0018, 0x6D02},
-	{0x0021, 0x001B, 0x424E}, {0x0021, 0x001D, 0x0002}, {0x0036, 0x001C, 0x1390},
-	{0x0036, 0x0014, 0x003F}, {0x0036, 0x0010, 0x0300}, {0x0024, 0x0004, 0x0080},
-	{0x0024, 0x0007, 0x1201}, {0x0024, 0x0009, 0x0601}, {0x0024, 0x000B, 0x232C},
-	{0x0024, 0x000C, 0x9217}, {0x0024, 0x000F, 0x5B50}, {0x0024, 0x0015, 0xE7C1},
-	{0x0024, 0x0016, 0x0443}, {0x0024, 0x001D, 0xABB0}
+	{PAGE_ANA_COM, 0x0010, 0x6480}, {PAGE_ANA_COM, 0x0013, 0x0400},
+	{PAGE_ANA_COM, 0x0018, 0x6D02}, {PAGE_ANA_COM, 0x001B, 0x424E},
+	{PAGE_ANA_COM, 0x001D, 0x0002}, {0x0036, 0x001C, 0x1390},
+	{0x0036, 0x0014, 0x003F}, {0x0036, 0x0010, 0x0300},
+	{PAGE_ANA_1G2, 0x0004, 0x0080}, {PAGE_ANA_1G2, 0x0007, 0x1201},
+	{PAGE_ANA_1G2, 0x0009, 0x0601}, {PAGE_ANA_1G2, 0x000B, 0x232C},
+	{PAGE_ANA_1G2, 0x000C, 0x9217}, {PAGE_ANA_1G2, 0x000F, 0x5B50},
+	{PAGE_ANA_1G2, 0x0015, 0xE7C1}, {PAGE_ANA_1G2, 0x0016, 0x0443},
+	{PAGE_ANA_1G2, 0x001D, 0xABB0}
 };
 
 static const u16 patch_an_1p25g_b[][3] = {
-	{0x0021, 0x0010, 0x6480}, {0x0021, 0x0013, 0x0400}, {0x0021, 0x0018, 0x6D02},
-	{0x0021, 0x001B, 0x424E}, {0x0021, 0x001D, 0x0002}, {0x0036, 0x001C, 0x1390},
-	{0x0036, 0x0014, 0x003F}, {0x0036, 0x0010, 0x0300}, {0x0024, 0x0004, 0x0080},
-	{0x0024, 0x0007, 0x1201}, {0x0024, 0x0009, 0x0601}, {0x0024, 0x000B, 0x232C},
-	{0x0024, 0x000C, 0x9217}, {0x0024, 0x000F, 0x5B50}, {0x0024, 0x0015, 0xE7C1},
-	{0x0024, 0x0016, 0x0443}, {0x0024, 0x001D, 0xABB0}
+	{PAGE_ANA_COM, 0x0010, 0x6480}, {PAGE_ANA_COM, 0x0013, 0x0400},
+	{PAGE_ANA_COM, 0x0018, 0x6D02}, {PAGE_ANA_COM, 0x001B, 0x424E},
+	{PAGE_ANA_COM, 0x001D, 0x0002}, {0x0036, 0x001C, 0x1390},
+	{0x0036, 0x0014, 0x003F}, {0x0036, 0x0010, 0x0300},
+	{PAGE_ANA_1G2, 0x0004, 0x0080}, {PAGE_ANA_1G2, 0x0007, 0x1201},
+	{PAGE_ANA_1G2, 0x0009, 0x0601}, {PAGE_ANA_1G2, 0x000B, 0x232C},
+	{PAGE_ANA_1G2, 0x000C, 0x9217}, {PAGE_ANA_1G2, 0x000F, 0x5B50},
+	{PAGE_ANA_1G2, 0x0015, 0xE7C1}, {PAGE_ANA_1G2, 0x0016, 0x0443},
+	{PAGE_ANA_1G2, 0x001D, 0xABB0}
 };
 
 static const u16 patch_an_125m_a[][3] = {
-	{0x0021, 0x0010, 0x6480}, {0x0021, 0x0013, 0x0400}, {0x0021, 0x0018, 0x6D02},
-	{0x0021, 0x001B, 0x424E}, {0x0021, 0x001D, 0x0002}, {0x0036, 0x001C, 0x1390},
-	{0x0026, 0x0004, 0x0080}, {0x0026, 0x0009, 0x0601}, {0x0026, 0x000B, 0x232C},
-	{0x0026, 0x000C, 0x9217}, {0x0026, 0x000F, 0x5B50}, {0x0026, 0x0016, 0x0443},
-	{0x0026, 0x001D, 0xABB0}
+	{PAGE_ANA_COM, 0x0010, 0x6480}, {PAGE_ANA_COM, 0x0013, 0x0400},
+	{PAGE_ANA_COM, 0x0018, 0x6D02}, {PAGE_ANA_COM, 0x001B, 0x424E},
+	{PAGE_ANA_COM, 0x001D, 0x0002}, {0x0036, 0x001C, 0x1390},
+	{PAGE_ANA_2G5, 0x0004, 0x0080}, {PAGE_ANA_2G5, 0x0009, 0x0601},
+	{PAGE_ANA_2G5, 0x000B, 0x232C}, {PAGE_ANA_2G5, 0x000C, 0x9217},
+	{PAGE_ANA_2G5, 0x000F, 0x5B50}, {PAGE_ANA_2G5, 0x0016, 0x0443},
+	{PAGE_ANA_2G5, 0x001D, 0xABB0}
 };
 
 static const u16 patch_an_125m_b[][3] = {
-	{0x0021, 0x0010, 0x6480}, {0x0021, 0x0013, 0x0400}, {0x0021, 0x0018, 0x6D02},
-	{0x0021, 0x001B, 0x424E}, {0x0021, 0x001D, 0x0002}, {0x0036, 0x001C, 0x1390},
-	{0x0036, 0x0014, 0x003F}, {0x0036, 0x0010, 0x0300}, {0x0026, 0x0004, 0x0080},
-	{0x0026, 0x0007, 0x1201}, {0x0026, 0x0009, 0x0601}, {0x0026, 0x000B, 0x232C},
-	{0x0026, 0x000C, 0x9217}, {0x0026, 0x000F, 0x5B50}, {0x0026, 0x0015, 0xE7C1},
-	{0x0026, 0x0016, 0x0443}, {0x0026, 0x001D, 0xABB0}
+	{PAGE_ANA_COM, 0x0010, 0x6480}, {PAGE_ANA_COM, 0x0013, 0x0400},
+	{PAGE_ANA_COM, 0x0018, 0x6D02}, {PAGE_ANA_COM, 0x001B, 0x424E},
+	{PAGE_ANA_COM, 0x001D, 0x0002}, {0x0036, 0x001C, 0x1390},
+	{0x0036, 0x0014, 0x003F}, {0x0036, 0x0010, 0x0300},
+	{PAGE_ANA_2G5, 0x0004, 0x0080}, {PAGE_ANA_2G5, 0x0007, 0x1201},
+	{PAGE_ANA_2G5, 0x0009, 0x0601}, {PAGE_ANA_2G5, 0x000B, 0x232C},
+	{PAGE_ANA_2G5, 0x000C, 0x9217}, {PAGE_ANA_2G5, 0x000F, 0x5B50},
+	{PAGE_ANA_2G5, 0x0015, 0xE7C1}, {PAGE_ANA_2G5, 0x0016, 0x0443},
+	{PAGE_ANA_2G5, 0x001D, 0xABB0}
 };
 
 static const u16 patch_data_mac[][3] = {
-	{0x0006, 0x0012, 0x5078}, {0x0007, 0x0006, 0x9401}, {0x0007, 0x0008, 0x9401},
-	{0x0007, 0x000A, 0x9401}, {0x0007, 0x000C, 0x9401}, {0x001F, 0x000B, 0x0003},
-	{0x0006, 0x0003, 0xC45C}, {0x0006, 0x001F, 0x2100}
+	{PAGE_TGR_PRO_0, 0x0012, 0x5078}, {PAGE_TGR_PRO_1, 0x0006, 0x9401},
+	{PAGE_TGR_PRO_1, 0x0008, 0x9401}, {PAGE_TGR_PRO_1, 0x000A, 0x9401},
+	{PAGE_TGR_PRO_1, 0x000C, 0x9401}, {PAGE_WDIG, 0x000B, 0x0003},
+	{PAGE_TGR_PRO_0, 0x0003, 0xC45C}, {PAGE_TGR_PRO_0, 0x001F, 0x2100}
 };
 
 static const u16 patch_data_phy[][3] = {
-	{0x0006, 0x0012, 0x5078}, {0x0006, 0x0003, 0xc45c}, {0x0006, 0x001E, 0x000C},
-	{0x0006, 0x001F, 0x2100}
+	{PAGE_TGR_PRO_0, 0x0012, 0x5078}, {PAGE_TGR_PRO_0, 0x0003, 0xc45c},
+	{PAGE_TGR_PRO_0, 0x001E, 0x000C}, {PAGE_TGR_PRO_0, 0x001F, 0x2100}
 };
 
 /* TODO: save in chip private data struct on detect */
@@ -208,16 +303,16 @@ int rtl837x_serdes_pnswap_rx(struct realtek_priv *priv, u8 sds_idx, bool enable)
 	int ret;
 
 	/* SerDes PN swap: page 0x00 reg 0x00 (XSG, <=5G) + page 0x06 reg 0x02 (10GR) */
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00,
-					 SDS_REG_CTRL00_REG00,
-					 SDS_CTRL00_REG00_XSG_RX_INV_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_SDS,
+					 SDS_REG00,
+					 SDS_REG00_XSG_RX_INV_MASK,
 					 !!enable);
 	if (ret)
 		return ret;
 
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL06,
-					 SDS_REG_CTRL06_REG02,
-					 SDS_CTRL06_REG02_10GR_RX_INV_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_TGR_PRO_0,
+					 TGR_PRO_0_REG02,
+					 TGR_PRO_0_REG02_10GR_RX_INV_MASK,
 					 !!enable);
 	if (ret)
 		return ret;
@@ -230,16 +325,16 @@ int rtl837x_serdes_pnswap_tx(struct realtek_priv *priv, u8 sds_idx, bool enable)
 	int ret;
 
 	/* SerDes PN swap: page 0x00 reg 0x00 (XSG, <=5G) + page 0x06 reg 0x02 (10GR) */
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00,
-					 SDS_REG_CTRL00_REG00,
-					 SDS_CTRL00_REG00_XSG_TX_INV_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_SDS,
+					 SDS_REG00,
+					 SDS_REG00_XSG_TX_INV_MASK,
 					 !!enable);
 	if (ret)
 		return ret;
 
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL06,
-					 SDS_REG_CTRL06_REG02,
-					 SDS_CTRL06_REG02_10GR_TX_INV_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_TGR_PRO_0,
+					 TGR_PRO_0_REG02,
+					 TGR_PRO_0_REG02_10GR_TX_INV_MASK,
 					 !!enable);
 	if (ret)
 		return ret;
@@ -254,10 +349,10 @@ int rtl837x_serdes_reset_10G(struct realtek_priv *priv, u8 sds_idx)
 	u16 rx_sts, tmp;
 	int ret;
 
-	ret = rtl837x_sds_reg_bits_read(priv, sds_idx, SDS_PAGE_FRC,
-					SDS_REG_FRC,
-					SDS_FRC_RX_EN_VAL_MASK |
-					SDS_FRC_RX_EN_ON_MASK,
+	ret = rtl837x_sds_reg_bits_read(priv, sds_idx, PAGE_ANA_MISC,
+					ANA_MISC_FRC,
+					ANA_MISC_FRC_RX_EN_VAL_MASK |
+					ANA_MISC_FRC_RX_EN_ON_MASK,
 					&rx_sts);
 	if (ret)
 		return ret;
@@ -292,14 +387,14 @@ int rtl837x_serdes_reset_10G(struct realtek_priv *priv, u8 sds_idx)
 		return 0;
 
 	/* Check whether the link is synced and healthy */
-	ret = rtl837x_sds_reg_read(priv, sds_idx, SDS_PAGE_CTRL05,
-				   SDS_REG_CTRL05_10GR_STS, &tmp);
+	ret = rtl837x_sds_reg_read(priv, sds_idx, PAGE_TGR_STD_1,
+				   TGR_STD_1_10GR_STS, &tmp);
 	if (ret)
 		return ret;
 
-	sync_ok = FIELD_GET(SDS_CTRL05_10GR_STS_SYNC_OK, tmp);
-	link_ok = FIELD_GET(SDS_CTRL05_10GR_STS_LINK_OK, tmp);
-	hi_ber = FIELD_GET(SDS_CTRL05_10GR_STS_HI_BER, tmp);
+	sync_ok = FIELD_GET(TGR_STD_1_10GR_STS_SYNC_OK_MASK, tmp);
+	link_ok = FIELD_GET(TGR_STD_1_10GR_STS_LINK_OK_MASK, tmp);
+	hi_ber = FIELD_GET(TGR_STD_1_10GR_STS_HI_BER_MASK, tmp);
 
 	if (!sync_ok || !link_ok || hi_ber)
 		goto do_reset;
@@ -307,34 +402,34 @@ int rtl837x_serdes_reset_10G(struct realtek_priv *priv, u8 sds_idx)
 	return 0;
 
 do_reset:
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC,
-					 SDS_REG_FRC,
-					 SDS_FRC_RX_EN_VAL_MASK |
-					 SDS_FRC_RX_EN_ON_MASK, 0x3);
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC,
+					 ANA_MISC_FRC,
+					 ANA_MISC_FRC_RX_EN_VAL_MASK |
+					 ANA_MISC_FRC_RX_EN_ON_MASK, 0x3);
 	if (ret)
 		return ret;
 	msleep(20);
 
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC,
-					 SDS_REG_FRC,
-					 SDS_FRC_RX_EN_VAL_MASK |
-					 SDS_FRC_RX_EN_ON_MASK, 0x1);
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC,
+					 ANA_MISC_FRC,
+					 ANA_MISC_FRC_RX_EN_VAL_MASK |
+					 ANA_MISC_FRC_RX_EN_ON_MASK, 0x1);
 	if (ret)
 		return ret;
 	msleep(20);
 
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC,
-					 SDS_REG_FRC,
-					 SDS_FRC_RX_EN_VAL_MASK |
-					 SDS_FRC_RX_EN_ON_MASK, 0x3);
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC,
+					 ANA_MISC_FRC,
+					 ANA_MISC_FRC_RX_EN_VAL_MASK |
+					 ANA_MISC_FRC_RX_EN_ON_MASK, 0x3);
 	if (ret)
 		return ret;
 	msleep(20);
 
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC,
-					 SDS_REG_FRC,
-					 SDS_FRC_RX_EN_VAL_MASK |
-					 SDS_FRC_RX_EN_ON_MASK, 0x0);
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC,
+					 ANA_MISC_FRC,
+					 ANA_MISC_FRC_RX_EN_VAL_MASK |
+					 ANA_MISC_FRC_RX_EN_ON_MASK, 0x0);
 	if (ret)
 		return ret;
 	msleep(20);
@@ -349,8 +444,8 @@ int rtl837x_serdes_reset_XSG(struct realtek_priv *priv, u8 sds_idx)
 	u16 rx_sts, tmp;
 	int ret;
 
-	ret = rtl837x_sds_reg_bits_read(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
-					SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+	ret = rtl837x_sds_reg_bits_read(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
+					ANA_MISC_FRC_RX_EN_VAL_MASK | ANA_MISC_FRC_RX_EN_ON_MASK,
 			  &rx_sts
 			);
 	if (ret)
@@ -362,13 +457,13 @@ int rtl837x_serdes_reset_XSG(struct realtek_priv *priv, u8 sds_idx)
 	if (rx_sts == 1) // do nothing when rx is disabled
 		return 0;
 
-	ret = rtl837x_sds_reg_read(priv, sds_idx, SDS_PAGE_CTRL01, SDS_REG_CTRL01_XSG_STS, &tmp);
+	ret = rtl837x_sds_reg_read(priv, sds_idx, PAGE_SDS_EXT, SDS_EXT_XSG_STS, &tmp);
 	if (ret)
 		return ret;
 
-	sig_ok =  FIELD_GET(SDS_CTRL01_XSG_STS_SIG_OK, tmp);
-	link_ok = FIELD_GET(SDS_CTRL01_XSG_STS_LINK_OK, tmp);
-	sync_ok = FIELD_GET(SDS_CTRL01_XSG_STS_SYNC_OK, tmp);
+	sig_ok =  FIELD_GET(SDS_EXT_XSG_STS_SIG_OK_MASK, tmp);
+	link_ok = FIELD_GET(SDS_EXT_XSG_STS_LINK_OK_MASK, tmp);
+	sync_ok = FIELD_GET(SDS_EXT_XSG_STS_SYNC_OK_MASK, tmp);
 
 	if (!sig_ok)
 		return 0;
@@ -381,15 +476,21 @@ int rtl837x_serdes_reset_XSG(struct realtek_priv *priv, u8 sds_idx)
 	return 0;
 
 do_reset:
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x00, 0x00, BIT(1), 1);
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
+					 PAGE_SDS, SDS_REG00,
+					 SDS_REG00_XSG_RX_EN_MASK, 1);
 	if (ret)
 		return ret;
 	msleep(20);
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x00, 0x00, BIT(1), 0);
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
+					 PAGE_SDS, SDS_REG00,
+					 SDS_REG00_XSG_RX_EN_MASK, 0);
 	if (ret)
 		return ret;
 	msleep(20);
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x00, 0x00, BIT(1), 1);
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
+					 PAGE_SDS, SDS_REG00,
+					 SDS_REG00_XSG_RX_EN_MASK, 1);
 	if (ret)
 		return ret;
 	msleep(20);
@@ -479,20 +580,82 @@ int rtl837x_serdes_mac_patch(struct realtek_priv *priv, u8 sds_idx)
 	return 0;
 }
 
+int rtl837x_serdes_set_serdes_mode(struct realtek_priv *priv, u8 sds_idx,
+				   phy_interface_t interface)
+{
+	u32 sds_sub_mode_mask, sds_mode_mask;
+	enum rtl837x_serdes_mode mode;
+	int ret;
+
+	sds_sub_mode_mask = sds_idx == 0 ?
+			    RTL837X_SDS_MODE_SEL_SDS0_USX_SUB_MODE_MASK :
+			    RTL837X_SDS_MODE_SEL_SDS1_USX_SUB_MODE_MASK;
+	sds_mode_mask = sds_idx == 0 ?
+		  RTL837X_SDS_MODE_SEL_SDS0_MODE_SEL_MASK : RTL837X_SDS_MODE_SEL_SDS1_MODE_SEL_MASK;
+
+	if (sds_idx == 0)
+		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
+					     RTL837X_SDS_MODE_SEL_CFG_MAC3_8221B_MASK,
+					     0);
+	else
+		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
+					     RTL837X_SDS_MODE_SEL_CFG_MAC8_8221B_MASK,
+					     0);
+	if (ret)
+		return ret;
+
+	// TODO: USXGMII submode support
+	ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
+				     sds_sub_mode_mask, RTL837X_SERDES_USXGMII_SM_NONE);
+	if (ret)
+		return ret;
+
+	switch (interface) {
+	case PHY_INTERFACE_MODE_USXGMII:
+		mode = RTL837X_SERDES_MODE_USXGMII;
+		break;
+	case PHY_INTERFACE_MODE_10GBASER:
+		mode = RTL837X_SERDES_MODE_10GBASER;
+		break;
+	case PHY_INTERFACE_MODE_2500BASEX:
+		mode = RTL837X_SERDES_MODE_2500BASEX;
+		break;
+	case PHY_INTERFACE_MODE_1000BASEX:
+		mode = RTL837X_SERDES_MODE_1000BASEX;
+		break;
+	case PHY_INTERFACE_MODE_SGMII:
+		mode = RTL837X_SERDES_MODE_SGMII;
+		break;
+	case PHY_INTERFACE_MODE_100BASEX:
+		mode = RTL837X_SERDES_MODE_100FX;
+		break;
+	default:
+		dev_err(priv->ds->dev, "unsupported interface: %s\n",
+			phy_modes(interface));
+		return -EINVAL;
+	}
+
+	ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
+				     sds_mode_mask, mode);
+	if (ret)
+		return ret;
+	return 0;
+}
+
 int rtl837x_serdes_off(struct realtek_priv *priv, u8 sds_idx)
 {
 	int ret;
 	// Force enable Rx
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
-					 SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
+					 ANA_MISC_FRC_RX_EN_VAL_MASK | ANA_MISC_FRC_RX_EN_ON_MASK,
 			    0x3
 		);
 	if (ret)
 		return ret;
 	msleep(20);
 	// Force disable Rx
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
-					 SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
+					 ANA_MISC_FRC_RX_EN_VAL_MASK | ANA_MISC_FRC_RX_EN_ON_MASK,
 			    0x1
 		);
 	if (ret)
@@ -500,30 +663,30 @@ int rtl837x_serdes_off(struct realtek_priv *priv, u8 sds_idx)
 	msleep(50);
 
 	// Force Power ON
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
-					 SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
+					 ANA_MISC_FRC_PDOWN_ON_MASK | ANA_MISC_FRC_PDOWN_VAL_MASK,
 			    0x1);
 	if (ret)
 		return ret;
 	msleep(20);
 	// Force Power OFF
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
-					 SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
+					 ANA_MISC_FRC_PDOWN_ON_MASK | ANA_MISC_FRC_PDOWN_VAL_MASK,
 			    0x3);
 	if (ret)
 		return ret;
 	msleep(50);
 
 	// Force enable CMU(Clock Multiplier Unit(PLL))
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
-					 SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
+					 ANA_MISC_FRC_CMU_EN_ON_MASK | ANA_MISC_FRC_CMU_EN_VAL_MASK,
 			    0x3);
 	if (ret)
 		return ret;
 	msleep(20);
 	// Force disable CMU(Clock Multiplier Unit(PLL))
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
-					 SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
+					 ANA_MISC_FRC_CMU_EN_ON_MASK | ANA_MISC_FRC_CMU_EN_VAL_MASK,
 			    0x1);
 	if (ret)
 		return ret;
@@ -536,68 +699,68 @@ int rtl837x_serdes_on(struct realtek_priv *priv, u8 sds_idx)
 {
 	int ret;
 	// Force disable CMU(Clock Multiplier Unit(PLL))
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
-					 SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
+					 ANA_MISC_FRC_CMU_EN_ON_MASK | ANA_MISC_FRC_CMU_EN_VAL_MASK,
 		    0x1);
 	if (ret)
 		return ret;
 	msleep(20);
 	// Force enable CMU(Clock Multiplier Unit(PLL))
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
-					 SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
+					 ANA_MISC_FRC_CMU_EN_ON_MASK | ANA_MISC_FRC_CMU_EN_VAL_MASK,
 		    0x3);
 	if (ret)
 		return ret;
 	msleep(50);
 	// Switch to auto Mode CMU(Clock Multiplier Unit(PLL))
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
-					 SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
+					 ANA_MISC_FRC_CMU_EN_ON_MASK | ANA_MISC_FRC_CMU_EN_VAL_MASK,
 		    0x0);
 	if (ret)
 		return ret;
 	msleep(20);
 
 	// Force Power OFF
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
-					 SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
+					 ANA_MISC_FRC_PDOWN_ON_MASK | ANA_MISC_FRC_PDOWN_VAL_MASK,
 		    0x3);
 	if (ret)
 		return ret;
 	msleep(20);
 	// Force Power ON
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
-					 SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
+					 ANA_MISC_FRC_PDOWN_ON_MASK | ANA_MISC_FRC_PDOWN_VAL_MASK,
 		    0x1);
 	if (ret)
 		return ret;
 	msleep(50);
 	// Power Auto Mode
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
-					 SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
+					 ANA_MISC_FRC_PDOWN_ON_MASK | ANA_MISC_FRC_PDOWN_VAL_MASK,
 		    0x0);
 	if (ret)
 		return ret;
 	msleep(20);
 
 	// Force disable Rx
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
-					 SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
+					 ANA_MISC_FRC_RX_EN_VAL_MASK | ANA_MISC_FRC_RX_EN_ON_MASK,
 		    0x1
 		);
 	if (ret)
 		return ret;
 	msleep(20);
 	// Force enable Rx
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
-					 SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
+					 ANA_MISC_FRC_RX_EN_VAL_MASK | ANA_MISC_FRC_RX_EN_ON_MASK,
 		    0x3
 		);
 	if (ret)
 		return ret;
 	msleep(50);
 	// Rx auto
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
-					 SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
+					 ANA_MISC_FRC_RX_EN_VAL_MASK | ANA_MISC_FRC_RX_EN_ON_MASK,
 		    0x0
 		);
 	if (ret)
@@ -609,65 +772,69 @@ int rtl837x_serdes_on(struct realtek_priv *priv, u8 sds_idx)
 
 int rtl837x_serdes_pause_frame_config(struct realtek_priv *priv, u8 sds_idx,
 				      phy_interface_t interface,
-				      bool pause, bool asympause)
+				      const unsigned long *advertising)
 {
 	/* Auto negotiation pause/asympause advertisement */
 	int adv = 0;
 	int ret;
 
-	if (pause)
+	if (linkmode_test_bit(ETHTOOL_LINK_MODE_Pause_BIT, advertising))
 		adv |= BIT(0);
-	if (asympause)
+	if (linkmode_test_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT, advertising))
 		adv |= BIT(1);
 
 	switch (interface) {
 	case PHY_INTERFACE_MODE_100BASEX:
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5,
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
+						 PAGE_WDIG, 5,
 						 0x1 << 2, 0x1);
 		if (ret)
 			return ret;
 
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5,
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
+						 PAGE_WDIG, 5,
 						 0x1 << 3, 0x1);
 		if (ret)
 			return ret;
 
 		ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
-						 SDS_PAGE_CTRL02,
-						 SDS_REG_CTRL02_XSG_AN,
-						 SDS_CTRL02_XSG_AN_10_100_ASYM_PAUSE_MASK |
-						 SDS_CTRL02_XSG_AN_10_100_PAUSE_MASK,
+						 PAGE_FIB,
+						 FIB_XSG_AN,
+						 FIB_XSG_AN_10_100_ASYM_PAUSE_MASK |
+						 FIB_XSG_AN_10_100_PAUSE_MASK,
 						 adv);
 		if (ret)
 			return ret;
 		break;
 	case PHY_INTERFACE_MODE_1000BASEX:
 	case PHY_INTERFACE_MODE_2500BASEX:
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5,
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
+						 PAGE_WDIG, 5,
 						 0x1 << 2, 0x1);
 		if (ret)
 			return ret;
 
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5,
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
+						 PAGE_WDIG, 5,
 						 0x1 << 3, 0x0);
 		if (ret)
 			return ret;
 
 		ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
-						 SDS_PAGE_CTRL02,
-						 SDS_REG_CTRL02_XSG_AN,
-						 SDS_CTRL02_XSG_AN_1G_ASYM_PAUSE_MASK |
-						 SDS_CTRL02_XSG_AN_1G_PAUSE_MASK,
+						 PAGE_FIB,
+						 FIB_XSG_AN,
+						 FIB_XSG_AN_1G_ASYM_PAUSE_MASK |
+						 FIB_XSG_AN_1G_PAUSE_MASK,
 						 adv);
 		if (ret)
 			return ret;
 		break;
 	case PHY_INTERFACE_MODE_10GBASER:
 		ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
-						 SDS_PAGE_CTRL1F,
-						 SDS_REG_CTRL1F_10GR_AN,
-						 SDS_CTRL1F_10GR_AN_ASYM_PAUSE_MASK |
-						 SDS_CTRL1F_10GR_AN_PAUSE_MASK,
+						 PAGE_WDIG,
+						 WDIG_10GR_AN,
+						 WDIG_10GR_AN_ASYM_PAUSE_MASK |
+						 WDIG_10GR_AN_PAUSE_MASK,
 						 adv);
 		if (ret)
 			return ret;
@@ -688,21 +855,21 @@ int rtl837x_serdes_pause_frame_config(struct realtek_priv *priv, u8 sds_idx,
 static int rtl837x_serdes_usxgmii_std(struct realtek_priv *priv, u8 sds_idx)
 {
 	static const u16 cfg[][3] = {
-		{ 0x06, 0x0d, 0x0f00 },
-		{ 0x06, 0x1d, 0x0600 },
-		{ 0x07, 0x06, 0x1401 },
-		{ 0x07, 0x08, 0x1401 },
-		{ 0x07, 0x0a, 0x1401 },
-		{ 0x07, 0x0c, 0x1401 },
+		{ PAGE_TGR_PRO_0, 0x0d, 0x0f00 },
+		{ PAGE_TGR_PRO_0, 0x1d, 0x0600 },
+		{ PAGE_TGR_PRO_1, TGR_PRO_1_REG06, 0x1401 },
+		{ PAGE_TGR_PRO_1, TGR_PRO_1_REG08, 0x1401 },
+		{ PAGE_TGR_PRO_1, TGR_PRO_1_REG10, 0x1401 },
+		{ PAGE_TGR_PRO_1, TGR_PRO_1_REG12, 0x1401 },
 		/* AM insert period */
-		{ 0x06, 0x12, 0x00a4 },
+		{ PAGE_TGR_PRO_0, 0x12, 0x00a4 },
 		/* no alignment markers */
-		{ 0x06, 0x13, 0x0000 },
-		{ 0x06, 0x14, 0x0000 },
-		{ 0x06, 0x15, 0x0000 },
-		{ 0x06, 0x16, 0x0000 },
-		{ 0x06, 0x17, 0x0000 },
-		{ 0x06, 0x18, 0x0000 },
+		{ PAGE_TGR_PRO_0, 0x13, 0x0000 },
+		{ PAGE_TGR_PRO_0, 0x14, 0x0000 },
+		{ PAGE_TGR_PRO_0, 0x15, 0x0000 },
+		{ PAGE_TGR_PRO_0, 0x16, 0x0000 },
+		{ PAGE_TGR_PRO_0, 0x17, 0x0000 },
+		{ PAGE_TGR_PRO_0, 0x18, 0x0000 },
 	};
 	int ret;
 	int i;
@@ -715,8 +882,11 @@ static int rtl837x_serdes_usxgmii_std(struct realtek_priv *priv, u8 sds_idx)
 	}
 
 	/* USXGMII AN opcode: 0x03 standard, 0xaa Realtek */
-	return rtl837x_sds_reg_bits_write(priv, sds_idx, 0x07, 0x10,
-					  GENMASK(7, 0), 0x03);
+	return rtl837x_sds_reg_bits_write(priv, sds_idx,
+					  PAGE_TGR_PRO_1,
+					  TGR_PRO_1_REG16,
+					  TGR_PRO_1_REG16_CFG_QHSG_AN_OPC,
+					  TGR_PRO_1_REG16_CFG_QHSG_AN_OPC_STD);
 }
 
 int rtl837x_serdes_an_config(struct realtek_priv *priv, u8 sds_idx,
@@ -731,26 +901,26 @@ int rtl837x_serdes_an_config(struct realtek_priv *priv, u8 sds_idx,
 	case PHY_INTERFACE_MODE_2500BASEX:
 		if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED)
 			ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
-							 SDS_PAGE_CTRL00,
-							 SDS_REG_CTRL00_REG02,
-							 SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN |
-							 SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN,
+							 PAGE_SDS,
+							 SDS_REG02,
+							 SDS_REG02_XSG_SP_SDS_FRC_AN_EN |
+							 SDS_REG02_XSG_SP_SDS_FRC_AN,
 							 0x3);
 		else
 			ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
-							 SDS_PAGE_CTRL00,
-							 SDS_REG_CTRL00_REG02,
-							 SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN |
-							 SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN,
+							 PAGE_SDS,
+							 SDS_REG02,
+							 SDS_REG02_XSG_SP_SDS_FRC_AN_EN |
+							 SDS_REG02_XSG_SP_SDS_FRC_AN,
 							 0x1);
 		if (ret)
 			return ret;
 
 		/* Set SP_CFG_EN_LINK_FIB1G to enable fiberNwayForceLink */
 		ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
-						 SDS_PAGE_CTRL00,
-						 SDS_REG_CTRL00_REG04,
-						 SDS_CTRL00_REG04_SP_CFG_EN_LINK_FIB1G_MASK,
+						 PAGE_SDS,
+						 SDS_REG04,
+						 SDS_REG04_SP_CFG_EN_LINK_FIB1G_MASK,
 						 0x1);
 		if (ret)
 			return ret;
@@ -758,21 +928,21 @@ int rtl837x_serdes_an_config(struct realtek_priv *priv, u8 sds_idx,
 	case PHY_INTERFACE_MODE_USXGMII:
 		if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED)
 			ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
-							 SDS_PAGE_NWAY_AN,
-							 SDS_REG_NWAY_AN,
-							 SDS_NWAY_QHSG_AN_CH0_EN_MASK |
-							 SDS_NWAY_QHSG_AN_CH1_EN_MASK |
-							 SDS_NWAY_QHSG_AN_CH2_EN_MASK |
-							 SDS_NWAY_QHSG_AN_CH3_EN_MASK,
+							 PAGE_TGR_PRO_1,
+							 TGR_PRO_1_REG17,
+							 TGR_PRO_1_REG17_QHSG_AN_CH0_EN_MASK |
+							 TGR_PRO_1_REG17_QHSG_AN_CH1_EN_MASK |
+							 TGR_PRO_1_REG17_QHSG_AN_CH2_EN_MASK |
+							 TGR_PRO_1_REG17_QHSG_AN_CH3_EN_MASK,
 							 0xf);
 		else
 			ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
-							 SDS_PAGE_NWAY_AN,
-							 SDS_REG_NWAY_AN,
-							 SDS_NWAY_QHSG_AN_CH0_EN_MASK |
-							 SDS_NWAY_QHSG_AN_CH1_EN_MASK |
-							 SDS_NWAY_QHSG_AN_CH2_EN_MASK |
-							 SDS_NWAY_QHSG_AN_CH3_EN_MASK,
+							 PAGE_TGR_PRO_1,
+							 TGR_PRO_1_REG17,
+							 TGR_PRO_1_REG17_QHSG_AN_CH0_EN_MASK |
+							 TGR_PRO_1_REG17_QHSG_AN_CH1_EN_MASK |
+							 TGR_PRO_1_REG17_QHSG_AN_CH2_EN_MASK |
+							 TGR_PRO_1_REG17_QHSG_AN_CH3_EN_MASK,
 							 0x0);
 		if (ret)
 			return ret;

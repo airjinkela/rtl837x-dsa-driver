@@ -57,18 +57,6 @@
 #define   RTL837X_SMI_CTRL_SMI1_MDC_EN_MASK          BIT(13)
 #define   RTL837X_SMI_CTRL_SMI0_MDC_EN_MASK          BIT(12)
 
-/*
- * Internal SerDes configuration. SDS0 feeds MAC3 and SDS1 feeds MAC8; each
- * SerDes has a link mode and, for USXGMII, a separate sub-mode field.
- */
-#define RTL837X_SDS_MODE_SEL_REG                          0x7B20
-#define   RTL837X_SDS_MODE_SEL_CFG_MAC8_8221B_MASK         BIT(22)
-#define   RTL837X_SDS_MODE_SEL_CFG_MAC3_8221B_MASK         BIT(21)
-#define   RTL837X_SDS_MODE_SEL_SDS1_USX_SUB_MODE_MASK      GENMASK(20, 16)
-#define   RTL837X_SDS_MODE_SEL_SDS0_USX_SUB_MODE_MASK      GENMASK(14, 10)
-#define   RTL837X_SDS_MODE_SEL_SDS1_MODE_SEL_MASK          GENMASK(9, 5)
-#define   RTL837X_SDS_MODE_SEL_SDS0_MODE_SEL_MASK          GENMASK(4, 0)
-
 /* Internal PHY configuration */
 #define RTL837X_PHY_MDI_REVERSE_REG                       0xA90
 #define   RTL837X_PHY_MDI_REVERSE_P3_MASK                 BIT(3)
@@ -1119,64 +1107,11 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 		sds_idx,
 			  phy_modes(interface), neg_mode);
 
-	if (sds_idx == 0)
-		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
-					     RTL837X_SDS_MODE_SEL_CFG_MAC3_8221B_MASK,
-					     0);
-	else
-		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
-					     RTL837X_SDS_MODE_SEL_CFG_MAC8_8221B_MASK,
-					     0);
-	if (ret)
-		return ret;
-
 	ret = rtl837x_serdes_off(priv, sds_idx);
 	if (ret)
 		return ret;
 
-	// Chip rtl8372n doesn't support 10G QSXGMII, The sub mode always be zero
-	u32 sds_sub_mode_mask;
-
-	sds_sub_mode_mask = sds_idx == 0 ?
-			    RTL837X_SDS_MODE_SEL_SDS0_USX_SUB_MODE_MASK :
-			    RTL837X_SDS_MODE_SEL_SDS1_USX_SUB_MODE_MASK;
-	ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
-				     sds_sub_mode_mask, 0);
-	if (ret)
-		return ret;
-
-	u32 sds_mode_mask = sds_idx == 0 ?
-		  RTL837X_SDS_MODE_SEL_SDS0_MODE_SEL_MASK : RTL837X_SDS_MODE_SEL_SDS1_MODE_SEL_MASK;
-	switch (interface) {
-	case PHY_INTERFACE_MODE_USXGMII:
-		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
-					     sds_mode_mask, 0x0d);
-		break;
-	case PHY_INTERFACE_MODE_10GBASER:
-		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
-					     sds_mode_mask, 0x1a);
-		break;
-	case PHY_INTERFACE_MODE_2500BASEX:
-		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
-					     sds_mode_mask, 0x16);
-		break;
-	case PHY_INTERFACE_MODE_1000BASEX:
-		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
-					     sds_mode_mask, 0x04);
-		break;
-	case PHY_INTERFACE_MODE_SGMII:
-		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
-					     sds_mode_mask, 0x02);
-		break;
-	case PHY_INTERFACE_MODE_100BASEX:
-		ret = rtl837x_reg_bits_write(priv, RTL837X_SDS_MODE_SEL_REG,
-					     sds_mode_mask, 0x05);
-		break;
-	default:
-		dev_err(priv->ds->dev, "unsupported interface: %s\n",
-			phy_modes(interface));
-		return -EINVAL;
-	}
+	ret = rtl837x_serdes_set_serdes_mode(priv, sds_idx, interface);
 	if (ret)
 		return ret;
 
@@ -1191,10 +1126,7 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 	msleep(250);
 
 	ret = rtl837x_serdes_pause_frame_config(priv, sds_idx,
-						interface,
-	   linkmode_test_bit(ETHTOOL_LINK_MODE_Pause_BIT, advertising),
-	   linkmode_test_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT, advertising)
-	);
+						interface, advertising);
 	if (ret)
 		return ret;
 	ret = rtl837x_serdes_an_config(priv, sds_idx, interface, neg_mode);
