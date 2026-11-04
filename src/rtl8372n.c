@@ -2943,19 +2943,11 @@ static int rtl8372n_setup_port(struct realtek_priv *priv, int port)
 			return ret;
 	}
 
-	/*
-	 * Let the port follow its polled PHY or SerDes. A port can be left
-	 * force-linked by the bootloader (after a U-Boot TFTP boot the SerDes
-	 * port 3 is forced to 10G), and setup no longer soft-resets the
-	 * switch. A USXGMII port forced to 10G passes no frames when its PHY
-	 * links at 1G or 2.5G. The CPU port keeps its forced link.
-	 */
-	if (!dsa_port_is_cpu(dp)) {
-		ret = regmap_clear_bits(priv->map, RTL837X_MAC_FORCE_MODE_REG(port),
-					RTL837X_MAC_FORCE_MODE_FORCE_LINK_MASK);
-		if (ret)
-			return ret;
-	}
+	/* Clean the force link bit */
+	ret = regmap_clear_bits(priv->map, RTL837X_MAC_FORCE_MODE_REG(port),
+				RTL837X_MAC_FORCE_MODE_FORCE_LINK_MASK);
+	if (ret)
+		return ret;
 
 	ret = regmap_write(priv->map, RTL837X_FC_PORT_ACT_CTRL_REG(port), 0x1050);
 	if (ret)
