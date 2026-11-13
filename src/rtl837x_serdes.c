@@ -198,9 +198,21 @@ enum rtpcs_page {
 #define  TGR_STD_1_10GR_STS_LINK_OK_MASK   BIT(12) // I Guess
 
 /* PAGE_WDIG (0x1f) */
-#define WDIG_10GR_AN  0x0B
-#define  WDIG_10GR_AN_PAUSE_MASK       BIT(2)
-#define  WDIG_10GR_AN_ASYM_PAUSE_MASK  BIT(3)
+#define WDIG_REG00    0x00
+#define  WDIG_REG00_SOFT_RST_ANA_MASK   BIT(4)
+#define  WDIG_REG00_SOFT_RST_XSG_MASK   BIT(3)
+#define  WDIG_REG00_SOFT_RST_AUTO_MASK  BIT(2)
+#define  WDIG_REG00_SOFT_RST_TGX_MASK   BIT(1)
+#define  WDIG_REG00_SOFT_RST_TGR_MASK   BIT(0)
+
+#define WDIG_REG05              0x05
+// REG04 seems to refer to @FIB_XSG_AN
+#define  WDIG_REG05_FRC_REG04_VAL_MASK  BIT(3)
+#define  WDIG_REG05_FRC_REG04_ON_MASK   BIT(2)
+
+#define WDIG_10GR_AN  0x0B             // might be wrong
+#define  WDIG_10GR_AN_PAUSE_MASK       BIT(2) // might be wrong
+#define  WDIG_10GR_AN_ASYM_PAUSE_MASK  BIT(3) // might be wrong
 
 /* PAGE_ANA_10G (0x2e) */
 #define ANA_10G_REG06                     0x06
@@ -383,6 +395,66 @@ int rtl837x_serdes_pnswap_tx(struct realtek_priv *priv, u8 sds_idx, bool enable)
 	return 0;
 }
 
+// 100M/1G/2.5G reset
+int rtl837x_serdes_reset_XSG(struct realtek_priv *priv, u8 sds_idx)
+{
+	bool sig_ok, sync_ok, link_ok;
+	u16 rx_sts, tmp;
+	int ret;
+
+	ret = rtl837x_sds_reg_bits_read(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
+					ANA_MISC_FRC_RX_EN_VAL_MASK | ANA_MISC_FRC_RX_EN_ON_MASK,
+			  &rx_sts
+			);
+	if (ret)
+		return ret;
+
+	// check serdes rx status
+	// 0,2,3: rx is enabled
+	// 1    : rx is disabled
+	if (rx_sts == 1) // do nothing when rx is disabled
+		return 0;
+
+	ret = rtl837x_sds_reg_read(priv, sds_idx, PAGE_SDS_EXT, SDS_EXT_XSG_STS, &tmp);
+	if (ret)
+		return ret;
+
+	sig_ok =  FIELD_GET(SDS_EXT_XSG_STS_SIG_OK_MASK, tmp);
+	link_ok = FIELD_GET(SDS_EXT_XSG_STS_LINK_OK_MASK, tmp);
+	sync_ok = FIELD_GET(SDS_EXT_XSG_STS_SYNC_OK_MASK, tmp);
+
+	if (!sig_ok)
+		return 0;
+
+	if (sync_ok == 0)
+		goto do_reset;
+	else
+		if (link_ok == 0)
+			goto do_reset;
+	return 0;
+
+do_reset:
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
+					 PAGE_SDS, SDS_REG00,
+					 SDS_REG00_XSG_RX_EN_MASK, 1);
+	if (ret)
+		return ret;
+	msleep(20);
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
+					 PAGE_SDS, SDS_REG00,
+					 SDS_REG00_XSG_RX_EN_MASK, 0);
+	if (ret)
+		return ret;
+	msleep(20);
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
+					 PAGE_SDS, SDS_REG00,
+					 SDS_REG00_XSG_RX_EN_MASK, 1);
+	if (ret)
+		return ret;
+	msleep(20);
+	return 0;
+}
+
 int rtl837x_serdes_reset_10G(struct realtek_priv *priv, u8 sds_idx)
 {
 	/* nsq: noise squelch, hi_ber: high bit error rate */
@@ -478,67 +550,75 @@ do_reset:
 	return 0;
 }
 
-// 100M/1G/2.5G reset
-int rtl837x_serdes_reset_XSG(struct realtek_priv *priv, u8 sds_idx)
+int rtl837x_serdes_wdig_soft_reset(struct realtek_priv *priv, u8 sds_idx, bool reset)
 {
-	bool sig_ok, sync_ok, link_ok;
-	u16 rx_sts, tmp;
 	int ret;
 
-	ret = rtl837x_sds_reg_bits_read(priv, sds_idx, PAGE_ANA_MISC, ANA_MISC_FRC,
-					ANA_MISC_FRC_RX_EN_VAL_MASK | ANA_MISC_FRC_RX_EN_ON_MASK,
-			  &rx_sts
-			);
-	if (ret)
-		return ret;
-
-	// check serdes rx status
-	// 0,2,3: rx is enabled
-	// 1    : rx is disabled
-	if (rx_sts == 1) // do nothing when rx is disabled
-		return 0;
-
-	ret = rtl837x_sds_reg_read(priv, sds_idx, PAGE_SDS_EXT, SDS_EXT_XSG_STS, &tmp);
-	if (ret)
-		return ret;
-
-	sig_ok =  FIELD_GET(SDS_EXT_XSG_STS_SIG_OK_MASK, tmp);
-	link_ok = FIELD_GET(SDS_EXT_XSG_STS_LINK_OK_MASK, tmp);
-	sync_ok = FIELD_GET(SDS_EXT_XSG_STS_SYNC_OK_MASK, tmp);
-
-	if (!sig_ok)
-		return 0;
-
-	if (sync_ok == 0)
-		goto do_reset;
+	if (reset)
+		ret = rtl837x_sds_reg_write(priv, sds_idx,
+					    PAGE_WDIG,
+					    WDIG_REG00,
+					    WDIG_REG00_SOFT_RST_TGR_MASK |
+					     WDIG_REG00_SOFT_RST_TGX_MASK |
+					     WDIG_REG00_SOFT_RST_XSG_MASK
+					);
 	else
-		if (link_ok == 0)
-			goto do_reset;
-	return 0;
+		ret = rtl837x_sds_reg_write(priv, sds_idx,
+					    PAGE_WDIG,
+					    WDIG_REG00,
+					    0
+					);
+	if (ret)
+		return ret;
 
-do_reset:
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
-					 PAGE_SDS, SDS_REG00,
-					 SDS_REG00_XSG_RX_EN_MASK, 1);
-	if (ret)
-		return ret;
-	msleep(20);
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
-					 PAGE_SDS, SDS_REG00,
-					 SDS_REG00_XSG_RX_EN_MASK, 0);
-	if (ret)
-		return ret;
-	msleep(20);
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
-					 PAGE_SDS, SDS_REG00,
-					 SDS_REG00_XSG_RX_EN_MASK, 1);
-	if (ret)
-		return ret;
-	msleep(20);
 	return 0;
 }
 
-int rtl837x_serdes_an_patch(struct realtek_priv *priv, u8 sds_idx, phy_interface_t interface)
+/*
+ * Switch a SerDes in USXGMII mode from Realtek's proprietary USXGMII variant
+ * (the chip default) to standard USXGMII, so that it works with PHYs in their
+ * default setup (e.g. RTL8261N/BE with the unmodified rtl8261n.bin firmware).
+ * Same values as the RTL930x PCS driver in OpenWrt; pages 6 and 7 are
+ * TGR_PRO_0 and TGR_PRO_1.
+ */
+static int rtl837x_serdes_usxgmii_std(struct realtek_priv *priv, u8 sds_idx)
+{
+	static const u16 cfg[][3] = {
+		{ PAGE_TGR_PRO_0, 0x0d, 0x0f00 },
+		{ PAGE_TGR_PRO_0, 0x1d, 0x0600 },
+		{ PAGE_TGR_PRO_1, TGR_PRO_1_REG06, 0x1401 },
+		{ PAGE_TGR_PRO_1, TGR_PRO_1_REG08, 0x1401 },
+		{ PAGE_TGR_PRO_1, TGR_PRO_1_REG10, 0x1401 },
+		{ PAGE_TGR_PRO_1, TGR_PRO_1_REG12, 0x1401 },
+		/* AM insert period */
+		{ PAGE_TGR_PRO_0, TGR_PRO_0_AM_PERIOD, 0x00a4 },
+		/* no alignment markers */
+		{ PAGE_TGR_PRO_0, TGR_PRO_0_AM_CFG0, 0x0000 },
+		{ PAGE_TGR_PRO_0, TGR_PRO_0_AM_CFG1, 0x0000 },
+		{ PAGE_TGR_PRO_0, TGR_PRO_0_AM_CFG2, 0x0000 },
+		{ PAGE_TGR_PRO_0, TGR_PRO_0_AM_CFG3, 0x0000 },
+		{ PAGE_TGR_PRO_0, TGR_PRO_0_AM_CFG4, 0x0000 },
+		{ PAGE_TGR_PRO_0, TGR_PRO_0_AM_CFG5, 0x0000 },
+	};
+	int ret;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(cfg); i++) {
+		ret = rtl837x_sds_reg_write(priv, sds_idx, cfg[i][0], cfg[i][1],
+					    cfg[i][2]);
+		if (ret)
+			return ret;
+	}
+
+	/* USXGMII AN opcode: 0x03 standard, 0xaa Realtek */
+	return rtl837x_sds_reg_bits_write(priv, sds_idx,
+					  PAGE_TGR_PRO_1,
+					  TGR_PRO_1_REG16,
+					  TGR_PRO_1_REG16_CFG_QHSG_AN_OPC,
+					  TGR_PRO_1_REG16_CFG_QHSG_AN_OPC_STD);
+}
+
+int rtl837x_serdes_ana_patch(struct realtek_priv *priv, u8 sds_idx, phy_interface_t interface)
 {
 	const u16 (*an_patch)[3];
 	int an_patch_len;
@@ -604,6 +684,13 @@ int rtl837x_serdes_an_patch(struct realtek_priv *priv, u8 sds_idx, phy_interface
 		if (ret)
 			return ret;
 	}
+
+	if (interface == PHY_INTERFACE_MODE_USXGMII) {
+		ret = rtl837x_serdes_usxgmii_std(priv, sds_idx);
+		if (ret)
+			return ret;
+	}
+
 	return 0;
 }
 
@@ -811,9 +898,9 @@ int rtl837x_serdes_on(struct realtek_priv *priv, u8 sds_idx)
 	return 0;
 }
 
-int rtl837x_serdes_pause_frame_config(struct realtek_priv *priv, u8 sds_idx,
-				      phy_interface_t interface,
-				      const unsigned long *advertising)
+static int rtl837x_serdes_pause_frame_config(struct realtek_priv *priv, u8 sds_idx,
+					     phy_interface_t interface,
+					     const unsigned long *advertising)
 {
 	/* Auto negotiation pause/asympause advertisement */
 	int adv = 0;
@@ -827,14 +914,10 @@ int rtl837x_serdes_pause_frame_config(struct realtek_priv *priv, u8 sds_idx,
 	switch (interface) {
 	case PHY_INTERFACE_MODE_100BASEX:
 		ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
-						 PAGE_WDIG, 5,
-						 0x1 << 2, 0x1);
-		if (ret)
-			return ret;
-
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
-						 PAGE_WDIG, 5,
-						 0x1 << 3, 0x1);
+						 PAGE_WDIG, WDIG_REG05,
+						 WDIG_REG05_FRC_REG04_ON_MASK |
+						  WDIG_REG05_FRC_REG04_VAL_MASK,
+						 0x3);
 		if (ret)
 			return ret;
 
@@ -842,7 +925,7 @@ int rtl837x_serdes_pause_frame_config(struct realtek_priv *priv, u8 sds_idx,
 						 PAGE_FIB,
 						 FIB_XSG_AN,
 						 FIB_XSG_AN_10_100_ASYM_PAUSE_MASK |
-						 FIB_XSG_AN_10_100_PAUSE_MASK,
+						  FIB_XSG_AN_10_100_PAUSE_MASK,
 						 adv);
 		if (ret)
 			return ret;
@@ -851,13 +934,9 @@ int rtl837x_serdes_pause_frame_config(struct realtek_priv *priv, u8 sds_idx,
 	case PHY_INTERFACE_MODE_2500BASEX:
 		ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
 						 PAGE_WDIG, 5,
-						 0x1 << 2, 0x1);
-		if (ret)
-			return ret;
-
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
-						 PAGE_WDIG, 5,
-						 0x1 << 3, 0x0);
+						 WDIG_REG05_FRC_REG04_ON_MASK |
+						  WDIG_REG05_FRC_REG04_VAL_MASK,
+						 0x2);
 		if (ret)
 			return ret;
 
@@ -865,7 +944,7 @@ int rtl837x_serdes_pause_frame_config(struct realtek_priv *priv, u8 sds_idx,
 						 PAGE_FIB,
 						 FIB_XSG_AN,
 						 FIB_XSG_AN_1G_ASYM_PAUSE_MASK |
-						 FIB_XSG_AN_1G_PAUSE_MASK,
+						  FIB_XSG_AN_1G_PAUSE_MASK,
 						 adv);
 		if (ret)
 			return ret;
@@ -875,7 +954,7 @@ int rtl837x_serdes_pause_frame_config(struct realtek_priv *priv, u8 sds_idx,
 						 PAGE_WDIG,
 						 WDIG_10GR_AN,
 						 WDIG_10GR_AN_ASYM_PAUSE_MASK |
-						 WDIG_10GR_AN_PAUSE_MASK,
+						  WDIG_10GR_AN_PAUSE_MASK,
 						 adv);
 		if (ret)
 			return ret;
@@ -886,53 +965,10 @@ int rtl837x_serdes_pause_frame_config(struct realtek_priv *priv, u8 sds_idx,
 	return 0;
 }
 
-/*
- * Switch a SerDes in USXGMII mode from Realtek's proprietary USXGMII variant
- * (the chip default) to standard USXGMII, so that it works with PHYs in their
- * default setup (e.g. RTL8261N/BE with the unmodified rtl8261n.bin firmware).
- * Same values as the RTL930x PCS driver in OpenWrt; pages 6 and 7 are
- * TGR_PRO_0 and TGR_PRO_1.
- */
-static int rtl837x_serdes_usxgmii_std(struct realtek_priv *priv, u8 sds_idx)
-{
-	static const u16 cfg[][3] = {
-		{ PAGE_TGR_PRO_0, 0x0d, 0x0f00 },
-		{ PAGE_TGR_PRO_0, 0x1d, 0x0600 },
-		{ PAGE_TGR_PRO_1, TGR_PRO_1_REG06, 0x1401 },
-		{ PAGE_TGR_PRO_1, TGR_PRO_1_REG08, 0x1401 },
-		{ PAGE_TGR_PRO_1, TGR_PRO_1_REG10, 0x1401 },
-		{ PAGE_TGR_PRO_1, TGR_PRO_1_REG12, 0x1401 },
-		/* AM insert period */
-		{ PAGE_TGR_PRO_0, TGR_PRO_0_AM_PERIOD, 0x00a4 },
-		/* no alignment markers */
-		{ PAGE_TGR_PRO_0, TGR_PRO_0_AM_CFG0, 0x0000 },
-		{ PAGE_TGR_PRO_0, TGR_PRO_0_AM_CFG1, 0x0000 },
-		{ PAGE_TGR_PRO_0, TGR_PRO_0_AM_CFG2, 0x0000 },
-		{ PAGE_TGR_PRO_0, TGR_PRO_0_AM_CFG3, 0x0000 },
-		{ PAGE_TGR_PRO_0, TGR_PRO_0_AM_CFG4, 0x0000 },
-		{ PAGE_TGR_PRO_0, TGR_PRO_0_AM_CFG5, 0x0000 },
-	};
-	int ret;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(cfg); i++) {
-		ret = rtl837x_sds_reg_write(priv, sds_idx, cfg[i][0], cfg[i][1],
-					    cfg[i][2]);
-		if (ret)
-			return ret;
-	}
-
-	/* USXGMII AN opcode: 0x03 standard, 0xaa Realtek */
-	return rtl837x_sds_reg_bits_write(priv, sds_idx,
-					  PAGE_TGR_PRO_1,
-					  TGR_PRO_1_REG16,
-					  TGR_PRO_1_REG16_CFG_QHSG_AN_OPC,
-					  TGR_PRO_1_REG16_CFG_QHSG_AN_OPC_STD);
-}
-
-int rtl837x_serdes_an_config(struct realtek_priv *priv, u8 sds_idx,
-			     phy_interface_t interface,
-			     unsigned int neg_mode)
+int rtl837x_serdes_set_autoneg(struct realtek_priv *priv, u8 sds_idx,
+			       phy_interface_t interface,
+			       const unsigned long *advertising,
+			       unsigned int neg_mode)
 {
 	int ret;
 
@@ -987,14 +1023,13 @@ int rtl837x_serdes_an_config(struct realtek_priv *priv, u8 sds_idx,
 							 0x0);
 		if (ret)
 			return ret;
-
-		ret = rtl837x_serdes_usxgmii_std(priv, sds_idx);
-		if (ret)
-			return ret;
-		break;
 	default:
 		break;
 	}
+
+	ret = rtl837x_serdes_pause_frame_config(priv, sds_idx, interface, advertising);
+	if (ret)
+		return ret;
 
 	return 0;
 }

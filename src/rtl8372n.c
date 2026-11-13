@@ -399,7 +399,7 @@ enum rtl837x_port_feature {
 	RTL837X_PORT_FEATURE_PORT = BIT(0),
 	RTL837X_PORT_FEATURE_SERDES = BIT(1),
 	RTL837X_PORT_FEATURE_QSXGMII = BIT(2),
-	RTL837X_PORT_FEATURE_INTERNAL = BIT(2),
+	RTL837X_PORT_FEATURE_INTERNAL = BIT(3),
 };
 
 struct rtl837x_chip_info {
@@ -1115,33 +1115,27 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 	if (ret)
 		return ret;
 
-	// Apply patch
-	ret = rtl837x_serdes_an_patch(priv, sds_idx, interface);
+	// Apply ana patch
+	ret = rtl837x_serdes_ana_patch(priv, sds_idx, interface);
 	if (ret)
 		return ret;
 	ret = rtl837x_serdes_mac_patch(priv, sds_idx);
 	if (ret)
 		return ret;
-
 	msleep(250);
 
-	ret = rtl837x_serdes_pause_frame_config(priv, sds_idx,
-						interface, advertising);
-	if (ret)
-		return ret;
-	ret = rtl837x_serdes_an_config(priv, sds_idx, interface, neg_mode);
-	if (ret)
-		return ret;
+	ret = rtl837x_serdes_set_autoneg(priv, sds_idx,
+					 interface, advertising, neg_mode);
 
 	ret = rtl837x_serdes_on(priv, sds_idx);
 	if (ret)
 		return ret;
 
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1F, 0x00, 0xffff, 0xB);
+	ret = rtl837x_serdes_wdig_soft_reset(priv, sds_idx, true);
 	if (ret)
 		return ret;
 	msleep(50);
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1F, 0x00, 0xffff, 0x0);
+	ret = rtl837x_serdes_wdig_soft_reset(priv, sds_idx, false);
 	if (ret)
 		return ret;
 	msleep(50);
