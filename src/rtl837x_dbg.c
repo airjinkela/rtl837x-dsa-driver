@@ -224,6 +224,7 @@ ssize_t MAKE_WRITE_FUNCNAME(sdsreg)(struct file *filep, const char __user *ubuf,
 			return -EFAULT;
 		}
 		rtl837x_sds_reg_write(priv, sds_id, page, reg, val);
+		goto read_back;
 	} else if (buf[0] == 'r') {
 		if (sscanf(buf, "r %d %x %x", &sds_id, &page, &reg) != 3) {
 			kfree(buf);
@@ -233,6 +234,7 @@ ssize_t MAKE_WRITE_FUNCNAME(sdsreg)(struct file *filep, const char __user *ubuf,
 			kfree(buf);
 			return -EFAULT;
 		}
+read_back:
 		rtl837x_sds_reg_read(priv, sds_id, page, reg, &tmp16);
 		BUF_PRINTF(sdsreg,
 			   "sds_id: %d, page: 0x%08x, reg: 0x%08x, val: 0x%08x\n",

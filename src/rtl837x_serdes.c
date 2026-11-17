@@ -30,6 +30,14 @@
 #define   RTL837X_SDS_MODE_SEL_SDS1_MODE_SEL_MASK          GENMASK(9, 5)
 #define   RTL837X_SDS_MODE_SEL_SDS0_MODE_SEL_MASK          GENMASK(4, 0)
 
+/* MAC link status registers */
+#define RTL837X_MAC_LINK_STS_REG                        0x63E8
+#define RTL837X_MAC_LINK_SPD_STS_REG(_p)                (0x63F0 + (((_p) >> 3) << 2))
+#define   RTL837X_MAC_LINK_SPD_STS_MASK(_p)             (GENMASK(3, 0) << (((_p) & 0x7) << 2))
+#define RTL837X_MAC_LINK_DUP_STS_REG                    0x63F8
+#define RTL837X_MAC_TX_PAUSE_STS_REG                    0x63FC
+#define RTL837X_MAC_RX_PAUSE_STS_REG                    0x6400
+
 enum rtl837x_serdes_mode {
 	RTL837X_SERDES_MODE_SGMII = 0x02,
 	RTL837X_SERDES_MODE_1000BASEX = 0x04,
@@ -181,16 +189,6 @@ enum rtpcs_page {
 #define  SDS_EXT_XSG_STS_LINK_OK_MASK   BIT(4) // I Guess
 #define  SDS_EXT_XSG_STS_SIG_OK_MASK    BIT(8) // I Guess
 
-/* PAGE_FIB (0x02) */
-// It seems like 'Advertisement control register'
-#define FIB_XSG_AN   0x04
-#define  FIB_XSG_AN_10_100_ASYM_PAUSE_MASK BIT(11)
-#define  FIB_XSG_AN_10_100_PAUSE_MASK           BIT(10)
-#define  FIB_XSG_AN_1G_ASYM_PAUSE_MASK BIT(8)
-#define  FIB_XSG_AN_1G_PAUSE_MASK           BIT(7)
-#define  FIB_XSG_AN_1G_HALF_DUPLEX_MASK      BIT(6)
-#define  FIB_XSG_AN_1G_FULL_DUPLEX_MASK      BIT(5)
-
 /* PAGE_TGR_STD_1 (0x05) */
 #define TGR_STD_1_10GR_STS     0x00       // I Guess
 #define  TGR_STD_1_10GR_STS_SYNC_OK_MASK   BIT(0)  // I Guess
@@ -205,8 +203,14 @@ enum rtpcs_page {
 #define  WDIG_REG00_SOFT_RST_TGX_MASK   BIT(1)
 #define  WDIG_REG00_SOFT_RST_TGR_MASK   BIT(0)
 
+#define WDIG_REG02    0x02
+#define  WDIG_REG02_DBGO_SEL_0    GENMASK(15, 0)
+
+#define WDIG_REG21    0x15
+#define  WDIG_REG21_TR_CNT   GENMASK(15, 0) // not sure
+
 #define WDIG_REG05              0x05
-// REG04 seems to refer to @FIB_XSG_AN
+// REG04 seems to refer to @PAGE_FIB-REG04
 #define  WDIG_REG05_FRC_REG04_VAL_MASK  BIT(3)
 #define  WDIG_REG05_FRC_REG04_ON_MASK   BIT(2)
 
@@ -478,18 +482,23 @@ int rtl837x_serdes_reset_10G(struct realtek_priv *priv, u8 sds_idx)
 
 	// enable rx test
 	// switch debug port (What is this?)
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x21, 0x00, BIT(2), 1); // RX_TEST_EN
+	// RX_TEST_EN
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, PAGE_ANA_COM, 0x00, BIT(2), 1);
 	if (ret)
 		return ret;
-	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x36, 0x05, 0xf << 11, 8); // REG0_DEBUG_SEL
+
+	// REG0_DEBUG_SEL
+	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x36, 0x05, 0xf << 11, 8);
 	if (ret)
 		return ret;
-	ret = rtl837x_sds_reg_write(priv, sds_idx, 0x1f, 0x02, 0x1f); // switch debug port
+
+	// switch debug port
+	ret = rtl837x_sds_reg_write(priv, sds_idx, PAGE_WDIG, WDIG_REG02, 0x1f);
 	if (ret)
 		return ret;
 
 	// Get RX status
-	ret = rtl837x_sds_reg_read(priv, sds_idx, 0x1f, 0x15, &tmp);
+	ret = rtl837x_sds_reg_read(priv, sds_idx, PAGE_WDIG, WDIG_REG21, &tmp);
 	if (ret)
 		return ret;
 	rx_idle = !!((tmp >> 7) & 1);
@@ -923,9 +932,9 @@ static int rtl837x_serdes_pause_frame_config(struct realtek_priv *priv, u8 sds_i
 
 		ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
 						 PAGE_FIB,
-						 FIB_XSG_AN,
-						 FIB_XSG_AN_10_100_ASYM_PAUSE_MASK |
-						  FIB_XSG_AN_10_100_PAUSE_MASK,
+						 MII_ADVERTISE,
+						 ADVERTISE_PAUSE_ASYM |
+						  ADVERTISE_PAUSE_CAP,
 						 adv);
 		if (ret)
 			return ret;
@@ -942,9 +951,9 @@ static int rtl837x_serdes_pause_frame_config(struct realtek_priv *priv, u8 sds_i
 
 		ret = rtl837x_sds_reg_bits_write(priv, sds_idx,
 						 PAGE_FIB,
-						 FIB_XSG_AN,
-						 FIB_XSG_AN_1G_ASYM_PAUSE_MASK |
-						  FIB_XSG_AN_1G_PAUSE_MASK,
+						 MII_ADVERTISE,
+						 ADVERTISE_1000XPSE_ASYM |
+						  ADVERTISE_1000XPAUSE,
 						 adv);
 		if (ret)
 			return ret;
@@ -1030,6 +1039,105 @@ int rtl837x_serdes_set_autoneg(struct realtek_priv *priv, u8 sds_idx,
 	ret = rtl837x_serdes_pause_frame_config(priv, sds_idx, interface, advertising);
 	if (ret)
 		return ret;
+
+	return 0;
+}
+
+int rtl837x_serdes_an_restart(struct realtek_priv *priv, u8 sds_idx)
+{
+	return rtl837x_sds_reg_bits_write(priv, sds_idx,
+					  PAGE_FIB, MII_BMCR,
+					  BMCR_ANRESTART,
+					  1
+					);
+}
+
+int rtl837x_serdes_get_status_c37(struct realtek_priv *priv, u8 sds_idx,
+				  unsigned int neg_mode,
+				  struct phylink_link_state *state)
+{
+	u16 bmsr, lpa;
+	int ret;
+
+	ret = rtl837x_sds_reg_read(priv, sds_idx, PAGE_FIB, MII_BMSR, &bmsr);
+	if (ret)
+		return ret;
+
+	ret = rtl837x_sds_reg_read(priv, sds_idx, PAGE_FIB, MII_LPA, &lpa);
+	if (ret)
+		return ret;
+
+	phylink_mii_c22_pcs_decode_state(state, neg_mode, bmsr, lpa);
+	return ret;
+}
+
+int rtl837x_serdes_get_status_mac(struct realtek_priv *priv, int port,
+				  struct phylink_link_state *state)
+{
+	u32 tmp;
+	int ret;
+
+	ret = rtl837x_reg_bits_read(priv, RTL837X_MAC_LINK_STS_REG, BIT(port), &tmp);
+	if (ret < 0)
+		return ret;
+
+	state->link = tmp & 1;
+	state->an_complete = tmp & 1;
+
+	ret = rtl837x_reg_bits_read(priv, RTL837X_MAC_LINK_DUP_STS_REG, BIT(port), &tmp);
+	if (ret < 0)
+		return ret;
+
+	state->duplex = tmp & 1;
+
+	state->pause &= ~(MLO_PAUSE_RX | MLO_PAUSE_TX);
+
+	ret = rtl837x_reg_bits_read(priv, RTL837X_MAC_RX_PAUSE_STS_REG, BIT(port), &tmp);
+	if (ret < 0)
+		return ret;
+
+	if (tmp & 1)
+		state->pause |= MLO_PAUSE_RX;
+
+	ret = rtl837x_reg_bits_read(priv, RTL837X_MAC_TX_PAUSE_STS_REG, BIT(port), &tmp);
+	if (ret < 0)
+		return ret;
+
+	if (tmp & 1)
+		state->pause |= MLO_PAUSE_TX;
+
+	ret = rtl837x_reg_read(priv, RTL837X_MAC_LINK_SPD_STS_REG(port), &tmp);
+	if (ret)
+		return ret;
+
+	tmp = (tmp & RTL837X_MAC_LINK_SPD_STS_MASK(port)) >>
+	      __ffs(RTL837X_MAC_LINK_SPD_STS_MASK(port));
+	switch (tmp) {
+	case 0:
+		state->speed = SPEED_10;
+		break;
+	case 1:
+		state->speed = SPEED_100;
+		break;
+	case 2:
+		state->speed = SPEED_1000;
+		break;
+	case 4:
+		state->speed = SPEED_10000;
+		break;
+	case 5:
+		state->speed = SPEED_2500;
+		break;
+	case 6:
+		state->speed = SPEED_5000;
+		break;
+	default:
+		state->speed = SPEED_UNKNOWN;
+		break;
+	}
+
+	if (!state->link)
+		state->speed = SPEED_UNKNOWN;
 
 	return 0;
 }

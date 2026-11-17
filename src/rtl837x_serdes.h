@@ -26,5 +26,12 @@ int rtl837x_serdes_set_autoneg(struct realtek_priv *priv, u8 sds_idx,
 			       phy_interface_t interface,
 			       const unsigned long *advertising,
 			       unsigned int neg_mode);
+int rtl837x_serdes_an_restart(struct realtek_priv *priv, u8 sds_idx);
+
+int rtl837x_serdes_get_status_c37(struct realtek_priv *priv, u8 sds_idx,
+				  unsigned int neg_mode,
+				  struct phylink_link_state *state);
+int rtl837x_serdes_get_status_mac(struct realtek_priv *priv, int port,
+				  struct phylink_link_state *state);
 
 #endif /* _RTL837X_SERDES_H */

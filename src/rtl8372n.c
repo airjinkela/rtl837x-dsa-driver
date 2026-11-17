@@ -84,7 +84,7 @@
 #define RTL837X_MIB_COUNTER_LO_REG               0xF64
 #define RTL837X_MIB_COUNTER_HI_REG               0xF68
 
-/* Per-port MAC control and aggregated link status registers */
+/* Per-port MAC control */
 #define RTL837X_MAC_PORT_CTRL_REG(_p)                   (0x122C + (((_p) << 8)))
 #define   RTL837X_MAC_PORT_CTRL_BKPRES_EN_MASK          BIT(0)
 
@@ -93,13 +93,6 @@
 #define   RTL837X_MAC_MAX_LEN_LO_MASK                   GENMASK(13, 0)
 #define   RTL837X_MAC_MAX_LEN_HI_MASK                   GENMASK(27, 14)
 #define RTL837X_MAC_MAX_LEN_MAX                         0x3FFF
-
-#define RTL837X_MAC_LINK_STS_REG                        0x63E8
-#define RTL837X_MAC_LINK_SPD_STS_REG(_p)                (0x63F0 + (((_p) >> 3) << 2))
-#define   RTL837X_MAC_LINK_SPD_STS_MASK(_p)             (GENMASK(3, 0) << (((_p) & 0x7) << 2))
-#define RTL837X_MAC_LINK_DUP_STS_REG                    0x63F8
-#define RTL837X_MAC_TX_PAUSE_STS_REG                    0x63FC
-#define RTL837X_MAC_RX_PAUSE_STS_REG                    0x6400
 
 /* Energy Efficient Ethernet control and status */
 #define RTL837X_EEE_CTRL_REG(_p)                        (0x125C + (((_p) << 8)))
@@ -1011,76 +1004,24 @@ static unsigned int rtl8372n_sds_pcs_inband_caps(struct phylink_pcs *pcs,
 	}
 }
 
-#if KERNEL_VERSION(6, 18, 0) <= LINUX_VERSION_CODE
 static void rtl8372n_sds_pcs_get_state(struct phylink_pcs *pcs, unsigned int neg_mode,
 				       struct phylink_link_state *state)
-#else
-static void rtl8372n_sds_pcs_get_state(struct phylink_pcs *pcs,
-				       struct phylink_link_state *state)
-#endif
 {
 	struct rtl8372n_port *port_priv = container_of(pcs, struct rtl8372n_port, pcs);
 	struct realtek_priv *priv = port_priv->priv;
 	int port = port_priv->index;
-	u32 tmp;
-	int ret;
 
-	ret = rtl837x_reg_bits_read(priv, RTL837X_MAC_LINK_STS_REG, BIT(port), &tmp);
-	if (ret < 0)
-		return;
-	state->link = tmp & 1;
-	state->an_complete = tmp & 1;
-
-	ret = rtl837x_reg_bits_read(priv, RTL837X_MAC_LINK_DUP_STS_REG, BIT(port), &tmp);
-	if (ret < 0)
-		return;
-	state->duplex = tmp & 1;
-
-	state->pause &= ~(MLO_PAUSE_RX | MLO_PAUSE_TX);
-
-	ret = rtl837x_reg_bits_read(priv, RTL837X_MAC_RX_PAUSE_STS_REG, BIT(port), &tmp);
-	if (ret < 0)
-		return;
-	if (tmp & 1)
-		state->pause |= MLO_PAUSE_RX;
-
-	ret = rtl837x_reg_bits_read(priv, RTL837X_MAC_TX_PAUSE_STS_REG, BIT(port), &tmp);
-	if (ret < 0)
-		return;
-	if (tmp & 1)
-		state->pause |= MLO_PAUSE_TX;
-
-	ret = rtl837x_reg_read(priv, RTL837X_MAC_LINK_SPD_STS_REG(port), &tmp);
-	if (ret)
-		return;
-	tmp = (tmp & RTL837X_MAC_LINK_SPD_STS_MASK(port)) >>
-	      __ffs(RTL837X_MAC_LINK_SPD_STS_MASK(port));
-	switch (tmp) {
-	case 0:
-		state->speed = SPEED_10;
-		break;
-	case 1:
-		state->speed = SPEED_100;
-		break;
-	case 2:
-		state->speed = SPEED_1000;
-		break;
-	case 4:
-		state->speed = SPEED_10000;
-		break;
-	case 5:
-		state->speed = SPEED_2500;
-		break;
-	case 6:
-		state->speed = SPEED_5000;
+	switch (state->interface) {
+	case PHY_INTERFACE_MODE_SGMII:
+	case PHY_INTERFACE_MODE_1000BASEX:
+	case PHY_INTERFACE_MODE_2500BASEX:
+		rtl837x_serdes_get_status_c37(priv, PORT_TO_SERDES_IDX(port),
+					      neg_mode, state);
 		break;
 	default:
-		state->speed = SPEED_UNKNOWN;
+		rtl837x_serdes_get_status_mac(priv, port, state);
 		break;
 	}
-
-	if (!state->link)
-		state->speed = SPEED_UNKNOWN;
 }
 
 /*
@@ -1167,9 +1108,16 @@ static void rtl8372n_sds_pcs_link_up(struct phylink_pcs *pcs, unsigned int neg_m
 			  phy_modes(interface));
 }
 
-// TODO? OR Just Empty Func?
 static void rtl8372n_sds_pcs_an_restart(struct phylink_pcs *pcs)
-{}
+{
+	struct rtl8372n_port *port_priv = container_of(pcs, struct rtl8372n_port, pcs);
+	struct realtek_priv *priv = port_priv->priv;
+
+	dev_dbg(priv->dev, "[%s]PCS an restart serdes (%d)\n", __func__,
+		PORT_TO_SERDES_IDX(port_priv->index)
+		);
+	rtl837x_serdes_an_restart(priv, PORT_TO_SERDES_IDX(port_priv->index));
+}
 
 static const struct phylink_pcs_ops rtl8372n_sds_pcs_ops = {
 	.pcs_inband_caps = rtl8372n_sds_pcs_inband_caps,
