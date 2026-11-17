@@ -901,10 +901,8 @@ static int rtl8372n_setup_mdio(struct realtek_priv *priv)
 		goto out;
 	}
 
-#if KERNEL_VERSION(6, 12, 44) <= LINUX_VERSION_CODE
 	if (!mnp)
 		ds->user_mii_bus = bus;
-#endif
 
 	bus->priv = priv;
 	bus->name = KBUILD_MODNAME "-mdio";
@@ -1286,11 +1284,7 @@ static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 	if (!cpu_dp)
 		return -ENODEV;
 
-#if KERNEL_VERSION(6, 12, 44) >= LINUX_VERSION_CODE
-	master_dev = cpu_dp->master;
-#else
 	master_dev = cpu_dp->conduit;
-#endif
 
 	if (!master_dev) {
 		dev_err(priv->dev, "Cannot get master netdev from cpu port\n");
@@ -1359,11 +1353,7 @@ static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 	if (!cpu_dp)
 		return -ENODEV;
 
-#if KERNEL_VERSION(6, 12, 44) >= LINUX_VERSION_CODE
-	master_dev = cpu_dp->master;
-#else
 	master_dev = cpu_dp->conduit;
-#endif
 
 	if (!master_dev) {
 		dev_err(priv->dev, "Cannot get master netdev from cpu port\n");
@@ -2803,9 +2793,6 @@ static int rtl8372n_setup_port(struct realtek_priv *priv, int port)
 		} else if (port_type == RTL837X_SMI_MAC_TYPE_SERDES) {
 			port_priv->have_pcs = true;
 			port_priv->pcs.ops = &rtl8372n_sds_pcs_ops;
-#if  KERNEL_VERSION(6, 18, 0) >= LINUX_VERSION_CODE
-			port_priv->pcs.neg_mode = true;
-#endif
 			port_priv->pcs.poll = true;
 		}
 
@@ -3184,9 +3171,7 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.tag_8021q_vlan_add = rtl8372n_tag_8021q_vlan_add,
 	.tag_8021q_vlan_del = rtl8372n_tag_8021q_vlan_del,
 
-#if  KERNEL_VERSION(6, 12, 44) <= LINUX_VERSION_CODE
 	.support_eee		= dsa_supports_eee,
-#endif
 	.set_mac_eee		= rtl8372n_set_mac_eee,
 };
 

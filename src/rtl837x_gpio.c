@@ -229,11 +229,7 @@ static int rtl837x_gpiochip_request(struct gpio_chip *gc, unsigned int offset)
 	return 0;
 }
 
-#if KERNEL_VERSION(6, 18, 0) <= LINUX_VERSION_CODE
 static int rtl837x_gpiochip_set(struct gpio_chip *gc, unsigned int offset, int value)
-#else
-static void rtl837x_gpiochip_set(struct gpio_chip *gc, unsigned int offset, int value)
-#endif
 {
 	struct rtl837x_gpio *gpio = gpiochip_get_data(gc);
 	struct realtek_priv *priv = gpio->priv;
@@ -242,13 +238,9 @@ static void rtl837x_gpiochip_set(struct gpio_chip *gc, unsigned int offset, int 
 	ret = rtl837x_gpio_value_set(priv, offset, value);
 	if (ret) {
 		dev_err(priv->dev, "gpio(%d): failed to write gpio val %x", offset, ret);
-#if KERNEL_VERSION(6, 18, 0) <= LINUX_VERSION_CODE
 		return -EIO;
-#endif
 	}
-#if KERNEL_VERSION(6, 18, 0) <= LINUX_VERSION_CODE
 	return 0;
-#endif
 }
 
 static int rtl837x_gpiochip_get(struct gpio_chip *gc, unsigned int offset)

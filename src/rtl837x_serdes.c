@@ -641,9 +641,7 @@ int rtl837x_serdes_ana_patch(struct realtek_priv *priv, u8 sds_idx, phy_interfac
 	}
 
 	switch (interface) {
-#if KERNEL_VERSION(6, 12, 44) <= LINUX_VERSION_CODE
 	case PHY_INTERFACE_MODE_10G_QXGMII:
-#endif
 	case PHY_INTERFACE_MODE_USXGMII:
 	case PHY_INTERFACE_MODE_10GBASER:
 		if (chip_ver == 0) {

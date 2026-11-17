@@ -475,13 +475,9 @@ static struct device *rtl837x_cled_hw_control_get_device(struct led_classdev *ld
 	if (!dp)
 		return NULL;
 
-#if KERNEL_VERSION(6, 12, 44) >= LINUX_VERSION_CODE
-	if (dp->slave)
-		return &dp->slave->dev;
-#else
 	if (dp->user)
 		return &dp->user->dev;
-#endif
+
 	return NULL;
 }
 
